@@ -6,6 +6,7 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
 
 ## Where things are
 - `Motes/Sources/` — all Swift code, one folder per area:
+  - `App/` — app entry point, menu bar extra, app-wide helpers.
   - `Bridge/` — Unix socket server, hook payload parsing, decisions sent back to the hook.
   - `Sessions/` — session model, activity feed, focus rules, alert queue.
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
@@ -16,13 +17,15 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Settings/` — settings window, Keychain, login item, global hotkey.
 - `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app.
 - `Motes/project.yml` — XcodeGen project. The `.xcodeproj` is generated and not committed.
-- `Tests/` — unit tests for the pure logic.
+- `Tests/` — unit tests for the pure logic (Swift Testing, `MotesTests` target).
 - `docs/PROJECT.md` — vision, scope, milestones. `docs/INTEGRATION.md` — how agents send events to Motes.
 
 ## Build
 ```
 cd Motes && xcodegen && xcodebuild -scheme Motes -configuration Debug build
+cd Motes && xcodebuild -scheme Motes test
 ```
+Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferences and permissions depend on it). Version lives in `project.yml` (`MARKETING_VERSION`, `CURRENT_PROJECT_VERSION`); there is no Info.plist file, it is generated. Builds are ad-hoc signed; pass `CODE_SIGN_IDENTITY="Developer ID Application"` to override.
 
 ## Rules
 - Swift 6 with strict concurrency, SwiftUI + AppKit, macOS 15+. No third-party dependencies unless truly unavoidable.

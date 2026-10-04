@@ -124,14 +124,14 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 - **Entity:** one mote per agent, each with its own personality (§3.1).
 - **Style:** soft body with expressive eyes + Grok bot + Dots (§3.2), details still open.
 - **Distribution:** GitHub only at first, open source, so others can contribute. No App Store target and no sandbox for now.
+- **Bundle id:** `app.motes.Motes`, never to be changed.
 - **Signing:** free Apple account. Ad-hoc signed releases, no notarization for now (§10).
 
 ## 9. Open questions
 1. Grok bot and Dots visual references: what to take from each?
 2. Several sessions of the same agent: counter or offspring?
 3. Sounds: yes or no? Who makes them?
-4. Bundle id (e.g. `dev.<your-username>.Motes`), set once and never changed.
-5. License: MIT for the code? Are the assets (motes, sounds) open too, or all rights reserved?
+4. License: MIT for the code? Are the assets (motes, sounds) open too, or all rights reserved?
 
 ## 10. Getting ready for contributors
 Since the repository is public from day one:

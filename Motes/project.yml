@@ -1,0 +1,67 @@
+name: Motes
+options:
+  bundleIdPrefix: app.motes
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    ENABLE_HARDENED_RUNTIME: YES
+    # Ad-hoc signing by default (no Developer ID yet). Override for a real
+    # identity: xcodebuild ... CODE_SIGN_IDENTITY="Developer ID Application"
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "-"
+    DEVELOPMENT_TEAM: ""
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+schemes:
+  Motes:
+    build:
+      targets:
+        Motes: all
+        MotesTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MotesTests
+    archive:
+      config: Release
+
+targets:
+  Motes:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources
+        type: group
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.motes.Motes
+        PRODUCT_NAME: Motes
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Motes
+        INFOPLIST_KEY_LSUIElement: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        ENABLE_APP_SANDBOX: NO
+
+  MotesTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - path: ../Tests
+        type: group
+    dependencies:
+      - target: Motes
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.motes.MotesTests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Motes.app/Contents/MacOS/Motes"
+        BUNDLE_LOADER: "$(TEST_HOST)"
