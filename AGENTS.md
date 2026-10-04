@@ -41,3 +41,17 @@ cd Motes && xcodegen && xcodebuild -scheme Motes -configuration Debug build
 - Distribution is GitHub only, ad-hoc signed (no Developer ID yet). Keep the signing identity a build variable, and keep the MVP independent of Automation / Accessibility permissions where possible, since ad-hoc builds may lose them on update.
 - Characters, sounds and icon are 100 % original. Never copy assets from other projects.
 - Every release adds its `CHANGELOG.md` section and bumps the version in `project.yml`.
+
+## Commits
+Follow [Conventional Commits](https://www.conventionalcommits.org), in English:
+```
+<type>(<optional scope>): <subject>
+
+<optional body>
+```
+- Types: `feat`, `fix`, `docs`, `refactor`, `test`, `perf`, `build`, `ci`, `chore`, `style`, `revert`.
+- Scope is the area touched, when it helps: `island`, `bridge`, `sessions`, `character`, `motes`, `setup`, `settings`, `hook`.
+- Subject in the imperative mood ("add", not "added"), lowercase, no trailing period, 72 characters max.
+- Body explains what and why, wrapped at 72 columns; use `-` bullets for several changes.
+- Breaking changes (socket protocol, mote IDs, settings keys) add `!` after the type and a `BREAKING CHANGE:` footer.
+- One logical change per commit.
