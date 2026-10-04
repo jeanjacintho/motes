@@ -59,7 +59,7 @@ Event names follow Claude Code hooks. The mote lifecycle:
 | `PostToolUse` / `PostToolUseFailure` | Updates the feed; a failure stays working |
 | `PermissionRequest` | Approval card (Claude Code only for now) |
 | `PreToolUse` for `AskUserQuestion` | Question card (Claude Code only for now) |
-| `Notification` | Question or rate-limit state when applicable |
+| `Notification` | Question state when input is needed; usage limit → tired |
 | `Stop` | State → finished for a few seconds |
 | `StopFailure` | State → error |
 | `SubagentStart` / `SubagentStop` | Step added to the feed |

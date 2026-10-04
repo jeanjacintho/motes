@@ -40,8 +40,14 @@ private struct IslandContent: View {
         ZStack(alignment: .top) {
             if model.mode == .compact {
                 HStack(spacing: 0) {
-                    PlaceholderMote(size: notch.height * 0.62)
-                        .frame(width: IslandLayout.compactSideWidth)
+                    MoteView(
+                        personality: model.primaryMote,
+                        state: model.moteState,
+                        screenAnchor: model.moteScreenAnchor,
+                        framesPerSecond: 30
+                    )
+                    .frame(width: notch.height, height: notch.height)
+                    .frame(width: IslandLayout.compactSideWidth)
                     Spacer(minLength: 0)
                     Text(model.sessionCount > 0 ? "\(model.sessionCount)" : "")
                         .font(.system(size: 11, weight: .semibold, design: .rounded))
@@ -53,9 +59,20 @@ private struct IslandContent: View {
             }
 
             if model.mode == .expanded {
-                VStack(spacing: 10) {
-                    PlaceholderMote(size: 44)
-                    Text(model.sessionCount > 0 ? "\(model.sessionCount) running" : "Nothing running yet.")
+                VStack(spacing: 2) {
+                    // Until sessions arrive (M3), the open island shows the whole family.
+                    HStack(spacing: 0) {
+                        ForEach(Array(MoteRegistry.all.enumerated()), id: \.element.id) { index, mote in
+                            MoteView(
+                                personality: mote,
+                                state: model.moteState,
+                                screenAnchor: lineupAnchor(index: index),
+                                framesPerSecond: 30
+                            )
+                            .frame(width: Self.lineupSlot, height: Self.lineupSlot)
+                        }
+                    }
+                    Text(statusText)
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.white.opacity(0.75))
                 }
@@ -65,20 +82,17 @@ private struct IslandContent: View {
             }
         }
     }
-}
 
-/// Stand-in mote until the real character and style are designed (M2).
-struct PlaceholderMote: View {
-    let size: CGFloat
+    private static let lineupSlot: CGFloat = 84
 
-    var body: some View {
-        ZStack {
-            Circle().fill(.white.opacity(0.92))
-            HStack(spacing: size * 0.2) {
-                Capsule().fill(.black).frame(width: size * 0.11, height: size * 0.24)
-                Capsule().fill(.black).frame(width: size * 0.11, height: size * 0.24)
-            }
-        }
-        .frame(width: size, height: size)
+    private func lineupAnchor(index: Int) -> CGPoint {
+        let anchor = model.moteScreenAnchor
+        let offset = (CGFloat(index) - CGFloat(MoteRegistry.all.count - 1) / 2) * Self.lineupSlot
+        return CGPoint(x: anchor.x + offset, y: anchor.y)
+    }
+
+    private var statusText: String {
+        if let state = model.debugMoteState { return "Debug: \(state.rawValue)" }
+        return model.sessionCount > 0 ? "\(model.sessionCount) running" : "Nothing running yet."
     }
 }

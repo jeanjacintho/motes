@@ -29,6 +29,17 @@ struct MenuBarMenu: View {
             Button("Clear Fake Sessions") {
                 island.setFakeSessionCount(0)
             }
+            Divider()
+            Picker("Mote State", selection: Binding(
+                get: { island.debugMoteState },
+                set: { island.debugMoteState = $0 }
+            )) {
+                Text("Follow Sessions").tag(MoteState?.none)
+                Divider()
+                ForEach(MoteState.allCases, id: \.self) { state in
+                    Text(state.rawValue.capitalized).tag(MoteState?.some(state))
+                }
+            }
         }
         #endif
 

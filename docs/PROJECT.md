@@ -32,32 +32,53 @@ Each agent is represented by an animated mote that gives a face to the state of 
 > The points below are proposals to discuss. Items marked **[decide]** are open choices.
 
 ### 3.1 One mote per agent
-- A **mote** is the app's central entity. Each agent (Claude Code, Codex, Gemini CLI, Cursor…) has its own mote, in the spirit of Grok bot.
+- A **mote** is the app's central entity. Each agent (Claude Code, Codex, Gemini CLI, Cursor…) has its own mote.
 - Each mote has a **personality**: colour, shape, the way it blinks and moves, its own reactions and short lines. Claude is calm, Codex is restless, and so on.
 - Several sessions of the same agent share the same mote. **[decide]** Does the mote show a session counter, or does each session spawn a smaller "offspring"?
 - In the notch, the mote of the focused session is shown large and the others small next to it. Each small mote keeps its own identity, not just a different colour.
 
-**Personality model (proposal):**
+**Personality model** (`Motes/Sources/Character/MotePersonality.swift`):
 
 ```swift
 struct MotePersonality {
-    let id: String            // stable: "claude", "codex", "gemini"… (never rename)
-    let palette: MotePalette  // body, glow, eye ink
-    let shape: MoteShape      // silhouette parameters (superellipse exponent, proportions)
-    let eyes: EyeStyle        // shape, size, blink frequency
-    let motion: MotionStyle   // breathing amplitude, spring, gaze speed
-    let quirks: [Quirk]       // own reactions per state/emote
-    let voice: VoiceStyle?    // own sounds (optional)
+    let id: String          // stable: "claude", "codex", "gemini"… (never rename)
+    let name: String
+    let color: MoteColor    // the mote's light; core, halo, dust and eye ink derive from it
+    var shape: Shape        // body proportions
+    let eyes: Eyes          // pill size, spacing, lean, lopsidedness, blink rhythm
+    let orbit: Orbit        // dust: particle count, speed, radius, flatness, tilt, size
+    var motion: Motion      // breathing, gaze speed, energy
 }
 ```
 
-There is a single animation engine. A personality is just **data**, so contributors can add a mote for a new agent with one file, without touching the engine.
+There is a single animation engine. A personality is just **data**, so contributors can add a mote for a new agent with one file in `Motes/Sources/Motes/`, without touching the engine.
 
-### 3.2 Visual style
-- Base: soft superellipse body, eyes projected on a sphere that follow the mouse, springs and squash.
-- Mixed with **Grok bot** and **Dots**. **[confirm]** Collect reference links or images for both, and what to take from each (face? dot eyes? glow? shape?).
-- Everything drawn in code (`Canvas` + `TimelineView`), no images or Lottie. This keeps it light and easy to change through `MotePersonality`.
-- Characters, sounds and icon are 100 % original.
+### 3.2 Visual style: light
+"Motes" are the specks of dust that shine in a beam of light. Each mote is a **small orb of light**:
+- A glowing body: bright, almost white core fading to the mote's color, inside a soft halo of the same color.
+- Its own **dust** orbiting it on a tilted ring, passing in front of and behind the body.
+- A simple face: pill eyes in a deep shade of the mote's color, leaning or lopsided depending on the personality.
+- No props, no outlines. Everything is drawn in code (`Canvas` + `TimelineView`), no images or Lottie.
+
+Motes differ by **color, eyes, proportions and orbit**. The body always keeps its color; the **state** shows through the eyes, the motion, a second halo and a badge in the state color, and the dust: it speeds up while working and slows down and dims when tired or asleep.
+
+Current motes:
+
+| Mote | Color | Eyes | Orbit |
+|---|---|---|---|
+| Claude | coral `#FF7A45` | leaning pills | 3 slow specks, wide |
+| Codex | blue `#3D8BFF` | tall pills | 5 fast specks, close |
+| Gemini | violet `#A77BFF` | lopsided dots | 4 specks, steep tilt |
+| Cursor | pink `#FF4FB8` | round dots | 2 big companions |
+| Default (any other agent) | green `#2BD48A` | pills leaning apart | 3 specks |
+
+States: `idle, working, thinking, approval, question, error, finished, tired (😓), sleeping`.
+
+To preview every mote in every state:
+```bash
+cd Motes && TEST_RUNNER_MOTES_RENDER_DIR=/tmp xcodebuild -scheme Motes test -only-testing:MotesTests/MoteSheetTests
+```
+The sheet is written to `/tmp/motes-sheet.png`.
 
 ### 3.3 Focus
 A control centre for coding agents: a quiet, living panel that only asks for attention when it needs to. The motes bring the charm.
@@ -122,16 +143,15 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 
 ## 8. Decisions made
 - **Entity:** one mote per agent, each with its own personality (§3.1).
-- **Style:** soft body with expressive eyes + Grok bot + Dots (§3.2), details still open.
+- **Style:** "light": each mote is an orb of light with its own orbiting dust, no props (§3.2).
 - **Distribution:** GitHub only at first, open source, so others can contribute. No App Store target and no sandbox for now.
 - **Bundle id:** `app.motes.Motes`, never to be changed.
 - **Signing:** free Apple account. Ad-hoc signed releases, no notarization for now (§10).
 
 ## 9. Open questions
-1. Grok bot and Dots visual references: what to take from each?
-2. Several sessions of the same agent: counter or offspring?
-3. Sounds: yes or no? Who makes them?
-4. License: MIT for the code? Are the assets (motes, sounds) open too, or all rights reserved?
+1. Several sessions of the same agent: counter or offspring?
+2. Sounds: yes or no? Who makes them?
+3. License: MIT for the code? Are the assets (motes, sounds) open too, or all rights reserved?
 
 ## 10. Getting ready for contributors
 Since the repository is public from day one:

@@ -2,7 +2,7 @@
 
 Motes is a native macOS app (`Motes/`) that lives in the MacBook notch and watches AI coding agent sessions (Claude Code first, then Codex, Gemini CLI, Cursor and others). Each agent has its own **mote**: an animated entity with its own personality. From the notch the user can see what each agent is doing, approve permissions, answer questions and jump to the right terminal.
 
-Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and milestones. The mote visual style is **not decided yet**: use a simple placeholder mote and don't invent a final look.
+Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and milestones. The mote visual style is described in `docs/PROJECT.md` §3.2.
 
 ## Where things are
 - `Motes/Sources/` — all Swift code, one folder per area:
@@ -11,7 +11,7 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Sessions/` — session model, activity feed, focus rules, alert queue.
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
   - `Character/` — mote animation engine (pure logic) + `Canvas` view.
-  - `Motes/` — one `MotePersonality` per agent (data only, no drawing code).
+  - `Motes/` — one `MotePersonality` per agent (data only, no drawing code) and `MoteRegistry`.
   - `Features/` — one folder per island view (Overview, Approval, Question, Finished…).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
   - `Settings/` — settings window, Keychain, login item, global hotkey.
@@ -29,7 +29,7 @@ Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferenc
 
 ## Rules
 - Swift 6 with strict concurrency, SwiftUI + AppKit, macOS 15+. No third-party dependencies unless truly unavoidable.
-- Motes are drawn in code (`Canvas` + `TimelineView`): no Rive, Lottie or bitmap images.
+- Motes are drawn in code (`Canvas` + `TimelineView`): no Rive, Lottie or bitmap images. Each mote is an orb of light with orbiting dust, no props; the body keeps its color and the state shows through eyes, motion, dust, halo and badge.
 - One animation engine for all motes. A mote's personality (palette, shape, eyes, motion, quirks, voice) is **data** in a `MotePersonality`. Adding a mote for a new agent must not require touching the engine.
 - Keep pure logic (state machine, hook parsing, focus rules, animation math) free of AppKit so it can be unit tested. Every new piece of pure logic gets tests.
 - Keep files small and per feature. No god files: split a view or a service once it passes ~400 lines.

@@ -45,6 +45,12 @@ final class IslandController {
 
     var fakeSessionCount: Int { model.sessionCount }
 
+    /// Debug helper: force the mote into a state, `nil` to follow the sessions.
+    var debugMoteState: MoteState? {
+        get { model.debugMoteState }
+        set { model.debugMoteState = newValue }
+    }
+
     // MARK: - State machine
 
     private func send(_ event: IslandStateMachine.Event) {
