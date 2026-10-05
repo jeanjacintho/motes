@@ -47,8 +47,7 @@ private struct IslandContent: View {
                     MoteView(
                         personality: model.primaryMote,
                         state: model.moteState,
-                        screenAnchor: model.moteScreenAnchor,
-                        framesPerSecond: 30
+                        screenAnchor: model.moteScreenAnchor
                     )
                     .frame(width: notch.height, height: notch.height)
                     // A new animator when the focused mote changes: its rhythm is per mote.
@@ -132,8 +131,7 @@ private struct FamilyView: View {
         MoteView(
             personality: personality,
             state: model.debugMoteState ?? .idle,
-            screenAnchor: anchor(index: index, count: count),
-            framesPerSecond: 30
+            screenAnchor: anchor(index: index, count: count)
         )
         .frame(width: Self.slot, height: Self.slot)
     }
@@ -233,8 +231,7 @@ private struct SessionRow: View {
             MoteView(
                 personality: personality,
                 state: state,
-                screenAnchor: anchor,
-                framesPerSecond: 30
+                screenAnchor: anchor
             )
             .frame(width: Self.moteSize, height: Self.moteSize)
 

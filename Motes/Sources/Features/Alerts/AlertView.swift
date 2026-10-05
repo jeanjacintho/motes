@@ -27,8 +27,7 @@ struct AlertView: View {
             MoteView(
                 personality: session.map(model.personality(for:)) ?? MoteRegistry.personality(for: BridgeProtocol.defaultAgent),
                 state: session?.state ?? .approval,
-                screenAnchor: CGPoint(x: model.contentTopLeft.x + 38, y: model.contentTopLeft.y - 30),
-                framesPerSecond: 30
+                screenAnchor: CGPoint(x: model.contentTopLeft.x + 38, y: model.contentTopLeft.y - 30)
             )
             .frame(width: 40, height: 40)
 

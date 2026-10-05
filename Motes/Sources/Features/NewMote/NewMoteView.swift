@@ -97,7 +97,7 @@ struct NewMoteView: View {
                     VStack(spacing: 0) {
                         MoteView(
                             personality: MotePersonality(id: option.rawValue, name: "", form: option, color: color),
-                            state: .idle, screenAnchor: nil, framesPerSecond: 30
+                            state: .idle, screenAnchor: nil
                         )
                         .id("\(option)-\(color)")
                         .frame(width: 60, height: 60)

@@ -142,6 +142,8 @@ final class IslandController {
     }
 
     private func updatePointer(_ location: CGPoint) {
+        // Visible motes follow the pointer with their eyes.
+        if model.mode != .hidden { PointerTracker.shared.update(location) }
         let hoverRect = IslandLayout.hoverRect(for: model.mode, geometry: model.geometry, isAlert: model.isShowingAlert)
         let inside = hoverRect.contains(location)
         // Only the island itself takes clicks; the transparent rest of the panel lets them through.
