@@ -49,7 +49,7 @@ final class SessionController {
             responder?.reply(nil)
             return
         }
-        log.debug("\(String(describing: event.kind), privacy: .public) from \(event.agent, privacy: .public)")
+        log.debug("\(String(describing: event.kind), privacy: .public) from \(event.agent, privacy: .public) tool=\(event.toolName ?? "-", privacy: .public) type=\(event.notificationType ?? "-", privacy: .public) wait=\(event.wait.map { "\($0)" } ?? "-", privacy: .public) responder=\(responder != nil, privacy: .public) bytes=\(data.count, privacy: .public)")
         if let responder { enqueue(event, responder: responder) }
         apply(event)
     }
@@ -95,22 +95,26 @@ final class SessionController {
                 ?? PendingAlert.question(from: event, id: responder.id, at: now))
             : nil
         guard let alert else {
+            log.notice("No card for \(String(describing: event.kind), privacy: .public) tool=\(event.toolName ?? "-", privacy: .public) input=\(event.rawToolInput != nil, privacy: .public)")
             responder.reply(nil)
             return
         }
         responders[alert.id] = responder
         alerts.add(alert)
-        log.debug("Waiting for the user: \(String(describing: event.kind), privacy: .public)")
+        log.notice("Alert \(alert.id.uuidString.prefix(8), privacy: .public): \(String(describing: event.kind), privacy: .public) tool=\(event.toolName ?? "-", privacy: .public), \(self.alerts.alerts.count, privacy: .public) waiting")
     }
 
     private func hookHungUp(_ id: UUID) {
-        log.debug("A waiting hook gave up")
+        log.notice("Alert \(id.uuidString.prefix(8), privacy: .public): the hook gave up")
         responders[id] = nil
         if alerts.remove(id: id) != nil { refresh() }
     }
 
+    /// Answers a waiting hook and logs how the alert ended (kept in the system log).
     private func release(_ id: UUID, reply: Data?) {
-        responders.removeValue(forKey: id)?.reply(reply)
+        let responder = responders.removeValue(forKey: id)
+        log.notice("Alert \(id.uuidString.prefix(8), privacy: .public): \(reply == nil ? "no answer" : "answered", privacy: .public)\(responder == nil ? " (hook already gone)" : "", privacy: .public)")
+        responder?.reply(reply)
     }
 
     // MARK: - Debug helpers
