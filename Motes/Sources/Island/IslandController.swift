@@ -37,6 +37,17 @@ final class IslandController {
         send(.openRequested)
     }
 
+    /// The shortcut: opens the island, or closes it when it's open.
+    func toggle() {
+        send(model.mode == .expanded ? .closeRequested : .openRequested)
+    }
+
+    /// Jumps to a session's terminal; set by the app.
+    var onJump: ((AgentSession) -> Void)? {
+        get { model.onJump }
+        set { model.onJump = newValue }
+    }
+
     func setMotes(_ motes: [Mote]) {
         model.motes = motes
     }

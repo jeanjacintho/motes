@@ -12,7 +12,8 @@ struct MotesApp: App {
         }
 
         Settings {
-            SettingsView(library: appDelegate.library, hookInstaller: appDelegate.hookInstaller) {
+            SettingsView(library: appDelegate.library, preferences: appDelegate.preferences,
+                         hookInstaller: appDelegate.hookInstaller) {
                 appDelegate.newMoteWindow.show()
             }
         }

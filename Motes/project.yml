@@ -58,6 +58,7 @@ targets:
         INFOPLIST_KEY_LSUIElement: YES
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_NSAppleEventsUsageDescription: "Motes selects the Terminal tab of a session when you click it in the notch."
         ENABLE_APP_SANDBOX: NO
 
   motes-hook:

@@ -5,6 +5,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let island = IslandController()
     let sessions = SessionController()
     let library = MoteLibrary()
+    let preferences = Preferences()
     let hookInstaller: ClaudeHookInstaller
     let newMoteWindow: NewMoteWindowController
 
@@ -21,6 +22,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         island.setMotes(library.motes)
         island.onOpenMote = { mote in try? MoteLauncher.open(mote) }
         island.onNewMote = { [newMoteWindow] in newMoteWindow.show() }
+        island.onJump = { session in TerminalJumper.jump(to: session) }
+        preferences.onHotKeyChange = { [island, preferences] hotKey in
+            if !GlobalHotKey.shared.register(hotKey, action: { island.toggle() }) {
+                preferences.hotKeyRegistrationFailed()
+            }
+        }
+        preferences.reapplyHotKey()
         sessions.moteForFolder = { [library] cwd in Mote.owner(of: cwd, in: library.motes)?.id }
         sessions.onChange = { [island] sessions, focused, alerts in
             island.setSessions(sessions, focused: focused, alerts: alerts)

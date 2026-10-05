@@ -49,7 +49,7 @@ final class SessionController {
             responder?.reply(nil)
             return
         }
-        log.debug("\(String(describing: event.kind), privacy: .public) from \(event.agent, privacy: .public) tool=\(event.toolName ?? "-", privacy: .public) type=\(event.notificationType ?? "-", privacy: .public) wait=\(event.wait.map { "\($0)" } ?? "-", privacy: .public) responder=\(responder != nil, privacy: .public) bytes=\(data.count, privacy: .public)")
+        log.debug("\(String(describing: event.kind), privacy: .public) from \(event.agent, privacy: .public) tool=\(event.toolName ?? "-", privacy: .public) type=\(event.notificationType ?? "-", privacy: .public) wait=\(event.wait.map { "\($0)" } ?? "-", privacy: .public) tty=\(event.terminal["tty"] ?? "-", privacy: .public) responder=\(responder != nil, privacy: .public) bytes=\(data.count, privacy: .public)")
         if let responder { enqueue(event, responder: responder) }
         apply(event)
     }

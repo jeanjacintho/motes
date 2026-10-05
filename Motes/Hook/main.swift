@@ -30,7 +30,7 @@ let wait = canWait ? HookRelay.waitTime(eventName: names.event ?? eventName, too
 
 guard let message = HookRelay.message(
     payload: input, agent: agent, eventName: eventName,
-    environment: ProcessInfo.processInfo.environment, wait: wait
+    environment: ProcessInfo.processInfo.environment, tty: TerminalTTY.current(), wait: wait
 ) else { exit(0) }
 
 let socketPath = BridgeProtocol.socketURL.path

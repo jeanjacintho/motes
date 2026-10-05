@@ -27,6 +27,8 @@ enum BridgeProtocol {
         static let mote = "motes_mote"
         /// Seconds the hook will wait for a reply; present only on events that can be answered.
         static let wait = "motes_wait"
+        /// Inside `motes_terminal`: the terminal device, found by the hook.
+        static let tty = "tty"
         static let terminal = "motes_terminal"
         static let eventName = "hook_event_name"
     }
@@ -77,7 +79,8 @@ enum HookRelay {
     /// Returns the message to send (JSON object + newline), or `nil` when the
     /// payload isn't a JSON object or is too large.
     static func message(
-        payload: Data, agent: String?, eventName: String?, environment: [String: String], wait: TimeInterval? = nil
+        payload: Data, agent: String?, eventName: String?, environment: [String: String],
+        tty: String? = nil, wait: TimeInterval? = nil
     ) -> Data? {
         guard payload.count <= BridgeProtocol.maxMessageBytes,
               var object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
@@ -94,9 +97,10 @@ enum HookRelay {
         if object[BridgeProtocol.Key.eventName] == nil, let eventName {
             object[BridgeProtocol.Key.eventName] = eventName
         }
-        let terminal = BridgeProtocol.terminalEnvironmentKeys.reduce(into: [String: String]()) { result, key in
+        var terminal = BridgeProtocol.terminalEnvironmentKeys.reduce(into: [String: String]()) { result, key in
             if let value = environment[key], !value.isEmpty { result[key] = value }
         }
+        if let tty, TerminalTTY.isValid(tty) { terminal[BridgeProtocol.Key.tty] = tty }
         if !terminal.isEmpty {
             object[BridgeProtocol.Key.terminal] = terminal
         }

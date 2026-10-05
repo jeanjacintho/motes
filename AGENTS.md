@@ -14,7 +14,8 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
   - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
-  - `Settings/` — settings window, Keychain, login item, global hotkey.
+  - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`).
+  - `Settings/` — settings window, preferences (launch at login, shortcut).
 - `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app (`Contents/MacOS`) and copied to `~/Library/Application Support/Motes/bin/` at launch.
 - `Motes/Shared/` — code compiled into both the app and the hook (socket protocol, relay, socket helpers).
 - `Motes/project.yml` — XcodeGen project. The `.xcodeproj` is generated and not committed.

@@ -26,7 +26,7 @@ Call the Motes relay with `--agent <your-name>` and the event name:
 
 Motes copies `motes-hook` to `~/Library/Application Support/Motes/bin/` at launch, so that path stays valid wherever the app lives. The event name comes from the payload's `hook_event_name`; it can also be passed as the last argument for tools that don't send it.
 
-The relay reads the hook JSON on stdin, adds `motes_agent`, the protocol version `v` and the terminal context, then forwards it to the app. The terminal context is a `motes_terminal` object holding only these environment variables when set: `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, `__CFBundleIdentifier`, `TMUX`, `TMUX_PANE`, `KITTY_WINDOW_ID`, `WEZTERM_PANE`. Nothing else from the environment is ever sent.
+The relay reads the hook JSON on stdin, adds `motes_agent`, the protocol version `v` and the terminal context, then forwards it to the app. The terminal context is a `motes_terminal` object holding only these environment variables when set: `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `TERM_SESSION_ID`, `ITERM_SESSION_ID`, `__CFBundleIdentifier`, `TMUX`, `TMUX_PANE`, `KITTY_WINDOW_ID`, `WEZTERM_PANE`. Nothing else from the environment is ever sent. The hook also adds `tty` ("/dev/ttys003"), the terminal device found by walking up its parent processes, so Motes can select the right Terminal tab.
 
 If the environment has `MOTES_MOTE_ID` (set in terminals opened by Motes), the relay forwards it as `motes_mote` (lowercase letters, digits and hyphens, up to 40 characters). The session then belongs to that mote. Without it, Motes uses the mote owning the session's `cwd`, or the agent's automatic mote.
 

@@ -22,6 +22,7 @@ final class IslandModel {
     @ObservationIgnored var onPermission: ((UUID, ClaudeReply.Permission) -> Void)?
     @ObservationIgnored var onAnswers: ((UUID, [String: [String]]) -> Void)?
     @ObservationIgnored var onReplyInTerminal: ((UUID) -> Void)?
+    @ObservationIgnored var onJump: ((AgentSession) -> Void)?
 
     init(geometry: NotchGeometry) {
         self.geometry = geometry

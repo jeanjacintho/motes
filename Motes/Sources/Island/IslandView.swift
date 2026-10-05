@@ -183,14 +183,19 @@ private struct SessionListView: View {
         let sessions = ordered
         VStack(spacing: 0) {
             ForEach(Array(sessions.prefix(Self.maxRows).enumerated()), id: \.element.id) { index, session in
-                SessionRow(
-                    title: model.title(for: session),
-                    session: session,
-                    personality: model.personality(for: session),
-                    state: model.state(of: session),
-                    anchor: anchor(row: index)
-                )
+                Button { model.onJump?(session) } label: {
+                    SessionRow(
+                        title: model.title(for: session),
+                        session: session,
+                        personality: model.personality(for: session),
+                        state: model.state(of: session),
+                        anchor: anchor(row: index)
+                    )
                     .frame(height: Self.rowHeight)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Show this session's window")
             }
             if sessions.count > Self.maxRows {
                 Text("+\(sessions.count - Self.maxRows) more")

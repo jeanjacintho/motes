@@ -49,11 +49,14 @@ struct AlertView: View {
                     .font(.system(size: 11, weight: .medium))
                     .foregroundStyle(.white.opacity(0.5))
             }
-            Button("Reply in Terminal") { model.onReplyInTerminal?(alert.id) }
-                .buttonStyle(.plain)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.55))
-                .help("Answer in the terminal instead. Claude Code asks there as usual.")
+            Button("Reply in Terminal") {
+                model.onReplyInTerminal?(alert.id)
+                if let session { model.onJump?(session) }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.white.opacity(0.55))
+            .help("Answer in the terminal instead: Motes brings its window to the front, and Claude Code asks there as usual.")
         }
     }
 

@@ -3,11 +3,13 @@ import SwiftUI
 /// Settings window. More sections (behavior, hotkey, startup) arrive in M5.
 struct SettingsView: View {
     let library: MoteLibrary
+    let preferences: Preferences
     let hookInstaller: ClaudeHookInstaller
     let onNewMote: () -> Void
 
     var body: some View {
         Form {
+            GeneralSection(preferences: preferences)
             MotesSection(library: library, onNewMote: onNewMote)
             ClaudeHooksSection(installer: hookInstaller)
 

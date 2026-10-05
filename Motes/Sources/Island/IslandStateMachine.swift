@@ -12,6 +12,8 @@ struct IslandStateMachine {
         case clickedOutside
         /// Open from the menu bar or a shortcut, wherever the pointer is.
         case openRequested
+        /// Close from the shortcut. Ignored while an alert holds the island open.
+        case closeRequested
         case sessionsChanged(hasSessions: Bool)
         /// An alert needs the user: the island opens and stays open until it's answered.
         case holdChanged(isHeld: Bool)
@@ -91,6 +93,11 @@ struct IslandStateMachine {
             mode = .expanded
             if isHovering { return [.cancel(.hoverOpen), .cancel(.collapse)] }
             return [.cancel(.hoverOpen), .schedule(.collapse, after: delays.openedFromMenu)]
+
+        case .closeRequested:
+            guard mode == .expanded, !isHeld else { return [] }
+            mode = restingMode
+            return [.cancel(.hoverOpen), .cancel(.collapse)]
 
         case .sessionsChanged(let value):
             hasSessions = value

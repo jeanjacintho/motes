@@ -159,4 +159,20 @@ struct IslandStateMachineTests {
         _ = m.handle(.sessionsChanged(hasSessions: false))
         #expect(m.mode == .expanded)
     }
+
+    @Test func shortcutClosesTheOpenIsland() {
+        var m = M()
+        _ = m.handle(.sessionsChanged(hasSessions: true))
+        _ = m.handle(.openRequested)
+        _ = m.handle(.closeRequested)
+        #expect(m.mode == .compact)
+        #expect(m.handle(.closeRequested).isEmpty)
+    }
+
+    @Test func shortcutCantCloseAnAlert() {
+        var m = M()
+        _ = m.handle(.holdChanged(isHeld: true))
+        _ = m.handle(.closeRequested)
+        #expect(m.mode == .expanded)
+    }
 }
