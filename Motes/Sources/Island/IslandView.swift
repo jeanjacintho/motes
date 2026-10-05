@@ -19,13 +19,17 @@ struct IslandView: View {
 
             IslandContent(model: model)
                 .frame(width: size.width, height: size.height)
-                .clipped()
+                // Clip to the island's own outline, rounded bottom corners included:
+                // content leaving mid-transition must never show outside the black shape.
+                .clipShape(IslandShape(bottomRadius: model.bottomCornerRadius, shoulderRadius: 0))
         }
         .contentShape(IslandShape(bottomRadius: model.bottomCornerRadius, shoulderRadius: shoulder))
         .onTapGesture(perform: onTap)
         .opacity(model.isVisible ? 1 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(model.mode == .expanded ? Self.openAnimation : Self.closeAnimation, value: model.mode)
+        // An alert arriving or being answered resizes the open island.
+        .animation(Self.openAnimation, value: model.isShowingAlert)
         .animation(Self.closeAnimation, value: model.geometry)
     }
 }
@@ -61,7 +65,10 @@ private struct IslandContent: View {
             }
 
             if model.mode == .expanded {
-                Group {
+                // A ZStack, not a Group: modifiers on a Group apply to each child, so the
+                // delayed open/close transition below would also run when an alert is
+                // swapped for the session list, leaving the old card on screen.
+                ZStack(alignment: .top) {
                     if let alert = model.currentAlert {
                         AlertView(alert: alert, model: model)
                             .id(alert.id)
