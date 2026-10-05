@@ -12,7 +12,7 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
   - `Character/` — mote animation engine (pure logic) + `Canvas` view.
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
-  - `Features/` — one folder per feature view (NewMote, and island views from M4: Approval, Question…).
+  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
   - `Settings/` — settings window, Keychain, login item, global hotkey.
 - `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app (`Contents/MacOS`) and copied to `~/Library/Application Support/Motes/bin/` at launch.

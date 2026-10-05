@@ -17,12 +17,41 @@ struct ClaudeHookSettingsTests {
         let result = ClaudeHookSettings.installing(into: [:], hookPath: path)
         #expect(ClaudeHookSettings.status(of: result, hookPath: path) == .installed)
         let hooks = result["hooks"] as? [String: Any] ?? [:]
-        #expect(Set(hooks.keys) == Set(ClaudeHookSettings.events.map(\.name)))
+        #expect(Set(hooks.keys) == Set(ClaudeHookSettings.entries.map(\.event)))
         let pre = (hooks["PreToolUse"] as? [[String: Any]])?.first
         #expect(pre?["matcher"] as? String == "*")
         let entry = (pre?["hooks"] as? [[String: Any]])?.first
         #expect(entry?["command"] as? String == "\"\(path)\"")
         #expect(entry?["type"] as? String == "command")
+    }
+
+    @Test func waitingEntriesCanWaitForTheUser() {
+        let hooks = ClaudeHookSettings.installing(into: [:], hookPath: path)["hooks"] as! [String: Any]
+        let permission = ((hooks["PermissionRequest"] as? [[String: Any]])?.first?["hooks"] as? [[String: Any]])?.first
+        #expect(permission?["command"] as? String == "\"\(path)\" --wait")
+        #expect((permission?["timeout"] as? Int ?? 0) > Int(BridgeProtocol.approvalWait))
+
+        let pre = hooks["PreToolUse"] as! [[String: Any]]
+        let ask = pre.first { $0["matcher"] as? String == "AskUserQuestion" }
+        let askEntry = (ask?["hooks"] as? [[String: Any]])?.first
+        #expect(askEntry?["command"] as? String == "\"\(path)\" --wait")
+        #expect((askEntry?["timeout"] as? Int ?? 0) > Int(BridgeProtocol.questionWait))
+
+        // The catch-all listener never waits.
+        let all = pre.first { $0["matcher"] as? String == "*" }
+        #expect(((all?["hooks"] as? [[String: Any]])?.first?["command"] as? String) == "\"\(path)\"")
+    }
+
+    @Test func installFromBeforeAnswersIsOutdated() throws {
+        // What M3 installed: one listening entry per event, no waiting entries.
+        var hooks: [String: Any] = [:]
+        for event in ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "PermissionRequest",
+                      "Notification", "Stop", "SubagentStop", "SessionEnd"] {
+            hooks[event] = [["hooks": [["type": "command", "command": "\"\(path)\"", "timeout": 5]]]]
+        }
+        #expect(ClaudeHookSettings.status(of: ["hooks": hooks], hookPath: path) == .outdated)
+        let updated = ClaudeHookSettings.installing(into: ["hooks": hooks], hookPath: path)
+        #expect(ClaudeHookSettings.status(of: updated, hookPath: path) == .installed)
     }
 
     @Test func installKeepsEverythingElse() throws {
@@ -36,7 +65,8 @@ struct ClaudeHookSettingsTests {
         #expect(same(result["permissions"] as? [String: Any] ?? [:], original["permissions"] as! [String: Any]))
         let hooks = result["hooks"] as! [String: Any]
         let pre = hooks["PreToolUse"] as! [[String: Any]]
-        #expect(pre.count == 2)
+        // The user's group, then Motes' catch-all and AskUserQuestion groups.
+        #expect(pre.count == 3)
         #expect(pre[0]["matcher"] as? String == "Bash")
         #expect(hooks["PreCompact"] != nil)
     }
@@ -89,6 +119,7 @@ struct ClaudeHookSettingsTests {
         var hooks = settings["hooks"] as! [String: Any]
         hooks["Stop"] = nil
         settings["hooks"] = hooks
+        #expect(ClaudeHookSettings.status(of: settings, hookPath: path) == .outdated)
         #expect(ClaudeHookSettings.status(of: settings, hookPath: path) == .outdated)
     }
 }

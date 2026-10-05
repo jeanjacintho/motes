@@ -123,4 +123,40 @@ struct IslandStateMachineTests {
         _ = m.handle(.timerFired(.collapse))
         #expect(m.mode == .expanded)
     }
+
+    @Test func alertOpensAndHoldsTheIsland() {
+        var m = M()
+        _ = m.handle(.holdChanged(isHeld: true))
+        #expect(m.mode == .expanded)
+        _ = m.handle(.pointerEntered)
+        #expect(!m.handle(.pointerExited).contains { if case .schedule = $0 { true } else { false } })
+        _ = m.handle(.clickedOutside)
+        _ = m.handle(.timerFired(.collapse))
+        #expect(m.mode == .expanded)
+    }
+
+    @Test func answeredAlertClosesSoon() {
+        var m = M()
+        _ = m.handle(.holdChanged(isHeld: true))
+        let effects = m.handle(.holdChanged(isHeld: false))
+        #expect(effects.contains(.schedule(.collapse, after: m.delays.expandedLeave)))
+        _ = m.handle(.timerFired(.collapse))
+        #expect(m.mode == .hidden)
+    }
+
+    @Test func answeredAlertStaysOpenUnderThePointer() {
+        var m = M()
+        _ = m.handle(.holdChanged(isHeld: true))
+        _ = m.handle(.pointerEntered)
+        #expect(m.handle(.holdChanged(isHeld: false)).isEmpty)
+        #expect(m.mode == .expanded)
+    }
+
+    @Test func heldIslandDoesntHideWhenSessionsEnd() {
+        var m = M()
+        _ = m.handle(.sessionsChanged(hasSessions: true))
+        _ = m.handle(.holdChanged(isHeld: true))
+        _ = m.handle(.sessionsChanged(hasSessions: false))
+        #expect(m.mode == .expanded)
+    }
 }

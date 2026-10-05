@@ -13,6 +13,8 @@ struct IslandStateMachine {
         /// Open from the menu bar or a shortcut, wherever the pointer is.
         case openRequested
         case sessionsChanged(hasSessions: Bool)
+        /// An alert needs the user: the island opens and stays open until it's answered.
+        case holdChanged(isHeld: Bool)
         case timerFired(Timer)
     }
 
@@ -42,6 +44,7 @@ struct IslandStateMachine {
     private(set) var mode: IslandMode = .hidden
     private(set) var isHovering = false
     private(set) var hasSessions = false
+    private(set) var isHeld = false
     var delays = Delays()
 
     /// Mode the island falls back to when nobody is looking at it.
@@ -63,6 +66,7 @@ struct IslandStateMachine {
 
         case .pointerExited:
             isHovering = false
+            if isHeld { return [.cancel(.hoverOpen)] }
             switch mode {
             case .hidden:
                 return [.cancel(.hoverOpen)]
@@ -79,7 +83,7 @@ struct IslandStateMachine {
             return [.cancel(.hoverOpen), .cancel(.collapse)]
 
         case .clickedOutside:
-            guard mode == .expanded else { return [] }
+            guard mode == .expanded, !isHeld else { return [] }
             mode = restingMode
             return [.cancel(.hoverOpen), .cancel(.collapse)]
 
@@ -91,7 +95,7 @@ struct IslandStateMachine {
         case .sessionsChanged(let value):
             hasSessions = value
             if mode == .hidden && value { mode = .compact }
-            if mode == .compact && !value && !isHovering { mode = .hidden }
+            if mode == .compact && !value && !isHovering && !isHeld { mode = .hidden }
             return []
 
         case .timerFired(.hoverOpen):
@@ -99,8 +103,19 @@ struct IslandStateMachine {
             mode = .expanded
             return [.cancel(.collapse)]
 
+        case .holdChanged(let value):
+            guard value != isHeld else { return [] }
+            isHeld = value
+            if value {
+                mode = .expanded
+                return [.cancel(.hoverOpen), .cancel(.collapse)]
+            }
+            // Answered: leave it open while the pointer is on it, close soon otherwise.
+            if isHovering || mode != .expanded { return [] }
+            return [.schedule(.collapse, after: delays.expandedLeave)]
+
         case .timerFired(.collapse):
-            guard !isHovering else { return [] }
+            guard !isHovering, !isHeld else { return [] }
             mode = restingMode
             return []
         }

@@ -1,4 +1,5 @@
 import CoreGraphics
+import Foundation
 import Observation
 
 /// What the island view renders. Written only by `IslandController`.
@@ -12,16 +13,29 @@ final class IslandModel {
     var focused: AgentSession?
     /// Motes the user created.
     var motes: [Mote] = []
+    /// Alerts waiting for the user, oldest first. The first one is shown.
+    var alerts: [PendingAlert] = []
     /// Forced from the Debug menu; `nil` follows the sessions.
     var debugMoteState: MoteState?
     @ObservationIgnored var onNewMote: (() -> Void)?
     @ObservationIgnored var onOpenMote: ((Mote) -> Void)?
+    @ObservationIgnored var onPermission: ((UUID, ClaudeReply.Permission) -> Void)?
+    @ObservationIgnored var onAnswers: ((UUID, [String: [String]]) -> Void)?
+    @ObservationIgnored var onReplyInTerminal: ((UUID) -> Void)?
 
     init(geometry: NotchGeometry) {
         self.geometry = geometry
     }
 
-    var size: CGSize { IslandLayout.size(for: mode, notch: geometry.notchSize) }
+    var currentAlert: PendingAlert? { alerts.first }
+    /// The open island is showing an alert card.
+    var isShowingAlert: Bool { mode == .expanded && currentAlert != nil }
+
+    func session(id: String) -> AgentSession? {
+        sessions.first { $0.id == id }
+    }
+
+    var size: CGSize { IslandLayout.size(for: mode, notch: geometry.notchSize, isAlert: isShowingAlert) }
     var bottomCornerRadius: CGFloat { IslandLayout.bottomCornerRadius(for: mode, notch: geometry.notchSize) }
     var isVisible: Bool { IslandLayout.isVisible(mode, hasNotch: geometry.hasNotch) }
 

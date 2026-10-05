@@ -62,7 +62,10 @@ private struct IslandContent: View {
 
             if model.mode == .expanded {
                 Group {
-                    if model.sessions.isEmpty {
+                    if let alert = model.currentAlert {
+                        AlertView(alert: alert, model: model)
+                            .id(alert.id)
+                    } else if model.sessions.isEmpty {
                         FamilyView(model: model)
                     } else {
                         SessionListView(model: model)

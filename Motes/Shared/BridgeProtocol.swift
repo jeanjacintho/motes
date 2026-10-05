@@ -10,6 +10,11 @@ enum BridgeProtocol {
     /// The app drops a connection that hasn't sent a full message after this long.
     static let readTimeout: TimeInterval = 5
     static let maxConnections = 32
+    /// How long a waiting hook keeps the agent waiting for an answer from the
+    /// notch before giving up and letting the terminal ask as usual. Kept below
+    /// the hook timeouts written in the agent's settings.
+    static let approvalWait: TimeInterval = 110
+    static let questionWait: TimeInterval = 120
     /// Agent used when `motes_agent` is absent or invalid.
     static let defaultAgent = "claude"
 
@@ -20,6 +25,8 @@ enum BridgeProtocol {
         static let version = "v"
         static let agent = "motes_agent"
         static let mote = "motes_mote"
+        /// Seconds the hook will wait for a reply; present only on events that can be answered.
+        static let wait = "motes_wait"
         static let terminal = "motes_terminal"
         static let eventName = "hook_event_name"
     }
@@ -57,10 +64,20 @@ enum BridgeProtocol {
 
 /// What the hook adds to the payload before forwarding it.
 enum HookRelay {
+    /// How long the hook should wait for an answer to this event, or `nil`
+    /// when the event can't be answered from the notch.
+    static func waitTime(eventName: String?, toolName: String?) -> TimeInterval? {
+        switch eventName {
+        case "PermissionRequest": BridgeProtocol.approvalWait
+        case "PreToolUse" where toolName == "AskUserQuestion": BridgeProtocol.questionWait
+        default: nil
+        }
+    }
+
     /// Returns the message to send (JSON object + newline), or `nil` when the
     /// payload isn't a JSON object or is too large.
     static func message(
-        payload: Data, agent: String?, eventName: String?, environment: [String: String]
+        payload: Data, agent: String?, eventName: String?, environment: [String: String], wait: TimeInterval? = nil
     ) -> Data? {
         guard payload.count <= BridgeProtocol.maxMessageBytes,
               var object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
@@ -70,6 +87,7 @@ enum HookRelay {
         if let agent, BridgeProtocol.isValidAgentName(agent) {
             object[BridgeProtocol.Key.agent] = agent
         }
+        if let wait { object[BridgeProtocol.Key.wait] = wait }
         if let mote = environment[BridgeProtocol.moteEnvironmentKey], BridgeProtocol.isValidMoteID(mote) {
             object[BridgeProtocol.Key.mote] = mote
         }
@@ -86,5 +104,21 @@ enum HookRelay {
         guard var data = try? JSONSerialization.data(withJSONObject: object) else { return nil }
         data.append(0x0A)
         return data.count <= BridgeProtocol.maxMessageBytes ? data : nil
+    }
+}
+
+extension HookRelay {
+    /// Event and tool names of a raw payload, used by the hook to decide whether to wait.
+    static func names(in payload: Data) -> (event: String?, tool: String?) {
+        let object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
+        return (object?[BridgeProtocol.Key.eventName] as? String, object?["tool_name"] as? String)
+    }
+
+    /// What the hook prints for the agent: the app's reply when it is a JSON
+    /// object, nothing otherwise (the agent then asks in its terminal).
+    static func output(fromReply reply: Data?) -> Data? {
+        guard let reply, !reply.isEmpty,
+              (try? JSONSerialization.jsonObject(with: reply)) is [String: Any] else { return nil }
+        return reply
     }
 }

@@ -42,6 +42,12 @@ struct HookEvent: Equatable, Sendable {
     var toolName: String?
     /// String fields of `tool_input` (file_path, command, pattern…).
     var toolInput: [String: String] = [:]
+    /// `tool_input` as sent, to echo it back when answering.
+    var rawToolInput: Data?
+    /// `permission_suggestions` as sent (rule strings or permission updates).
+    var permissionSuggestions: Data?
+    /// Seconds the hook waits for an answer; `nil` when it doesn't wait.
+    var wait: TimeInterval?
     var message: String?
     var notificationType: String?
     var lastAssistantMessage: String?
@@ -63,7 +69,12 @@ struct HookEvent: Equatable, Sendable {
         event.toolName = nonEmpty(object["tool_name"])
         if let input = object["tool_input"] as? [String: Any] {
             event.toolInput = input.compactMapValues { $0 as? String }
+            event.rawToolInput = try? JSONSerialization.data(withJSONObject: input)
         }
+        if let suggestions = object["permission_suggestions"] as? [Any], !suggestions.isEmpty {
+            event.permissionSuggestions = try? JSONSerialization.data(withJSONObject: suggestions)
+        }
+        event.wait = (object[BridgeProtocol.Key.wait] as? Double).flatMap { $0 > 0 ? $0 : nil }
         event.message = nonEmpty(object["message"])
         event.notificationType = nonEmpty(object["notification_type"])
         event.lastAssistantMessage = nonEmpty(object["last_assistant_message"])

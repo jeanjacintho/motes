@@ -53,10 +53,24 @@ final class IslandController {
         set { model.onOpenMote = newValue }
     }
 
-    func setSessions(_ sessions: [AgentSession], focused: AgentSession?) {
+    func setSessions(_ sessions: [AgentSession], focused: AgentSession?, alerts: [PendingAlert]) {
         model.sessions = sessions
-        model.focused = focused
+        model.alerts = alerts
+        // The session asking for something is the one in focus.
+        model.focused = alerts.first.flatMap { alert in sessions.first { $0.id == alert.sessionID } } ?? focused
         send(.sessionsChanged(hasSessions: !sessions.isEmpty))
+        send(.holdChanged(isHeld: !alerts.isEmpty))
+    }
+
+    /// Where the answers of alert cards go; set by the app.
+    func setAlertHandlers(
+        permission: @escaping (UUID, ClaudeReply.Permission) -> Void,
+        answers: @escaping (UUID, [String: [String]]) -> Void,
+        replyInTerminal: @escaping (UUID) -> Void
+    ) {
+        model.onPermission = permission
+        model.onAnswers = answers
+        model.onReplyInTerminal = replyInTerminal
     }
 
     /// Debug helper: force the mote into a state, `nil` to follow the sessions.
@@ -117,7 +131,7 @@ final class IslandController {
     }
 
     private func updatePointer(_ location: CGPoint) {
-        let hoverRect = IslandLayout.hoverRect(for: model.mode, geometry: model.geometry)
+        let hoverRect = IslandLayout.hoverRect(for: model.mode, geometry: model.geometry, isAlert: model.isShowingAlert)
         let inside = hoverRect.contains(location)
         // Only the island itself takes clicks; the transparent rest of the panel lets them through.
         if panel.ignoresMouseEvents == inside {

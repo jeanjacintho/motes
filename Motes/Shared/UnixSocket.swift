@@ -22,10 +22,44 @@ enum UnixSocket {
     /// Never throws and never blocks longer than the timeout.
     @discardableResult
     static func send(_ data: Data, to path: String, timeout: TimeInterval) -> Bool {
-        guard var addr = address(path) else { return false }
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { return false }
+        guard let fd = connectAndWrite(data, to: path, timeout: timeout) else { return false }
+        shutdown(fd, SHUT_WR)
+        close(fd)
+        return true
+    }
+
+    /// Sends `data`, then waits up to `replyTimeout` for one newline-terminated
+    /// reply. The write side stays open: closing it tells the app the hook gave up. Returns `nil` if the app can't be reached in `timeout`, doesn't
+    /// answer in time, or closes without answering.
+    static func request(_ data: Data, to path: String, timeout: TimeInterval, replyTimeout: TimeInterval) -> Data? {
+        guard let fd = connectAndWrite(data, to: path, timeout: timeout) else { return nil }
         defer { close(fd) }
+        let deadline = Date().addingTimeInterval(replyTimeout)
+        var reply = Data()
+        var chunk = [UInt8](repeating: 0, count: 16 * 1024)
+        while reply.count <= BridgeProtocol.maxMessageBytes {
+            let count = read(fd, &chunk, chunk.count)
+            if count > 0 {
+                reply.append(contentsOf: chunk[0..<count])
+                if let newline = reply.firstIndex(of: 0x0A) { return Data(reply[..<newline]) }
+            } else if count == 0 {
+                return reply.isEmpty ? nil : reply
+            } else if errno == EAGAIN || errno == EINTR {
+                guard wait(fd, for: Int16(POLLIN), until: deadline) else { return nil }
+            } else {
+                return nil
+            }
+        }
+        return nil
+    }
+
+    /// Connects and writes the whole message; returns the open socket.
+    private static func connectAndWrite(_ data: Data, to path: String, timeout: TimeInterval) -> Int32? {
+        guard var addr = address(path) else { return nil }
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
+        var ok = false
+        defer { if !ok { close(fd) } }
 
         var on: Int32 = 1
         setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, &on, socklen_t(MemoryLayout<Int32>.size))
@@ -38,11 +72,11 @@ enum UnixSocket {
             }
         }
         if connected != 0 {
-            guard errno == EINPROGRESS, wait(fd, for: Int16(POLLOUT), until: deadline) else { return false }
+            guard errno == EINPROGRESS, wait(fd, for: Int16(POLLOUT), until: deadline) else { return nil }
             var error: Int32 = 0
             var length = socklen_t(MemoryLayout<Int32>.size)
             getsockopt(fd, SOL_SOCKET, SO_ERROR, &error, &length)
-            guard error == 0 else { return false }
+            guard error == 0 else { return nil }
         }
 
         var offset = 0
@@ -53,13 +87,13 @@ enum UnixSocket {
             if written > 0 {
                 offset += written
             } else if written < 0, errno == EAGAIN || errno == EINTR {
-                guard wait(fd, for: Int16(POLLOUT), until: deadline) else { return false }
+                guard wait(fd, for: Int16(POLLOUT), until: deadline) else { return nil }
             } else {
-                return false
+                return nil
             }
         }
-        shutdown(fd, SHUT_WR)
-        return true
+        ok = true
+        return fd
     }
 
     /// Waits until `fd` is ready for `events` or the deadline passes.

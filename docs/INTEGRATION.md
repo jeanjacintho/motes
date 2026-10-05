@@ -53,6 +53,25 @@ You can also talk to the socket directly. Send one newline-terminated JSON objec
 
 - **Socket:** `~/Library/Application Support/Motes/motes.sock`. Folder `0700`, socket `0600`. Only connections from the same user are accepted (`getpeereid`).
 - **Limits:** 1 MiB and 5 s per message, 32 connections at once. One message per connection.
+
+## Answering from the notch
+
+Started with `--wait`, the relay can wait for the user's answer on events that can be answered:
+
+| Event | Waits up to | Shown in the notch |
+|---|---|---|
+| `PermissionRequest` | 110 s | Deny / Always Allow / Allow |
+| `PreToolUse` for `AskUserQuestion` | 120 s | The questions and their options |
+
+The relay adds `motes_wait` (seconds) to the message and keeps the connection open. The app replies with one line: the exact JSON the agent expects on stdout, which the relay prints. An empty reply, no reply in time, the app closing, or **Reply in Terminal**: the relay prints nothing and the agent asks in its terminal as usual. Never approving anything without a click is a hard rule: Motes never answers on its own.
+
+Replies for Claude Code:
+- Permission: `hookSpecificOutput.decision` with `behavior` `allow` or `deny`. **Always Allow** also sends `updatedPermissions` built from the request's `permission_suggestions` (rule strings become an `addRules` update with destination `local`, the project's `.claude/settings.local.json`).
+- Question: `permissionDecision: "allow"` and `updatedInput` = the original `tool_input` plus `answers` (question text → label; several labels joined with `, `).
+
+An alert is dropped without an answer when its hook gives up (connection closed) or its session moves on (`UserPromptSubmit`, `Stop`, `StopFailure`, `SessionEnd`). Answers are only offered for Claude Code for now; other agents' waiting events get no reply.
+
+The installer registers waiting entries with a hook timeout above the wait: `PermissionRequest` (`--wait`, 120 s) and a `PreToolUse` group matching `AskUserQuestion` (`--wait`, 130 s), next to the listening entries (5 s).
 - `v` is the protocol version. Missing means `1`.
 
 ## Supported events
@@ -67,8 +86,8 @@ The mote lifecycle:
 | `UserPromptSubmit` | State → thinking; prompt shown in the feed |
 | `PreToolUse` | State → working; tool + target shown in the feed (`Edit Foo.swift`, `Bash npm test`) |
 | `PostToolUse` / `PostToolUseFailure` | Updates the feed; a failure stays working |
-| `PermissionRequest` | Approval card (Claude Code only for now) |
-| `PreToolUse` for `AskUserQuestion` | Question card (Claude Code only for now) |
+| `PermissionRequest` | State → approval; with `--wait`, an approval card (Claude Code only for now) |
+| `PreToolUse` for `AskUserQuestion` | State → question; with `--wait`, a question card (Claude Code only for now) |
 | `Notification` | Question state when input is needed; usage limit → tired |
 | `Stop` | State → finished for 5 s, then idle; first line of `last_assistant_message` shown in the feed |
 | `StopFailure` | State → error |
@@ -76,8 +95,6 @@ The mote lifecycle:
 | `SessionEnd` | Removes the session |
 
 A session is named after its `cwd` folder. Events for an unknown `session_id` create the session, so Motes catches up with sessions that started before it. A session quiet for 10 minutes falls asleep; one quiet for 2 hours (no `SessionEnd`, e.g. a killed terminal) is forgotten.
-
-`PermissionRequest` from a third-party agent is answered immediately with no decision for now: the relay writes nothing and the agent asks again in its terminal.
 
 ## Supporting a new CLI
 

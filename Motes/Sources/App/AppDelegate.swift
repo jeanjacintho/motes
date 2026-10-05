@@ -22,8 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         island.onOpenMote = { mote in try? MoteLauncher.open(mote) }
         island.onNewMote = { [newMoteWindow] in newMoteWindow.show() }
         sessions.moteForFolder = { [library] cwd in Mote.owner(of: cwd, in: library.motes)?.id }
-        sessions.onChange = { [island] sessions, focused in
-            island.setSessions(sessions, focused: focused)
+        sessions.onChange = { [island] sessions, focused, alerts in
+            island.setSessions(sessions, focused: focused, alerts: alerts)
+        }
+        island.setAlertHandlers { [sessions] id, choice in
+            sessions.answer(id, permission: choice)
+        } answers: { [sessions] id, answers in
+            sessions.answer(id, answers: answers)
+        } replyInTerminal: { [sessions] id in
+            sessions.replyInTerminal(id)
         }
         sessions.start()
         observeLibrary()

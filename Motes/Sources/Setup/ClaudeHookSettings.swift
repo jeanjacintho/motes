@@ -4,65 +4,86 @@ import Foundation
 /// Pure: works on the decoded JSON object, never on files. Entries that aren't
 /// Motes' own are never touched.
 enum ClaudeHookSettings {
-    /// Hook events Motes listens to, with their matcher (tool events match every tool).
-    static let events: [(name: String, matcher: String?)] = [
-        ("SessionStart", nil),
-        ("UserPromptSubmit", nil),
-        ("PreToolUse", "*"),
-        ("PostToolUse", "*"),
-        ("PermissionRequest", "*"),
-        ("Notification", nil),
-        ("Stop", nil),
-        ("SubagentStop", nil),
-        ("SessionEnd", nil),
+    /// One hook entry Motes adds to Claude Code's settings.
+    struct Entry: Equatable {
+        let event: String
+        /// Tool matcher for tool events, `nil` for the others.
+        let matcher: String?
+        /// Waits for an answer from the notch (permission, question).
+        let waits: Bool
+        /// Seconds Claude Code waits for the hook.
+        let timeout: Int
+    }
+
+    /// Everything Motes registers. Listening hooks give up after 0.3 s; waiting
+    /// hooks get a timeout just above the time they wait for the user.
+    static let entries: [Entry] = [
+        Entry(event: "SessionStart", matcher: nil, waits: false, timeout: 5),
+        Entry(event: "UserPromptSubmit", matcher: nil, waits: false, timeout: 5),
+        Entry(event: "PreToolUse", matcher: "*", waits: false, timeout: 5),
+        Entry(event: "PreToolUse", matcher: "AskUserQuestion", waits: true,
+              timeout: Int(BridgeProtocol.questionWait) + 10),
+        Entry(event: "PostToolUse", matcher: "*", waits: false, timeout: 5),
+        Entry(event: "PermissionRequest", matcher: "*", waits: true,
+              timeout: Int(BridgeProtocol.approvalWait) + 10),
+        Entry(event: "Notification", matcher: nil, waits: false, timeout: 5),
+        Entry(event: "Stop", matcher: nil, waits: false, timeout: 5),
+        Entry(event: "SubagentStop", matcher: nil, waits: false, timeout: 5),
+        Entry(event: "SessionEnd", matcher: nil, waits: false, timeout: 5),
     ]
 
-    /// Seconds Claude Code waits for the hook. The hook itself gives up after 0.3 s.
-    static let timeout = 5
     /// Any hook command containing this is considered Motes'.
     static let marker = "motes-hook"
 
     enum Status: Equatable {
         case notInstalled
         case installed
-        /// Some Motes entries exist but don't match the current hook path or event list.
+        /// Some Motes entries exist but don't match the current hook path or entry list.
         case outdated
     }
 
-    static func command(hookPath: String) -> String {
-        "\"\(hookPath)\""
+    static func command(hookPath: String, waits: Bool = false) -> String {
+        "\"\(hookPath)\"" + (waits ? " --wait" : "")
     }
 
     static func status(of settings: [String: Any], hookPath: String) -> Status {
-        let expected = command(hookPath: hookPath)
         let hooks = settings["hooks"] as? [String: Any] ?? [:]
-        var found = 0
-        var foreign = false
+        // Every Motes entry found, as (event, matcher, command, timeout).
+        var found: [(String, String?, String, Int?)] = []
         for (event, value) in hooks {
-            for command in commands(in: value) where command.contains(marker) {
-                if command == expected, events.contains(where: { $0.name == event }) {
-                    found += 1
-                } else {
-                    foreign = true
+            guard let groups = value as? [Any] else { continue }
+            for case let group as [String: Any] in groups {
+                let matcher = group["matcher"] as? String
+                for case let entry as [String: Any] in group["hooks"] as? [Any] ?? [] {
+                    guard let command = entry["command"] as? String, command.contains(marker) else { continue }
+                    found.append((event, matcher, command, entry["timeout"] as? Int))
                 }
             }
         }
-        if found == 0 && !foreign { return .notInstalled }
-        return found == events.count && !foreign ? .installed : .outdated
+        if found.isEmpty { return .notInstalled }
+        let expected = entries.map { ($0.event, $0.matcher, command(hookPath: hookPath, waits: $0.waits), $0.timeout) }
+        let matches = found.count == expected.count && expected.allSatisfy { e in
+            found.contains { $0.0 == e.0 && $0.1 == e.1 && $0.2 == e.2 && $0.3 == e.3 }
+        }
+        return matches ? .installed : .outdated
     }
 
     /// Settings with Motes' hooks, replacing any previous Motes entries.
     static func installing(into settings: [String: Any], hookPath: String) -> [String: Any] {
         var result = removing(from: settings)
         var hooks = result["hooks"] as? [String: Any] ?? [:]
-        for (event, matcher) in events {
-            var groups = hooks[event] as? [Any] ?? []
+        for entry in entries {
+            var groups = hooks[entry.event] as? [Any] ?? []
             var group: [String: Any] = [
-                "hooks": [["type": "command", "command": command(hookPath: hookPath), "timeout": timeout]],
+                "hooks": [[
+                    "type": "command",
+                    "command": command(hookPath: hookPath, waits: entry.waits),
+                    "timeout": entry.timeout,
+                ]],
             ]
-            if let matcher { group["matcher"] = matcher }
+            if let matcher = entry.matcher { group["matcher"] = matcher }
             groups.append(group)
-            hooks[event] = groups
+            hooks[entry.event] = groups
         }
         result["hooks"] = hooks
         return result
@@ -95,13 +116,5 @@ enum ClaudeHookSettings {
         }
         result["hooks"] = hooks.isEmpty ? nil : hooks
         return result
-    }
-
-    private static func commands(in value: Any) -> [String] {
-        guard let groups = value as? [Any] else { return [] }
-        return groups.flatMap { group -> [String] in
-            let entries = (group as? [String: Any])?["hooks"] as? [Any] ?? []
-            return entries.compactMap { ($0 as? [String: Any])?["command"] as? String }
-        }
     }
 }

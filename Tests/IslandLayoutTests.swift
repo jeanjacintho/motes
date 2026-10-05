@@ -24,8 +24,8 @@ struct IslandLayoutTests {
     }
 
     @Test func everyModeFitsInThePanel() {
-        for mode in [IslandMode.hidden, .compact, .expanded] {
-            let size = IslandLayout.size(for: mode, notch: notch)
+        for (mode, isAlert) in [(IslandMode.hidden, false), (.compact, false), (.expanded, false), (.expanded, true)] {
+            let size = IslandLayout.size(for: mode, notch: notch, isAlert: isAlert)
             #expect(size.width + IslandLayout.shoulderRadius * 2 <= IslandLayout.panelSize.width)
             #expect(size.height <= IslandLayout.panelSize.height)
         }
