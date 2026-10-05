@@ -10,7 +10,7 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Bridge/` — Unix socket server, hook payload parsing, decisions sent back to the hook.
   - `Sessions/` — session model, activity feed, focus rules, alert queue.
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
-  - `Character/` — mote animation engine (pure logic) + `Canvas` view.
+  - `Character/` — `MoteLayer` (Core Animation), `MoteView` (SwiftUI wrapper), states and personalities, and pure helpers (blink rhythm, badge layout).
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
   - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
@@ -31,7 +31,7 @@ Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferenc
 
 ## Rules
 - Swift 6 with strict concurrency, SwiftUI + AppKit, macOS 15+. No third-party dependencies unless truly unavoidable.
-- Motes are drawn in code (`Canvas` + `TimelineView`): no Rive, Lottie or bitmap images. Each mote is an orb of light with orbiting dust, no props; the body keeps its color and the state shows through eyes, motion, dust, halo and badge.
+- Motes are Core Animation layers: their idle life runs as repeating animations in the render server, and the app only touches them on a state change or a pointer move. Never animate a mote frame by frame from the app (it cost 7 % CPU when compact). No Rive, Lottie or bitmap images. Each mote is an orb of light with orbiting dust, no props; the body keeps its color and the state shows through eyes, motion, dust, halo and badge.
 - One animation engine for all motes. A mote's personality (palette, shape, eyes, motion, quirks, voice) is **data** in a `MotePersonality`. Adding a mote for a new agent must not require touching the engine.
 - Keep pure logic (state machine, hook parsing, focus rules, animation math) free of AppKit so it can be unit tested. Every new piece of pure logic gets tests.
 - Keep files small and per feature. No god files: split a view or a service once it passes ~400 lines.
@@ -45,7 +45,7 @@ Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferenc
 - Stable contract values, never rename: automatic mote IDs (`claude`, `codex`, `gemini`…), `MoteForm`, `MotePalette` and `MoteCLI` raw values (saved in `motes.json`), `MOTES_MOTE_ID`, and the socket keys.
 - Distribution is GitHub only, ad-hoc signed (no Developer ID yet). Keep the signing identity a build variable, and keep the MVP independent of Automation / Accessibility permissions where possible, since ad-hoc builds may lose them on update.
 - Characters, sounds and icon are 100 % original. Never copy assets from other projects.
-- Every release adds its `CHANGELOG.md` section and bumps the version in `project.yml`.
+- Every release adds its `CHANGELOG.md` section and bumps the version in `project.yml`; a `v<version>` tag publishes it (see CONTRIBUTING.md).
 
 ## Commits
 Follow [Conventional Commits](https://www.conventionalcommits.org), in English:

@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Check the tag matches the version
+        run: |
+          version=$(sed -n 's/^ *MARKETING_VERSION: *"\(.*\)"/\1/p' Motes/project.yml)
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME doesn't match version $version"; exit 1; }
+      - name: Test
+        run: cd Motes && xcodegen && xcodebuild -scheme Motes -configuration Debug -derivedDataPath ../build/ci test
+      - name: Build the release
+        run: scripts/release.sh
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=${GITHUB_REF_NAME#v}
+          # Notes: this version's section of CHANGELOG.md.
+          awk -v v="$version" '$0 ~ "^## \\[?"v {f=1; next} /^## / && f {exit} f' CHANGELOG.md > notes.md
+          gh release create "$GITHUB_REF_NAME" release/* --title "Motes $version" --notes-file notes.md

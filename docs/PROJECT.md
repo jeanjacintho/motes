@@ -66,7 +66,7 @@ There is a single animation engine. A personality is just **data**: a form (`Mot
 - A glowing body: bright, almost white core fading to the mote's color, inside a soft halo of the same color.
 - Its own **dust** orbiting it on a tilted ring, passing in front of and behind the body.
 - A simple face: pill eyes in a deep shade of the mote's color, leaning or lopsided depending on the personality.
-- No props, no outlines. Everything is drawn in code (`Canvas` + `TimelineView`), no images or Lottie.
+- No props, no outlines. Everything is drawn in code with Core Animation layers (`MoteLayer`), no images or Lottie. Breathing, orbit, blinks and badges are repeating animations played by the render server, so a mote on screen costs the app almost nothing.
 
 Motes differ by **color, eyes, proportions and orbit**. The body always keeps its color; the **state** shows through the eyes, the motion, a second halo and a badge in the state color, and the dust: it speeds up while working and slows down and dims when tired or asleep.
 
@@ -119,7 +119,7 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
                     ├─ Bridge/      socket server, parsing, replies (decisions)
                     ├─ Sessions/    session and feed model, focus rules / alert queue
                     ├─ Island/      NSPanel, notch geometry, FSM, hit testing
-                    ├─ Character/   animation engine (pure) + Canvas view
+                    ├─ Character/   mote layers (Core Animation) + their pure parts
                     ├─ Motes/       one MotePersonality per agent (data only)
                     ├─ Features/    Approval, Question, Overview, Finished…  (one folder per view)
                     ├─ Setup/       hook installation (backup → merge → diff → confirm)
@@ -142,11 +142,11 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 | M3.5 | Motes you create: name, folder, form, color, CLI; opens a Terminal tied to the mote |
 | M4 | Approvals and questions from the notch, with fallback |
 | M5 | Jump to terminal (Terminal tab by tty; Claude desktop opens the session itself, best effort; other apps activated), launch at login, global shortcut (⌃⌥M by default) |
-| M6 | Polish: measure CPU/RAM, tests, ad-hoc signed release on GitHub |
+| M6 | Polish: motes moved to Core Animation (compact CPU 7 % → 1.7 %), release script, CI, README, license |
 
 ## 7. MVP acceptance criteria
 - A Claude Code session never hangs because of the app (closed, crashed or slow).
-- Hidden = 0 % CPU; compact < 3 %; < 100 MB of memory.
+- Hidden = 0 % CPU; compact < 3 %; < 100 MB of memory. Measured on the Release build (MacBook Air, 2026-10-05): hidden 0.0 %, compact 1.7 %, open with an alert 1.6 %, 17–20 MB.
 - No click lost in the transparent area.
 - `~/.claude/settings.json` is never changed without a backup and confirmation.
 
@@ -157,21 +157,22 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 - **Distribution:** GitHub only at first, open source, so others can contribute. No App Store target and no sandbox for now.
 - **Bundle id:** `app.motes.Motes`, never to be changed.
 - **Signing:** free Apple account. Ad-hoc signed releases, no notarization for now (§10).
+- **License:** Apache 2.0 for everything (code and the motes' look).
+- **First version:** 0.1.0.
 
 ## 9. Open questions
 1. Sounds: yes or no? Who makes them?
-2. License: MIT for the code? Are the assets (motes, sounds) open too, or all rights reserved?
 
 ## 10. Getting ready for contributors
-Since the repository is public from day one:
+Since the repository is public from day one (done in M6):
 - README with a GIF, how to build (`brew install xcodegen && xcodegen && open Motes.xcodeproj`) and how to install the hooks.
 - `CONTRIBUTING.md` + a "how to support a new CLI" guide (its `MoteCLI` case, automatic mote, hook mapping and installer).
 - `AGENTS.md` (imported by `CLAUDE.md`) with the project rules (§2.2), for contributors who use AI agents.
 - GitHub Actions CI: build + pure logic tests on every PR.
 - **Signing (free Apple account, no Developer Program):** no `Developer ID` certificate and no notarization. Plan:
-  - **Ad-hoc** signed releases (`codesign --sign -`), built by CI and published as `Motes.zip` + `SHA256SUMS`.
+  - **Ad-hoc** signed releases (`codesign --sign -`), built by `scripts/release.sh` in the Release workflow on a `v*` tag and published as `Motes-<version>.zip` + `SHA256SUMS`.
   - The README explains how to open the app the first time. On macOS 15, right-click → Open no longer works: go to System Settings → Privacy & Security → "Open Anyway". Alternatively, `xattr -dr com.apple.quarantine /Applications/Motes.app`.
   - "Build from source" is the recommended path for contributors: local builds don't go through Gatekeeper.
   - Side effect: with ad-hoc signing, each new version may make macOS ask again for Automation/Accessibility permissions and Keychain item access. So the MVP should depend on those permissions as little as possible, and the README should warn about it.
   - If the project gains traction, pay the yearly fee and switch to `Developer ID` + notarization. The release pipeline is written with that switch in mind (the signing identity comes from a variable).
-- Issue templates (bug, feature, "new mote").
+- Issue templates (bug, feature, new agent).
