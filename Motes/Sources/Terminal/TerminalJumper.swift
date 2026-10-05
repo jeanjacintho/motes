@@ -5,7 +5,9 @@ import os
 enum JumpTarget: Equatable {
     /// A tab of macOS Terminal, found by its device; activates Terminal if `tty` is nil.
     case terminalTab(tty: String?)
-    /// Bring an app to the front: Claude desktop, an IDE, another terminal.
+    /// A Code session in the Claude desktop app, by its CLI session ID.
+    case claudeDesktop(cliSessionID: String)
+    /// Bring an app to the front: an IDE, another terminal.
     case app(bundleID: String)
     case none
 
@@ -19,14 +21,14 @@ enum JumpTarget: Equatable {
         "WezTerm": "com.github.wez.wezterm",
     ]
 
-    /// Picks the target from the context the hook sent (`motes_terminal`).
-    static func resolve(_ terminal: [String: String]) -> JumpTarget {
+    /// Picks the target from the context the hook sent (`motes_terminal`) and the session's ID.
+    static func resolve(_ terminal: [String: String], sessionID: String) -> JumpTarget {
         let tty = terminal[BridgeProtocol.Key.tty].flatMap { TerminalTTY.isValid($0) ? $0 : nil }
         if terminal["TERM_PROGRAM"] == "Apple_Terminal" || terminal["__CFBundleIdentifier"] == terminalBundleID {
             return .terminalTab(tty: tty)
         }
         if let bundle = terminal["__CFBundleIdentifier"], !bundle.isEmpty {
-            return .app(bundleID: bundle)
+            return bundle == ClaudeDesktopSessions.bundleID ? .claudeDesktop(cliSessionID: sessionID) : .app(bundleID: bundle)
         }
         if let program = terminal["TERM_PROGRAM"], let bundle = knownTerminals[program] {
             return .app(bundleID: bundle)
@@ -65,7 +67,7 @@ enum TerminalJumper {
 
     @MainActor
     static func jump(to session: AgentSession) {
-        perform(JumpTarget.resolve(session.terminal))
+        perform(JumpTarget.resolve(session.terminal, sessionID: session.id))
     }
 
     @MainActor
@@ -75,6 +77,20 @@ enum TerminalJumper {
             log.notice("No terminal context to jump to")
         case .app(let bundleID):
             activate(bundleID: bundleID)
+        case .claudeDesktop(let cliSessionID):
+            // Reads the app's session files off the main thread.
+            DispatchQueue.global(qos: .userInitiated).async {
+                let url = ClaudeDesktopSessions.localSessionID(forCLISession: cliSessionID)
+                    .flatMap(ClaudeDesktopSessions.continueURL(localSessionID:))
+                DispatchQueue.main.async {
+                    if let url {
+                        NSWorkspace.shared.open(url)
+                    } else {
+                        log.notice("Claude desktop session not found; bringing the app forward")
+                        activate(bundleID: ClaudeDesktopSessions.bundleID)
+                    }
+                }
+            }
         case .terminalTab(nil):
             activate(bundleID: JumpTarget.terminalBundleID)
         case .terminalTab(let tty?):

@@ -14,7 +14,7 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
   - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
-  - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`).
+  - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`). `ClaudeDesktopSessions` opens a Code session in the Claude desktop app through undocumented behavior (a `claude://code/continue` link and the app's session files, read only); it must always fall back to just activating the app.
   - `Settings/` — settings window, preferences (launch at login, shortcut).
 - `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app (`Contents/MacOS`) and copied to `~/Library/Application Support/Motes/bin/` at launch.
 - `Motes/Shared/` — code compiled into both the app and the hook (socket protocol, relay, socket helpers).

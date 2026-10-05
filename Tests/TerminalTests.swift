@@ -31,27 +31,27 @@ struct TerminalTTYTests {
 
 struct JumpTargetTests {
     @Test func appleTerminalSelectsTheTab() {
-        #expect(JumpTarget.resolve(["TERM_PROGRAM": "Apple_Terminal", "tty": "/dev/ttys003"]) == .terminalTab(tty: "/dev/ttys003"))
-        #expect(JumpTarget.resolve(["__CFBundleIdentifier": "com.apple.Terminal"]) == .terminalTab(tty: nil))
+        #expect(JumpTarget.resolve(["TERM_PROGRAM": "Apple_Terminal", "tty": "/dev/ttys003"], sessionID: "s") == .terminalTab(tty: "/dev/ttys003"))
+        #expect(JumpTarget.resolve(["__CFBundleIdentifier": "com.apple.Terminal"], sessionID: "s") == .terminalTab(tty: nil))
     }
 
     @Test func otherAppsAreActivated() {
-        #expect(JumpTarget.resolve(["__CFBundleIdentifier": "com.anthropic.claudefordesktop"]) == .app(bundleID: "com.anthropic.claudefordesktop"))
-        #expect(JumpTarget.resolve(["TERM_PROGRAM": "vscode", "__CFBundleIdentifier": "com.microsoft.VSCode"]) == .app(bundleID: "com.microsoft.VSCode"))
-        #expect(JumpTarget.resolve(["TERM_PROGRAM": "iTerm.app"]) == .app(bundleID: "com.googlecode.iterm2"))
+        #expect(JumpTarget.resolve(["__CFBundleIdentifier": "com.anthropic.claudefordesktop"], sessionID: "abc") == .claudeDesktop(cliSessionID: "abc"))
+        #expect(JumpTarget.resolve(["TERM_PROGRAM": "vscode", "__CFBundleIdentifier": "com.microsoft.VSCode"], sessionID: "s") == .app(bundleID: "com.microsoft.VSCode"))
+        #expect(JumpTarget.resolve(["TERM_PROGRAM": "iTerm.app"], sessionID: "s") == .app(bundleID: "com.googlecode.iterm2"))
     }
 
     @Test func invalidTTYIsIgnored() {
-        #expect(JumpTarget.resolve(["TERM_PROGRAM": "Apple_Terminal", "tty": "/dev/ttys1\" & do shell script"]) == .terminalTab(tty: nil))
+        #expect(JumpTarget.resolve(["TERM_PROGRAM": "Apple_Terminal", "tty": "/dev/ttys1\" & do shell script"], sessionID: "s") == .terminalTab(tty: nil))
     }
 
     @Test func ttyAloneMeansTerminal() {
-        #expect(JumpTarget.resolve(["tty": "/dev/ttys009"]) == .terminalTab(tty: "/dev/ttys009"))
+        #expect(JumpTarget.resolve(["tty": "/dev/ttys009"], sessionID: "s") == .terminalTab(tty: "/dev/ttys009"))
     }
 
     @Test func nothingKnown() {
-        #expect(JumpTarget.resolve([:]) == .none)
-        #expect(JumpTarget.resolve(["TERM_PROGRAM": "unknown-term"]) == .none)
+        #expect(JumpTarget.resolve([:], sessionID: "s") == .none)
+        #expect(JumpTarget.resolve(["TERM_PROGRAM": "unknown-term"], sessionID: "s") == .none)
     }
 
     @Test func selectTabScriptCompiles() throws {
@@ -114,5 +114,50 @@ struct PreferencesTests {
         preferences.setHotKey(HotKey(keyCode: 0, modifiers: 0, key: "a"))
         #expect(preferences.hotKey == .default)
         #expect(preferences.lastError != nil)
+    }
+}
+
+struct ClaudeDesktopSessionsTests {
+    /// Builds the app's folder layout: <root>/<org>/<account>/local_<id>.json
+    func sessions(_ files: [String: [String: Any]]) throws -> URL {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let folder = root.appendingPathComponent("org/account")
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        for (name, object) in files {
+            try JSONSerialization.data(withJSONObject: object).write(to: folder.appendingPathComponent(name))
+        }
+        return root
+    }
+
+    @Test func findsTheAppsIDForACLISession() throws {
+        let root = try sessions([
+            "local_aaa.json": ["sessionId": "local_aaa", "cliSessionId": "cli-1", "title": "One", "turns": [1, 2]],
+            "local_bbb.json": ["sessionId": "local_bbb", "cliSessionId": "cli-2"],
+        ])
+        #expect(ClaudeDesktopSessions.localSessionID(forCLISession: "cli-2", in: root) == "local_bbb")
+        #expect(ClaudeDesktopSessions.localSessionID(forCLISession: "missing", in: root) == nil)
+        #expect(ClaudeDesktopSessions.localSessionID(forCLISession: "", in: root) == nil)
+    }
+
+    @Test func ignoresUnexpectedFiles() throws {
+        let root = try sessions([
+            "local_bad.json": ["sessionId": "local_x\" & quit", "cliSessionId": "cli-1"],
+            "other.json": ["sessionId": "local_ok", "cliSessionId": "cli-1"],
+            "local_partial.json": ["cliSessionId": "cli-1"],
+        ])
+        #expect(ClaudeDesktopSessions.localSessionID(forCLISession: "cli-1", in: root) == nil)
+    }
+
+    @Test func missingFolderIsFine() {
+        let nowhere = URL(fileURLWithPath: "/tmp/motes-nowhere-\(UUID())")
+        #expect(ClaudeDesktopSessions.localSessionID(forCLISession: "cli-1", in: nowhere) == nil)
+    }
+
+    @Test func continueURL() {
+        #expect(ClaudeDesktopSessions.continueURL(localSessionID: "local_e427425d-205e-402a")?.absoluteString
+                == "claude://code/continue?session=local_e427425d-205e-402a")
+        #expect(ClaudeDesktopSessions.continueURL(localSessionID: "75c66921-dfb0") == nil)
+        #expect(ClaudeDesktopSessions.continueURL(localSessionID: "local_") == nil)
+        #expect(ClaudeDesktopSessions.continueURL(localSessionID: "local_a&b=c") == nil)
     }
 }

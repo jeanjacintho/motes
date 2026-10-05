@@ -141,7 +141,7 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 | M3 | Bridge: relay + socket + safe hook installation; sessions show up live |
 | M3.5 | Motes you create: name, folder, form, color, CLI; opens a Terminal tied to the mote |
 | M4 | Approvals and questions from the notch, with fallback |
-| M5 | Jump to terminal (Terminal tab by tty, other apps activated), launch at login, global shortcut (⌃⌥M by default) |
+| M5 | Jump to terminal (Terminal tab by tty; Claude desktop opens the session itself, best effort; other apps activated), launch at login, global shortcut (⌃⌥M by default) |
 | M6 | Polish: measure CPU/RAM, tests, ad-hoc signed release on GitHub |
 
 ## 7. MVP acceptance criteria
