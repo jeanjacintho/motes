@@ -31,11 +31,19 @@ Each agent is represented by an animated mote that gives a face to the state of 
 
 > The points below are proposals to discuss. Items marked **[decide]** are open choices.
 
-### 3.1 One mote per agent
-- A **mote** is the app's central entity. Each agent (Claude Code, Codex, Gemini CLI, Cursor…) has its own mote.
-- Each mote has a **personality**: colour, shape, the way it blinks and moves, its own reactions and short lines. Claude is calm, Codex is restless, and so on.
-- Several sessions of the same agent share the same mote. **[decide]** Does the mote show a session counter, or does each session spawn a smaller "offspring"?
-- In the notch, the mote of the focused session is shown large and the others small next to it. Each small mote keeps its own identity, not just a different colour.
+### 3.1 Motes you create
+A **mote** is the app's central entity: a named companion for one project.
+- **New Mote** (menu bar, the island's **+**, or Settings) opens a window with a live preview. You pick:
+  - a **name**,
+  - a **folder**,
+  - a **form**, one of five temperaments: *Calm*, *Restless*, *Curious*, *Bubbly*, *Easygoing* (eyes, orbit, proportions and rhythm),
+  - a **color**, one of nine: coral, amber, yellow, green, teal, blue, violet, pink, silver,
+  - a **CLI**: Claude Code, Codex or Gemini CLI.
+- Creating it opens **Terminal** in the folder running the CLI. That shell carries `MOTES_MOTE_ID`, so every hook fired from it is tied to the mote, even with several chats in the same folder or after restarting the CLI. No Automation permission is needed: Motes opens a `.command` script with Terminal.
+- With nothing running, the open island shows your motes; click one to open its terminal again.
+- **Sessions started outside Motes** (running `claude` in any terminal) use the mote whose folder contains their working directory, the deepest one winning. Otherwise they get the CLI's **automatic mote** (Claude: calm coral, Codex: restless blue, Gemini: curious violet, Cursor: bubbly pink, anything else: easygoing green).
+- Motes are saved in `~/Library/Application Support/Motes/motes.json`.
+- Live state needs the CLI's hooks. Claude Code's are installed from Settings; Codex and Gemini CLI open in Terminal but don't report state yet.
 
 **Personality model** (`Motes/Sources/Character/MotePersonality.swift`):
 
@@ -51,7 +59,7 @@ struct MotePersonality {
 }
 ```
 
-There is a single animation engine. A personality is just **data**, so contributors can add a mote for a new agent with one file in `Motes/Sources/Motes/`, without touching the engine.
+There is a single animation engine. A personality is just **data**: a form (`MoteForm`) plus a color (`MotePalette`). Adding a form or a color doesn't touch the engine.
 
 ### 3.2 Visual style: light
 "Motes" are the specks of dust that shine in a beam of light. Each mote is a **small orb of light**:
@@ -62,15 +70,15 @@ There is a single animation engine. A personality is just **data**, so contribut
 
 Motes differ by **color, eyes, proportions and orbit**. The body always keeps its color; the **state** shows through the eyes, the motion, a second halo and a badge in the state color, and the dust: it speeds up while working and slows down and dims when tired or asleep.
 
-Current motes:
+Forms:
 
-| Mote | Color | Eyes | Orbit |
-|---|---|---|---|
-| Claude | coral `#FF7A45` | leaning pills | 3 slow specks, wide |
-| Codex | blue `#3D8BFF` | tall pills | 5 fast specks, close |
-| Gemini | violet `#A77BFF` | lopsided dots | 4 specks, steep tilt |
-| Cursor | pink `#FF4FB8` | round dots | 2 big companions |
-| Default (any other agent) | green `#2BD48A` | pills leaning apart | 3 specks |
+| Form | Eyes | Orbit |
+|---|---|---|
+| Calm | leaning pills, slow breathing | 3 slow specks, wide |
+| Restless | tall pills, quick blinks | 5 fast specks, close |
+| Curious | lopsided dots | 4 specks, steep tilt |
+| Bubbly | round dots | 2 big companions |
+| Easygoing | pills leaning apart | 3 specks |
 
 States: `idle, working, thinking, approval, question, error, finished, tired (😓), sleeping`.
 
@@ -131,6 +139,7 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 | M1 | Notch island: modes, animations, click-through, no-notch fallback |
 | M2 | Motes with every state, paused when hidden |
 | M3 | Bridge: relay + socket + safe hook installation; sessions show up live |
+| M3.5 | Motes you create: name, folder, form, color, CLI; opens a Terminal tied to the mote |
 | M4 | Approvals and questions from the notch, with fallback |
 | M5 | Jump to terminal, settings, launch at login, hotkey |
 | M6 | Polish: measure CPU/RAM, tests, ad-hoc signed release on GitHub |
@@ -142,21 +151,21 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 - `~/.claude/settings.json` is never changed without a backup and confirmation.
 
 ## 8. Decisions made
-- **Entity:** one mote per agent, each with its own personality (§3.1).
+- **Entity:** motes are created by the user (name, folder, form, color, CLI) and open their own Terminal; other sessions use the folder's mote or an automatic one (§3.1).
+- **Terminal:** only Terminal.app for now.
 - **Style:** "light": each mote is an orb of light with its own orbiting dust, no props (§3.2).
 - **Distribution:** GitHub only at first, open source, so others can contribute. No App Store target and no sandbox for now.
 - **Bundle id:** `app.motes.Motes`, never to be changed.
 - **Signing:** free Apple account. Ad-hoc signed releases, no notarization for now (§10).
 
 ## 9. Open questions
-1. Several sessions of the same agent: counter or offspring?
-2. Sounds: yes or no? Who makes them?
-3. License: MIT for the code? Are the assets (motes, sounds) open too, or all rights reserved?
+1. Sounds: yes or no? Who makes them?
+2. License: MIT for the code? Are the assets (motes, sounds) open too, or all rights reserved?
 
 ## 10. Getting ready for contributors
 Since the repository is public from day one:
 - README with a GIF, how to build (`brew install xcodegen && xcodegen && open Motes.xcodeproj`) and how to install the hooks.
-- `CONTRIBUTING.md` + a "how to create a mote for a new agent" guide (just a `MotePersonality` + the hook mapping).
+- `CONTRIBUTING.md` + a "how to support a new CLI" guide (its `MoteCLI` case, automatic mote, hook mapping and installer).
 - `AGENTS.md` (imported by `CLAUDE.md`) with the project rules (§2.2), for contributors who use AI agents.
 - GitHub Actions CI: build + pure logic tests on every PR.
 - **Signing (free Apple account, no Developer Program):** no `Developer ID` certificate and no notarization. Plan:

@@ -11,11 +11,12 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Sessions/` — session model, activity feed, focus rules, alert queue.
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
   - `Character/` — mote animation engine (pure logic) + `Canvas` view.
-  - `Motes/` — one `MotePersonality` per agent (data only, no drawing code) and `MoteRegistry`.
-  - `Features/` — one folder per island view (Overview, Approval, Question, Finished…).
+  - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
+  - `Features/` — one folder per feature view (NewMote, and island views from M4: Approval, Question…).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
   - `Settings/` — settings window, Keychain, login item, global hotkey.
-- `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app.
+- `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app (`Contents/MacOS`) and copied to `~/Library/Application Support/Motes/bin/` at launch.
+- `Motes/Shared/` — code compiled into both the app and the hook (socket protocol, relay, socket helpers).
 - `Motes/project.yml` — XcodeGen project. The `.xcodeproj` is generated and not committed.
 - `Tests/` — unit tests for the pure logic (Swift Testing, `MotesTests` target).
 - `docs/PROJECT.md` — vision, scope, milestones. `docs/INTEGRATION.md` — how agents send events to Motes.
@@ -40,7 +41,7 @@ Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferenc
 - Never approve a permission or answer a question without an explicit click.
 - Performance: 0 % CPU when the island is hidden, < 3 % when compact, < 100 MB of memory.
 - The transparent panel must never swallow a click outside the island shape.
-- Mote IDs (`claude`, `codex`, `gemini`…) are stable contract values (UserDefaults, hook routing): never rename an existing one.
+- Stable contract values, never rename: automatic mote IDs (`claude`, `codex`, `gemini`…), `MoteForm`, `MotePalette` and `MoteCLI` raw values (saved in `motes.json`), `MOTES_MOTE_ID`, and the socket keys.
 - Distribution is GitHub only, ad-hoc signed (no Developer ID yet). Keep the signing identity a build variable, and keep the MVP independent of Automation / Accessibility permissions where possible, since ad-hoc builds may lose them on update.
 - Characters, sounds and icon are 100 % original. Never copy assets from other projects.
 - Every release adds its `CHANGELOG.md` section and bumps the version in `project.yml`.

@@ -40,6 +40,15 @@ targets:
     sources:
       - path: Sources
         type: group
+      - path: Shared
+        type: group
+    dependencies:
+      # The hook ships inside the app, next to the main executable.
+      - target: motes-hook
+        embed: true
+        codeSign: true
+        copy:
+          destination: executables
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: app.motes.Motes
@@ -50,6 +59,34 @@ targets:
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         ENABLE_APP_SANDBOX: NO
+
+  motes-hook:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Hook
+        type: group
+      - path: Shared
+        type: group
+    settings:
+      base:
+        PRODUCT_NAME: motes-hook
+        PRODUCT_BUNDLE_IDENTIFIER: app.motes.hook
+        SKIP_INSTALL: YES
+
+  motes-hook:
+    type: tool
+    platform: macOS
+    sources:
+      - path: Hook
+        type: group
+      - path: Shared
+        type: group
+    settings:
+      base:
+        PRODUCT_NAME: motes-hook
+        PRODUCT_BUNDLE_IDENTIFIER: app.motes.hook
+        SKIP_INSTALL: YES
 
   MotesTests:
     type: bundle.unit-test

@@ -3,12 +3,17 @@ import SwiftUI
 /// Items of the menu bar extra.
 struct MenuBarMenu: View {
     let island: IslandController
+    let sessions: SessionController
+    let onNewMote: () -> Void
     @Environment(\.openSettings) private var openSettings
 
     var body: some View {
         Text(AppInfo.displayVersion(bundle: .main))
 
         Divider()
+
+        Button("New Mote…", action: onNewMote)
+            .keyboardShortcut("n")
 
         Button("Open Island") {
             island.open()
@@ -24,10 +29,10 @@ struct MenuBarMenu: View {
         #if DEBUG
         Menu("Debug") {
             Button("Add Fake Session") {
-                island.setFakeSessionCount(island.fakeSessionCount + 1)
+                sessions.debugAddFakeSession()
             }
             Button("Clear Fake Sessions") {
-                island.setFakeSessionCount(0)
+                sessions.debugClearFakeSessions()
             }
             Divider()
             Picker("Mote State", selection: Binding(

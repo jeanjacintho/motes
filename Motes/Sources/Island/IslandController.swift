@@ -37,13 +37,27 @@ final class IslandController {
         send(.openRequested)
     }
 
-    /// Debug helper until real sessions arrive in M3.
-    func setFakeSessionCount(_ count: Int) {
-        model.sessionCount = max(0, count)
-        send(.sessionsChanged(hasSessions: model.sessionCount > 0))
+    func setMotes(_ motes: [Mote]) {
+        model.motes = motes
     }
 
-    var fakeSessionCount: Int { model.sessionCount }
+    /// Opens the window to create a mote; set by the app.
+    var onNewMote: (() -> Void)? {
+        get { model.onNewMote }
+        set { model.onNewMote = newValue }
+    }
+
+    /// Opens a mote's terminal; set by the app.
+    var onOpenMote: ((Mote) -> Void)? {
+        get { model.onOpenMote }
+        set { model.onOpenMote = newValue }
+    }
+
+    func setSessions(_ sessions: [AgentSession], focused: AgentSession?) {
+        model.sessions = sessions
+        model.focused = focused
+        send(.sessionsChanged(hasSessions: !sessions.isEmpty))
+    }
 
     /// Debug helper: force the mote into a state, `nil` to follow the sessions.
     var debugMoteState: MoteState? {

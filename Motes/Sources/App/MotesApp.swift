@@ -6,11 +6,15 @@ struct MotesApp: App {
 
     var body: some Scene {
         MenuBarExtra("Motes", systemImage: "sparkles") {
-            MenuBarMenu(island: appDelegate.island)
+            MenuBarMenu(island: appDelegate.island, sessions: appDelegate.sessions) {
+                appDelegate.newMoteWindow.show()
+            }
         }
 
         Settings {
-            SettingsView()
+            SettingsView(library: appDelegate.library, hookInstaller: appDelegate.hookInstaller) {
+                appDelegate.newMoteWindow.show()
+            }
         }
     }
 }

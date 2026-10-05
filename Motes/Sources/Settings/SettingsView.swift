@@ -1,15 +1,22 @@
 import SwiftUI
 
-/// Settings window. Sections (hooks, behavior, hotkey, startup) arrive in M5.
+/// Settings window. More sections (behavior, hotkey, startup) arrive in M5.
 struct SettingsView: View {
+    let library: MoteLibrary
+    let hookInstaller: ClaudeHookInstaller
+    let onNewMote: () -> Void
+
     var body: some View {
         Form {
+            MotesSection(library: library, onNewMote: onNewMote)
+            ClaudeHooksSection(installer: hookInstaller)
+
             Section {
                 LabeledContent("Version", value: AppInfo.displayVersion(bundle: .main))
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420)
+        .frame(width: 480)
         .fixedSize(horizontal: false, vertical: true)
     }
 }
