@@ -89,11 +89,8 @@ final class SessionController {
 
     private func enqueue(_ event: HookEvent, responder: BridgeResponder) {
         let now = Date.now
-        // Only Claude Code's replies are understood for now; other agents ask in their terminal.
-        let alert = event.agent == BridgeProtocol.defaultAgent
-            ? (PendingAlert.approval(from: event, id: responder.id, at: now)
-                ?? PendingAlert.question(from: event, id: responder.id, at: now))
-            : nil
+        // Agents whose replies Motes can't give ask in their terminal.
+        let alert = PendingAlert.make(from: event, id: responder.id, at: now)
         guard let alert else {
             log.notice("No card for \(String(describing: event.kind), privacy: .public) tool=\(event.toolName ?? "-", privacy: .public) input=\(event.rawToolInput != nil, privacy: .public)")
             responder.reply(nil)

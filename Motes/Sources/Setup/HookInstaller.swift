@@ -1,11 +1,11 @@
 import Foundation
 import Observation
 
-/// Installs Motes' hooks in `~/.claude/settings.json`, the safe way:
+/// Installs Motes' hooks in an agent's settings file, the safe way:
 /// read → dated backup → merge → show the diff → write only once the user confirms.
 @MainActor
 @Observable
-final class ClaudeHookInstaller {
+final class HookInstaller {
     enum Action: Equatable { case install, uninstall }
 
     /// A change ready to be confirmed.
@@ -15,25 +15,28 @@ final class ClaudeHookInstaller {
         fileprivate let newContents: Data
     }
 
-    private(set) var status: ClaudeHookSettings.Status = .notInstalled
+    private(set) var status: HookSettings.Status = .notInstalled
     private(set) var lastError: String?
     private(set) var lastBackup: URL?
 
+    let target: HookTarget
     let settingsURL: URL
     let hookPath: String
 
     init(
-        settingsURL: URL = URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(".claude/settings.json"),
+        target: HookTarget = .claude,
+        settingsURL: URL? = nil,
         hookPath: String = HookBinaryInstaller.installedURL.path
     ) {
-        self.settingsURL = settingsURL
+        self.target = target
+        self.settingsURL = settingsURL ?? target.settingsURL
         self.hookPath = hookPath
         refresh()
     }
 
     func refresh() {
         do {
-            status = ClaudeHookSettings.status(of: try readSettings(), hookPath: hookPath)
+            status = HookSettings.status(of: try readSettings(), target: target, hookPath: hookPath)
             lastError = nil
         } catch {
             lastError = message(for: error)
@@ -45,8 +48,8 @@ final class ClaudeHookInstaller {
         do {
             let current = try readSettings()
             let updated = action == .install
-                ? ClaudeHookSettings.installing(into: current, hookPath: hookPath)
-                : ClaudeHookSettings.removing(from: current)
+                ? HookSettings.installing(into: current, target: target, hookPath: hookPath)
+                : HookSettings.removing(from: current)
             let before = try Self.serialize(current)
             let after = try Self.serialize(updated)
             let diff = LineDiff.render(LineDiff.diff(Self.lines(before), Self.lines(after)))

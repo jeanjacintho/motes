@@ -6,13 +6,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sessions = SessionController()
     let library = MoteLibrary()
     let preferences = Preferences()
-    let hookInstaller: ClaudeHookInstaller
+    let hookInstallers: [HookInstaller]
     let newMoteWindow: NewMoteWindowController
 
     override init() {
         // The hook must be in place before the installer checks its path.
         HookBinaryInstaller.installIfNeeded()
-        hookInstaller = ClaudeHookInstaller()
+        hookInstallers = HookTarget.all.map { HookInstaller(target: $0) }
         newMoteWindow = NewMoteWindowController(library: library)
         super.init()
     }

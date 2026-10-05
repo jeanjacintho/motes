@@ -14,6 +14,15 @@ enum ActivityLabel {
             label = join(name, input["notebook_path"].map(fileName))
         case "Bash":
             label = join(name, input["command"].map(firstLine))
+        case "apply_patch":
+            // Codex edits files with a patch: name the files instead of showing it.
+            let files = input["command"].map(patchFiles) ?? []
+            if let first = files.first {
+                let more = files.count > 1 ? " +\(files.count - 1)" : ""
+                label = "\(first.verb) \(fileName(first.path))\(more)"
+            } else {
+                label = "Edit files"
+            }
         case "Grep":
             label = join(name, input["pattern"].map { "\"\($0)\"" })
         case "Glob":
@@ -34,6 +43,18 @@ enum ActivityLabel {
             }
         }
         return truncate(label)
+    }
+
+    /// Files a Codex patch touches, from its `*** Add/Update/Delete File:` headers.
+    static func patchFiles(_ patch: String) -> [(verb: String, path: String)] {
+        let headers = [("*** Add File: ", "Write"), ("*** Update File: ", "Edit"), ("*** Delete File: ", "Delete")]
+        return patch.split(whereSeparator: \.isNewline).compactMap { line in
+            for (prefix, verb) in headers where line.hasPrefix(prefix) {
+                let path = line.dropFirst(prefix.count).trimmingCharacters(in: .whitespaces)
+                return path.isEmpty ? nil : (verb, path)
+            }
+            return nil
+        }
     }
 
     /// "› Fix the login bug" from a prompt.

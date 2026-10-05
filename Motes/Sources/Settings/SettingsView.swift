@@ -4,14 +4,16 @@ import SwiftUI
 struct SettingsView: View {
     let library: MoteLibrary
     let preferences: Preferences
-    let hookInstaller: ClaudeHookInstaller
+    let hookInstallers: [HookInstaller]
     let onNewMote: () -> Void
 
     var body: some View {
         Form {
             GeneralSection(preferences: preferences)
             MotesSection(library: library, onNewMote: onNewMote)
-            ClaudeHooksSection(installer: hookInstaller)
+            ForEach(hookInstallers, id: \.target.id) { installer in
+                HooksSection(installer: installer)
+            }
 
             Section {
                 LabeledContent("Version", value: AppInfo.displayVersion(bundle: .main))

@@ -71,6 +71,10 @@ struct SessionStore {
         case .subagentStop:
             push(&session, "✓ subagent")
 
+        case .interrupt:
+            set(&session, .idle, at: now)
+            push(&session, "Interrupted")
+
         case .sessionEnd, .other:
             break
         }

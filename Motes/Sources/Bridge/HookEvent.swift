@@ -10,6 +10,8 @@ struct HookEvent: Equatable, Sendable {
         case notification
         case stop, stopFailure
         case subagentStart, subagentStop
+        /// The user stopped the agent mid-turn (Codex).
+        case interrupt
         case other(String)
 
         init(name: String) {
@@ -26,6 +28,7 @@ struct HookEvent: Equatable, Sendable {
             case "StopFailure": self = .stopFailure
             case "SubagentStart": self = .subagentStart
             case "SubagentStop": self = .subagentStop
+            case "Interrupt": self = .interrupt
             default: self = .other(name)
             }
         }

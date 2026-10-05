@@ -2,7 +2,7 @@ import Foundation
 import Testing
 @testable import Motes
 
-struct ClaudeHookSettingsTests {
+struct HookSettingsTests {
     let path = "/Users/me/Library/Application Support/Motes/bin/motes-hook"
 
     func json(_ text: String) throws -> [String: Any] {
@@ -14,10 +14,10 @@ struct ClaudeHookSettingsTests {
     }
 
     @Test func installIntoEmptySettings() {
-        let result = ClaudeHookSettings.installing(into: [:], hookPath: path)
-        #expect(ClaudeHookSettings.status(of: result, hookPath: path) == .installed)
+        let result = HookSettings.installing(into: [:], hookPath: path)
+        #expect(HookSettings.status(of: result, hookPath: path) == .installed)
         let hooks = result["hooks"] as? [String: Any] ?? [:]
-        #expect(Set(hooks.keys) == Set(ClaudeHookSettings.entries.map(\.event)))
+        #expect(Set(hooks.keys) == Set(HookTarget.claude.entries.map(\.event)))
         let pre = (hooks["PreToolUse"] as? [[String: Any]])?.first
         #expect(pre?["matcher"] as? String == "*")
         let entry = (pre?["hooks"] as? [[String: Any]])?.first
@@ -26,7 +26,7 @@ struct ClaudeHookSettingsTests {
     }
 
     @Test func waitingEntriesCanWaitForTheUser() {
-        let hooks = ClaudeHookSettings.installing(into: [:], hookPath: path)["hooks"] as! [String: Any]
+        let hooks = HookSettings.installing(into: [:], hookPath: path)["hooks"] as! [String: Any]
         let permission = ((hooks["PermissionRequest"] as? [[String: Any]])?.first?["hooks"] as? [[String: Any]])?.first
         #expect(permission?["command"] as? String == "\"\(path)\" --wait")
         #expect((permission?["timeout"] as? Int ?? 0) > Int(BridgeProtocol.approvalWait))
@@ -49,9 +49,9 @@ struct ClaudeHookSettingsTests {
                       "Notification", "Stop", "SubagentStop", "SessionEnd"] {
             hooks[event] = [["hooks": [["type": "command", "command": "\"\(path)\"", "timeout": 5]]]]
         }
-        #expect(ClaudeHookSettings.status(of: ["hooks": hooks], hookPath: path) == .outdated)
-        let updated = ClaudeHookSettings.installing(into: ["hooks": hooks], hookPath: path)
-        #expect(ClaudeHookSettings.status(of: updated, hookPath: path) == .installed)
+        #expect(HookSettings.status(of: ["hooks": hooks], hookPath: path) == .outdated)
+        let updated = HookSettings.installing(into: ["hooks": hooks], hookPath: path)
+        #expect(HookSettings.status(of: updated, hookPath: path) == .installed)
     }
 
     @Test func installKeepsEverythingElse() throws {
@@ -60,7 +60,7 @@ struct ClaudeHookSettingsTests {
          "hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/usr/local/bin/guard"}]}],
                   "PreCompact":[{"hooks":[{"type":"command","command":"echo hi"}]}]}}
         """)
-        let result = ClaudeHookSettings.installing(into: original, hookPath: path)
+        let result = HookSettings.installing(into: original, hookPath: path)
         #expect(result["model"] as? String == "opus")
         #expect(same(result["permissions"] as? [String: Any] ?? [:], original["permissions"] as! [String: Any]))
         let hooks = result["hooks"] as! [String: Any]
@@ -75,13 +75,13 @@ struct ClaudeHookSettingsTests {
         let original = try json("""
         {"model":"opus","hooks":{"Stop":[{"hooks":[{"type":"command","command":"say done"}]}]}}
         """)
-        let roundTrip = ClaudeHookSettings.removing(from: ClaudeHookSettings.installing(into: original, hookPath: path))
+        let roundTrip = HookSettings.removing(from: HookSettings.installing(into: original, hookPath: path))
         #expect(same(roundTrip, original))
     }
 
     @Test func removeDropsEmptyHooksKey() {
-        let installed = ClaudeHookSettings.installing(into: ["model": "opus"], hookPath: path)
-        let removed = ClaudeHookSettings.removing(from: installed)
+        let installed = HookSettings.installing(into: ["model": "opus"], hookPath: path)
+        let removed = HookSettings.removing(from: installed)
         #expect(removed["hooks"] == nil)
         #expect(removed["model"] as? String == "opus")
     }
@@ -90,37 +90,37 @@ struct ClaudeHookSettingsTests {
         let settings = try json("""
         {"hooks":{"Stop":[{"hooks":[{"type":"command","command":"say done"},{"type":"command","command":"\\"/x/motes-hook\\""}]}]}}
         """)
-        let removed = ClaudeHookSettings.removing(from: settings)
+        let removed = HookSettings.removing(from: settings)
         let entries = ((removed["hooks"] as? [String: Any])?["Stop"] as? [[String: Any]])?.first?["hooks"] as? [[String: Any]]
         #expect(entries?.count == 1)
         #expect(entries?.first?["command"] as? String == "say done")
     }
 
     @Test func installTwiceDoesNotDuplicate() {
-        let once = ClaudeHookSettings.installing(into: [:], hookPath: path)
-        let twice = ClaudeHookSettings.installing(into: once, hookPath: path)
+        let once = HookSettings.installing(into: [:], hookPath: path)
+        let twice = HookSettings.installing(into: once, hookPath: path)
         #expect(same(once, twice))
     }
 
     @Test func movedHookIsOutdatedAndUpdateFixesIt() {
-        let old = ClaudeHookSettings.installing(into: [:], hookPath: "/old/motes-hook")
-        #expect(ClaudeHookSettings.status(of: old, hookPath: path) == .outdated)
-        let updated = ClaudeHookSettings.installing(into: old, hookPath: path)
-        #expect(ClaudeHookSettings.status(of: updated, hookPath: path) == .installed)
+        let old = HookSettings.installing(into: [:], hookPath: "/old/motes-hook")
+        #expect(HookSettings.status(of: old, hookPath: path) == .outdated)
+        let updated = HookSettings.installing(into: old, hookPath: path)
+        #expect(HookSettings.status(of: updated, hookPath: path) == .installed)
     }
 
     @Test func notInstalled() throws {
-        #expect(ClaudeHookSettings.status(of: [:], hookPath: path) == .notInstalled)
-        #expect(ClaudeHookSettings.status(of: try json(#"{"hooks":{"Stop":[]}}"#), hookPath: path) == .notInstalled)
+        #expect(HookSettings.status(of: [:], hookPath: path) == .notInstalled)
+        #expect(HookSettings.status(of: try json(#"{"hooks":{"Stop":[]}}"#), hookPath: path) == .notInstalled)
     }
 
     @Test func missingEventIsOutdated() {
-        var settings = ClaudeHookSettings.installing(into: [:], hookPath: path)
+        var settings = HookSettings.installing(into: [:], hookPath: path)
         var hooks = settings["hooks"] as! [String: Any]
         hooks["Stop"] = nil
         settings["hooks"] = hooks
-        #expect(ClaudeHookSettings.status(of: settings, hookPath: path) == .outdated)
-        #expect(ClaudeHookSettings.status(of: settings, hookPath: path) == .outdated)
+        #expect(HookSettings.status(of: settings, hookPath: path) == .outdated)
+        #expect(HookSettings.status(of: settings, hookPath: path) == .outdated)
     }
 }
 
@@ -143,7 +143,7 @@ struct LineDiffTests {
 }
 
 @MainActor
-struct ClaudeHookInstallerTests {
+struct HookInstallerTests {
     func temporarySettings(_ contents: String?) throws -> URL {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -154,7 +154,7 @@ struct ClaudeHookInstallerTests {
 
     @Test func installBacksUpAndWrites() throws {
         let url = try temporarySettings(#"{"model":"opus"}"#)
-        let installer = ClaudeHookInstaller(settingsURL: url, hookPath: "/x/motes-hook")
+        let installer = HookInstaller(settingsURL: url, hookPath: "/x/motes-hook")
         #expect(installer.status == .notInstalled)
         let plan = try #require(installer.plan(.install))
         #expect(plan.diff.contains("+ "))
@@ -173,7 +173,7 @@ struct ClaudeHookInstallerTests {
 
     @Test func missingFileIsCreatedWithoutBackup() throws {
         let url = try temporarySettings(nil)
-        let installer = ClaudeHookInstaller(settingsURL: url, hookPath: "/x/motes-hook")
+        let installer = HookInstaller(settingsURL: url, hookPath: "/x/motes-hook")
         installer.apply(try #require(installer.plan(.install)))
         #expect(installer.status == .installed)
         #expect(installer.lastBackup == nil)
@@ -181,7 +181,7 @@ struct ClaudeHookInstallerTests {
 
     @Test func invalidJSONIsNeverTouched() throws {
         let url = try temporarySettings("{ not json")
-        let installer = ClaudeHookInstaller(settingsURL: url, hookPath: "/x/motes-hook")
+        let installer = HookInstaller(settingsURL: url, hookPath: "/x/motes-hook")
         #expect(installer.lastError != nil)
         #expect(installer.plan(.install) == nil)
         #expect(try String(contentsOf: url, encoding: .utf8) == "{ not json")
@@ -190,9 +190,9 @@ struct ClaudeHookInstallerTests {
     @Test func backupNamesDontCollide() throws {
         let url = try temporarySettings("{}")
         let date = Date(timeIntervalSinceReferenceDate: 0)
-        let first = ClaudeHookInstaller.backupURL(for: url, date: date)
+        let first = HookInstaller.backupURL(for: url, date: date)
         try Data().write(to: first)
-        let second = ClaudeHookInstaller.backupURL(for: url, date: date)
+        let second = HookInstaller.backupURL(for: url, date: date)
         #expect(first != second)
         #expect(second.lastPathComponent.hasSuffix("-2"))
     }

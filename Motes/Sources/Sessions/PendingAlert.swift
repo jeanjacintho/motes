@@ -29,7 +29,10 @@ struct PendingAlert: Identifiable, Equatable, Sendable {
 
     static func approval(from event: HookEvent, id: UUID, at now: Date) -> PendingAlert? {
         guard event.kind == .permissionRequest, let tool = event.toolName else { return nil }
-        let detail = event.toolInput["command"] ?? event.toolInput["file_path"]
+        // A patch is long and unreadable in the card: show the files it touches.
+        let patchFiles = tool == "apply_patch" ? event.toolInput["command"].map(ActivityLabel.patchFiles) : nil
+        let detail = patchFiles.flatMap { $0.isEmpty ? nil : $0.map(\.path).joined(separator: "\n") }
+            ?? event.toolInput["command"] ?? event.toolInput["file_path"]
             ?? event.toolInput["notebook_path"] ?? event.toolInput["url"] ?? event.toolInput["pattern"]
         let approval = Approval(
             toolName: tool,
@@ -42,6 +45,19 @@ struct PendingAlert: Identifiable, Equatable, Sendable {
             expiresAt: now.addingTimeInterval(event.wait ?? BridgeProtocol.approvalWait),
             toolInput: event.rawToolInput, suggestions: event.permissionSuggestions
         )
+    }
+
+    /// The alert a waiting hook event asks for, following what each agent can be answered with:
+    /// Claude Code gets approvals and questions, Codex approvals only, others nothing.
+    static func make(from event: HookEvent, id: UUID, at now: Date) -> PendingAlert? {
+        switch event.agent {
+        case BridgeProtocol.defaultAgent:
+            approval(from: event, id: id, at: now) ?? question(from: event, id: id, at: now)
+        case HookTarget.codex.agent:
+            approval(from: event, id: id, at: now)
+        default:
+            nil
+        }
     }
 
     static func question(from event: HookEvent, id: UUID, at now: Date) -> PendingAlert? {
@@ -78,7 +94,7 @@ struct AlertQueue {
     mutating func obsoleted(by event: HookEvent) -> [PendingAlert] {
         let movesOn: Bool
         switch event.kind {
-        case .userPromptSubmit, .stop, .stopFailure, .sessionEnd: movesOn = true
+        case .userPromptSubmit, .stop, .stopFailure, .sessionEnd, .interrupt: movesOn = true
         default: movesOn = false
         }
         guard movesOn else { return [] }

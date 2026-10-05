@@ -2,6 +2,11 @@
 
 All notable changes to Motes. Versions follow [Semantic Versioning](https://semver.org).
 
+## [Unreleased]
+
+### Added
+- Codex support: install its hooks from Settings (`~/.codex/hooks.json`), see its sessions live and allow or deny its permission requests from the notch. Patch edits show the files they touch.
+
 ## [0.1.0] - 2026-10-05
 
 First public version.

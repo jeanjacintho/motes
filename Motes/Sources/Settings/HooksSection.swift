@@ -1,9 +1,9 @@
 import SwiftUI
 
-/// Install or remove Motes' Claude Code hooks, always showing the diff first.
-struct ClaudeHooksSection: View {
-    let installer: ClaudeHookInstaller
-    @State private var pendingPlan: ClaudeHookInstaller.Plan?
+/// Install or remove Motes' hooks for one agent, always showing the diff first.
+struct HooksSection: View {
+    let installer: HookInstaller
+    @State private var pendingPlan: HookInstaller.Plan?
 
     var body: some View {
         Section {
@@ -35,9 +35,9 @@ struct ClaudeHooksSection: View {
                     .textSelection(.enabled)
             }
         } header: {
-            Text("Claude Code")
+            Text(installer.target.name)
         } footer: {
-            Text("Motes adds its hooks to \(installer.settingsURL.path) next to yours, after a dated backup. If Motes isn't running, Claude Code carries on as usual.")
+            Text("Motes adds its hooks to \(installer.settingsURL.path) next to yours, after a dated backup. \(installer.target.footer)")
                 .foregroundStyle(.secondary)
         }
         .onAppear { installer.refresh() }
@@ -68,13 +68,13 @@ struct ClaudeHooksSection: View {
     }
 }
 
-extension ClaudeHookInstaller.Plan: Identifiable {
+extension HookInstaller.Plan: Identifiable {
     var id: String { diff }
 }
 
 /// Shows exactly what will change in the file before anything is written.
 private struct HookDiffSheet: View {
-    let plan: ClaudeHookInstaller.Plan
+    let plan: HookInstaller.Plan
     let path: String
     let onConfirm: () -> Void
     let onCancel: () -> Void

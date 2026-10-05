@@ -68,5 +68,5 @@ enum MoteCLI: String, CaseIterable, Codable, Sendable {
 
     /// Whether Motes can install this CLI's hooks yet. Without them the
     /// terminal opens fine, but the mote can't show live state.
-    var hasHookSupport: Bool { self == .claude }
+    var hasHookSupport: Bool { self == .claude || self == .codex }
 }

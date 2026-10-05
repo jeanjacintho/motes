@@ -96,6 +96,16 @@ The mote lifecycle:
 
 A session is named after its `cwd` folder. Events for an unknown `session_id` create the session, so Motes catches up with sessions that started before it. A session quiet for 10 minutes falls asleep; one quiet for 2 hours (no `SessionEnd`, e.g. a killed terminal) is forgotten.
 
+## Codex
+
+Settings → Codex → **Install Hooks** writes `~/.codex/hooks.json` (same backup, diff and confirmation as Claude Code). Codex runs a new or changed hook only after you trust it: run `/hooks` in Codex once and trust the Motes entries.
+
+- Commands carry `--agent codex`; tool groups have no matcher (Codex then matches every tool).
+- Registered: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `PermissionRequest` (`--wait`, 120 s), `Stop`, `SubagentStop`, `Interrupt` and `SessionEnd` (3 s, Codex's cap). Codex has no `Notification` event.
+- Permission requests can be answered from the notch with **Allow** or **Deny**; Codex has no rule to remember, so no **Always Allow**, and no questions.
+- `apply_patch` edits are labelled with the files the patch touches.
+- `Interrupt` sets the mote back to idle and drops its pending alert.
+
 ## Supporting a new CLI
 
 1. Add a case to `MoteCLI` (command and agent name) and an automatic mote in `MoteRegistry` (a form plus a color, stable ID).
