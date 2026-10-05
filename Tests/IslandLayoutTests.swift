@@ -23,6 +23,15 @@ struct IslandLayoutTests {
         #expect(expanded.height >= compact.height)
     }
 
+    @Test func alertsOnlyChangeTheHeight() {
+        // The island is centered: a width change moves its left edge, and content
+        // leaving mid-animation slides sideways with it. Alerts only grow downwards.
+        let open = IslandLayout.size(for: .expanded, notch: notch)
+        let alert = IslandLayout.size(for: .expanded, notch: notch, isAlert: true)
+        #expect(alert.width == open.width)
+        #expect(alert.height > open.height)
+    }
+
     @Test func everyModeFitsInThePanel() {
         for (mode, isAlert) in [(IslandMode.hidden, false), (.compact, false), (.expanded, false), (.expanded, true)] {
             let size = IslandLayout.size(for: mode, notch: notch, isAlert: isAlert)

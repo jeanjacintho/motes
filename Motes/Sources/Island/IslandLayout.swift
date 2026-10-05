@@ -15,7 +15,8 @@ enum IslandLayout {
     static let compactSideWidth: CGFloat = 40
     static let expandedSize = CGSize(width: 520, height: 170)
     /// Open island while an alert (approval, question) waits for the user.
-    static let alertSize = CGSize(width: 560, height: 214)
+    /// Same width as `expandedSize`: alerts only grow downwards, so nothing slides sideways.
+    static let alertSize = CGSize(width: expandedSize.width, height: 214)
     /// Radius of the concave "shoulders" that blend the island into the top edge.
     static let shoulderRadius: CGFloat = 8
     /// Extra margin around the island where the pointer still counts as inside.
