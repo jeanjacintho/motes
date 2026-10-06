@@ -29,7 +29,7 @@ struct IslandView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .animation(model.mode == .expanded ? Self.openAnimation : Self.closeAnimation, value: model.mode)
         // An alert arriving or being answered resizes the open island.
-        .animation(Self.openAnimation, value: model.isShowingAlert)
+        .animation(Self.openAnimation, value: model.isTall)
         .animation(Self.closeAnimation, value: model.geometry)
     }
 }
@@ -71,6 +71,12 @@ private struct IslandContent: View {
                     if let alert = model.currentAlert {
                         AlertView(alert: alert, model: model)
                             .id(alert.id)
+                    } else if let session = model.shownDiffSession, let shown = model.shownDiff {
+                        DiffCardView(session: session, changeID: shown.changeID) { changeID in
+                            model.onShowDiff?(session.id, changeID)
+                        } onBack: {
+                            model.shownDiff = nil
+                        }
                     } else if model.sessions.isEmpty {
                         FamilyView(model: model)
                     } else {
@@ -187,7 +193,8 @@ private struct SessionListView: View {
                         session: session,
                         personality: model.personality(for: session),
                         state: model.state(of: session),
-                        anchor: anchor(row: index)
+                        anchor: anchor(row: index),
+                        onShowDiff: { model.onShowDiff?(session.id, $0) }
                     )
                     .frame(height: Self.rowHeight)
                     .contentShape(Rectangle())
@@ -224,6 +231,7 @@ private struct SessionRow: View {
     let personality: MotePersonality
     let state: MoteState
     let anchor: CGPoint
+    let onShowDiff: (UUID) -> Void
     static let moteSize: CGFloat = 40
 
     var body: some View {
@@ -239,9 +247,16 @@ private struct SessionRow: View {
                 Text(title)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(.white)
-                Text(session.latestActivity ?? "Ready")
-                    .font(.system(size: 12))
-                    .foregroundStyle(.white.opacity(0.6))
+                HStack(spacing: 6) {
+                    Text(session.latestActivity ?? "Ready")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.white.opacity(0.6))
+                    if let change = session.latestChange {
+                        Button { onShowDiff(change.id) } label: { ChangeCounts(change: change) }
+                            .buttonStyle(.plain)
+                            .help("Show the diff of \(change.fileName)")
+                    }
+                }
             }
             .lineLimit(1)
             .truncationMode(.tail)

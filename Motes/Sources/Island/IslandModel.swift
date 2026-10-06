@@ -32,11 +32,27 @@ final class IslandModel {
     /// The open island is showing an alert card.
     var isShowingAlert: Bool { mode == .expanded && currentAlert != nil }
 
+    /// The edit open in the diff card: its session and its ID.
+    var shownDiff: (sessionID: String, changeID: UUID)?
+    @ObservationIgnored var onShowDiff: ((String, UUID) -> Void)?
+
+    var isShowingDiff: Bool { mode == .expanded && currentAlert == nil && shownDiffSession != nil }
+
+    /// The session whose edit is open, while that edit still exists.
+    var shownDiffSession: AgentSession? {
+        guard let shownDiff, let session = session(id: shownDiff.sessionID),
+              session.changes.contains(where: { $0.id == shownDiff.changeID }) else { return nil }
+        return session
+    }
+
+    /// Alerts and diffs need more room than the session list.
+    var isTall: Bool { isShowingAlert || isShowingDiff }
+
     func session(id: String) -> AgentSession? {
         sessions.first { $0.id == id }
     }
 
-    var size: CGSize { IslandLayout.size(for: mode, notch: geometry.notchSize, isAlert: isShowingAlert) }
+    var size: CGSize { IslandLayout.size(for: mode, notch: geometry.notchSize, isAlert: isTall) }
     var bottomCornerRadius: CGFloat { IslandLayout.bottomCornerRadius(for: mode, notch: geometry.notchSize) }
     var isVisible: Bool { IslandLayout.isVisible(mode, hasNotch: geometry.hasNotch) }
 

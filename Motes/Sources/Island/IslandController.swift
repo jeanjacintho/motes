@@ -17,6 +17,7 @@ final class IslandController {
         model = IslandModel(geometry: Self.currentGeometry())
         panel = IslandPanel(contentRect: CGRect(origin: .zero, size: IslandLayout.panelSize))
         let view = IslandView(model: model) { [weak self] in self?.send(.clicked) }
+        model.onShowDiff = { [weak self] sessionID, changeID in self?.showDiff(sessionID: sessionID, changeID: changeID) }
         panel.contentView = IslandHostingView(rootView: view)
     }
 
@@ -40,6 +41,12 @@ final class IslandController {
     /// The shortcut: opens the island, or closes it when it's open.
     func toggle() {
         send(model.mode == .expanded ? .closeRequested : .openRequested)
+    }
+
+    /// Opens the diff card on an edit, or goes back to the list with `nil`.
+    func showDiff(sessionID: String, changeID: UUID?) {
+        model.shownDiff = changeID.map { (sessionID, $0) }
+        updatePointer(NSEvent.mouseLocation)
     }
 
     /// Jumps to a session's terminal; set by the app.
@@ -96,6 +103,8 @@ final class IslandController {
         let effects = machine.handle(event)
         if model.mode != machine.mode {
             model.mode = machine.mode
+            // A closed island forgets the diff it was showing.
+            if machine.mode != .expanded { model.shownDiff = nil }
         }
         for effect in effects {
             switch effect {
@@ -144,7 +153,7 @@ final class IslandController {
     private func updatePointer(_ location: CGPoint) {
         // Visible motes follow the pointer with their eyes.
         if model.mode != .hidden { PointerTracker.shared.update(location) }
-        let hoverRect = IslandLayout.hoverRect(for: model.mode, geometry: model.geometry, isAlert: model.isShowingAlert)
+        let hoverRect = IslandLayout.hoverRect(for: model.mode, geometry: model.geometry, isAlert: model.isTall)
         let inside = hoverRect.contains(location)
         // Only the island itself takes clicks; the transparent rest of the panel lets them through.
         if panel.ignoresMouseEvents == inside {

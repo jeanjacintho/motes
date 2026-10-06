@@ -49,7 +49,14 @@ struct SessionStore {
                 if let tool = event.toolName { push(&session, ActivityLabel.tool(tool, input: event.toolInput)) }
             }
 
-        case .postToolUse, .postToolUseFailure:
+        case .postToolUse:
+            set(&session, .working, at: now)
+            if let tool = event.toolName {
+                let edits = DiffEngine.changes(tool: tool, input: event.rawToolInput, at: now)
+                if !edits.isEmpty { record(edits, in: &session) }
+            }
+
+        case .postToolUseFailure:
             set(&session, .working, at: now)
 
         case .permissionRequest:
@@ -139,7 +146,19 @@ struct SessionStore {
         session.stateChangedAt = now
     }
 
+    /// Keeps the edits and ties the latest one to the feed's last line, which
+    /// names the file already ("Edit App.swift").
+    private func record(_ edits: [FileChange], in session: inout AgentSession) {
+        session.changes += edits
+        if session.changes.count > AgentSession.maxChanges {
+            session.changes.removeFirst(session.changes.count - AgentSession.maxChanges)
+        }
+        session.latestChange = edits.last
+    }
+
     private func push(_ session: inout AgentSession, _ line: String) {
+        // A new line is about something else than the last edit.
+        session.latestChange = nil
         session.feed.append(line)
         if session.feed.count > AgentSession.maxFeed {
             session.feed.removeFirst(session.feed.count - AgentSession.maxFeed)

@@ -13,12 +13,17 @@ struct AgentSession: Identifiable, Equatable, Sendable {
     var state: MoteState
     /// Latest actions, oldest first ("Edit Foo.swift", "Bash npm test").
     var feed: [String] = []
+    /// File edits of this session, oldest first, capped at `maxChanges`.
+    var changes: [FileChange] = []
+    /// The edit the latest feed line is about, shown with its +N −M.
+    var latestChange: FileChange?
     var terminal: [String: String] = [:]
     var startedAt: Date
     var lastEventAt: Date
     var stateChangedAt: Date
 
     static let maxFeed = 20
+    static let maxChanges = 50
 
     var latestActivity: String? { feed.last }
 }

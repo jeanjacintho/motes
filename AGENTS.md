@@ -9,10 +9,11 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `App/` — app entry point, menu bar extra, app-wide helpers.
   - `Bridge/` — Unix socket server, hook payload parsing, decisions sent back to the hook.
   - `Sessions/` — session model, activity feed, focus rules, alert queue.
+  - `Diff/` — `DiffEngine` and `FileChange`: live diffs built from hook payloads only (never reading files from disk).
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
   - `Character/` — `MoteLayer` (Core Animation), `MoteView` (SwiftUI wrapper), states and personalities, and pure helpers (blink rhythm, badge layout).
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
-  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards).
+  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards), `Diff/` (diff card).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
   - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`). `ClaudeDesktopSessions` opens a Code session in the Claude desktop app through undocumented behavior (a `claude://code/continue` link and the app's session files, read only); it must always fall back to just activating the app.
   - `Settings/` — settings window, preferences (launch at login, shortcut).
