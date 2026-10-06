@@ -15,6 +15,8 @@ final class IslandModel {
     var motes: [Mote] = []
     /// Alerts waiting for the user, oldest first. The first one is shown.
     var alerts: [PendingAlert] = []
+    /// Claude plan usage, shown on the open island's right shoulder.
+    var usage: PlanUsage?
     /// Forced from the Debug menu; `nil` follows the sessions.
     var debugMoteState: MoteState?
     @ObservationIgnored var onNewMote: (() -> Void)?
@@ -76,11 +78,15 @@ final class IslandModel {
     }
 
     var moteState: MoteState {
-        debugMoteState ?? focused?.state ?? .idle
+        debugMoteState ?? adjusted(focused?.state ?? .idle, agent: focused?.agent ?? BridgeProtocol.defaultAgent)
     }
 
     func state(of session: AgentSession) -> MoteState {
-        debugMoteState ?? session.state
+        debugMoteState ?? adjusted(session.state, agent: session.agent)
+    }
+
+    private func adjusted(_ state: MoteState, agent: String) -> MoteState {
+        usage?.adjusted(state, agent: agent) ?? state
     }
 
     /// Screen point where the compact mote is drawn, so its eyes can follow the pointer.

@@ -102,7 +102,7 @@ A control centre for coding agents: a quiet, living panel that only asks for att
 
 ### After the MVP (candidates)
 - ~~Live diff of edits.~~ Done: +N −M next to the session's last action, a diff card in the island (`Edit`, `MultiEdit`, `Write`, Codex `apply_patch`; built from hook payloads, never from disk; up to 200 KB / 4 000 lines, 50 edits per session).
-- Claude plan usage gauge (statusLine).
+- ~~Claude plan usage gauge (statusLine).~~ Done: 5-hour and weekly limits on the open island's right shoulder, read from Claude Code's status line (the user's own status line runs through Motes and is restored on uninstall); idle Claude motes look tired from 90 %.
 - Other agents (Codex, Gemini CLI, Cursor) through the same protocol with the `motes_agent` field.
 - GitHub (PRs, CI, reviews).
 - File drop / window attach + chat.

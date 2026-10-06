@@ -96,6 +96,21 @@ The mote lifecycle:
 
 A session is named after its `cwd` folder. Events for an unknown `session_id` create the session, so Motes catches up with sessions that started before it. A session quiet for 10 minutes falls asleep; one quiet for 2 hours (no `SessionEnd`, e.g. a killed terminal) is forgotten.
 
+## Plan usage (status line)
+
+Claude Code passes its status line command a JSON with `rate_limits` (Pro and Max plans, or a gateway with a spend limit, after the session's first reply): `five_hour`, `seven_day` and `spend_limit`, each with `used_percentage` (0–100) and `resets_at` (Unix seconds). Hooks don't carry it, so installing the Claude Code hooks also sets `statusLine`:
+
+```json
+"statusLine": { "type": "command", "command": "\"…/motes-hook\" --statusline --then <base64>" }
+```
+
+- `motes-hook --statusline` forwards the JSON with `hook_event_name: "StatusLine"` (no wait, 300 ms like every hook).
+- The user's own status line command, if there was one, is kept base64-encoded after `--then` (no shell quoting to get wrong). The hook starts it first with the same JSON on stdin, and its output and exit code are what Claude Code gets. Other `statusLine` keys (`padding`, `refreshInterval`) are left as they were. Removing the hooks puts the original command back.
+- With no status line of its own, the hook prints the plan usage, e.g. `5h 23% · 7d 41%`.
+- A status line that isn't a `command` is left alone.
+- The app keeps the latest usage (it's the account's, not a session's) and drops each window at its `resets_at`. A payload without `rate_limits` changes nothing. Status line events never create or wake a session.
+- Only sessions that run the status line update the gauge: the Claude Code CLI in a terminal. Whether the Claude desktop app's Code sessions run it is unverified.
+
 ## Codex
 
 Settings → Codex → **Install Hooks** writes `~/.codex/hooks.json` (same backup, diff and confirmation as Claude Code). Codex runs a new or changed hook only after you trust it: run `/hooks` in Codex once and trust the Motes entries.

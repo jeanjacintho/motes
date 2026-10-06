@@ -80,6 +80,10 @@ final class IslandController {
         send(.holdChanged(isHeld: !alerts.isEmpty))
     }
 
+    func setUsage(_ usage: PlanUsage?) {
+        model.usage = usage
+    }
+
     /// Where the answers of alert cards go; set by the app.
     func setAlertHandlers(
         permission: @escaping (UUID, ClaudeReply.Permission) -> Void,

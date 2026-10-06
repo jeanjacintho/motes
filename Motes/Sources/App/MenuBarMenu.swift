@@ -34,6 +34,9 @@ struct MenuBarMenu: View {
             Button("Clear Fake Sessions") {
                 sessions.debugClearFakeSessions()
             }
+            Button("Cycle Fake Plan Usage") {
+                sessions.debugCycleFakeUsage()
+            }
             Divider()
             Picker("Mote State", selection: Binding(
                 get: { island.debugMoteState },

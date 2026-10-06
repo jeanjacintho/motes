@@ -12,6 +12,8 @@ struct HookEvent: Equatable, Sendable {
         case subagentStart, subagentStop
         /// The user stopped the agent mid-turn (Codex).
         case interrupt
+        /// Claude Code's status line: plan usage only, not a session event.
+        case statusLine
         case other(String)
 
         init(name: String) {
@@ -29,6 +31,7 @@ struct HookEvent: Equatable, Sendable {
             case "SubagentStart": self = .subagentStart
             case "SubagentStop": self = .subagentStop
             case "Interrupt": self = .interrupt
+            case StatusLineRelay.eventName: self = .statusLine
             default: self = .other(name)
             }
         }
@@ -55,6 +58,8 @@ struct HookEvent: Equatable, Sendable {
     var notificationType: String?
     var lastAssistantMessage: String?
     var terminal: [String: String] = [:]
+    /// Plan usage, on status line events.
+    var usage: PlanUsage?
 
     static func parse(_ data: Data) -> HookEvent? {
         guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
@@ -82,6 +87,7 @@ struct HookEvent: Equatable, Sendable {
         event.notificationType = nonEmpty(object["notification_type"])
         event.lastAssistantMessage = nonEmpty(object["last_assistant_message"])
         event.terminal = (object[BridgeProtocol.Key.terminal] as? [String: String]) ?? [:]
+        if event.kind == .statusLine { event.usage = PlanUsage.parse(object["rate_limits"]) }
         return event
     }
 

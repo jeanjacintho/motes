@@ -87,6 +87,15 @@ private struct IslandContent: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .transition(.opacity.combined(with: .scale(scale: 0.96)).animation(.easeOut(duration: 0.2).delay(0.12)))
             }
+
+            if model.mode == .expanded, let usage = model.usage {
+                // The right shoulder, beside the notch: free in every card.
+                UsageGaugeView(usage: usage)
+                    .frame(width: max(0, (model.size.width - notch.width) / 2 - 18), height: notch.height, alignment: .trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                    .padding(.trailing, 18)
+                    .transition(.opacity.animation(.easeOut(duration: 0.2).delay(0.12)))
+            }
         }
     }
 }

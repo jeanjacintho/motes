@@ -10,15 +10,16 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Bridge/` — Unix socket server, hook payload parsing, decisions sent back to the hook.
   - `Sessions/` — session model, activity feed, focus rules, alert queue.
   - `Diff/` — `DiffEngine` and `FileChange`: live diffs built from hook payloads only (never reading files from disk).
+  - `Usage/` — `PlanUsage`: Claude plan limits read from the status line (`rate_limits`), dropped at each window's reset.
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
   - `Character/` — `MoteLayer` (Core Animation), `MoteView` (SwiftUI wrapper), states and personalities, and pure helpers (blink rhythm, badge layout).
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
-  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards), `Diff/` (diff card).
+  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards), `Diff/` (diff card), `Usage/` (plan usage gauge).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
   - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`). `ClaudeDesktopSessions` opens a Code session in the Claude desktop app through undocumented behavior (a `claude://code/continue` link and the app's session files, read only); it must always fall back to just activating the app.
   - `Settings/` — settings window, preferences (launch at login, shortcut).
 - `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app (`Contents/MacOS`) and copied to `~/Library/Application Support/Motes/bin/` at launch.
-- `Motes/Shared/` — code compiled into both the app and the hook (socket protocol, relay, socket helpers).
+- `Motes/Shared/` — code compiled into both the app and the hook (socket protocol, relay, status line relay, socket helpers).
 - `Motes/project.yml` — XcodeGen project. The `.xcodeproj` is generated and not committed.
 - `Tests/` — unit tests for the pure logic (Swift Testing, `MotesTests` target).
 - `docs/PROJECT.md` — vision, scope, milestones. `docs/INTEGRATION.md` — how agents send events to Motes.
@@ -39,7 +40,7 @@ Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferenc
 - Secrets live in the Keychain, never on disk or in git.
 - No telemetry. Network calls only to services the user configured.
 - Never block the agent: if the app doesn't answer within 300 ms, `motes-hook` exits 0 with no output and the agent carries on in its terminal.
-- Never overwrite a user config file (`~/.claude/settings.json`, `~/.codex/…`, `~/.gemini/…`): dated backup, merge, show the diff, write only after the user confirms. Uninstall removes only Motes entries.
+- Never overwrite a user config file (`~/.claude/settings.json`, `~/.codex/…`, `~/.gemini/…`): dated backup, merge, show the diff, write only after the user confirms. Uninstall removes only Motes entries. The user's own `statusLine` command is kept inside Motes' (`--then`) and restored on uninstall.
 - Never approve a permission or answer a question without an explicit click.
 - Performance: 0 % CPU when the island is hidden, < 3 % when compact, < 100 MB of memory.
 - The transparent panel must never swallow a click outside the island shape.

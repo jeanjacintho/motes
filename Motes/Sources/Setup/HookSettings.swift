@@ -12,6 +12,8 @@ struct HookTarget: Equatable, Identifiable {
     let entries: [HookSettings.Entry]
     /// Shown under the install button: what the user still has to do.
     let footer: String
+    /// Also wraps the agent's status line to read the plan usage (Claude Code).
+    var wrapsStatusLine = false
 
     var settingsURL: URL {
         URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(settingsPath)
@@ -35,7 +37,8 @@ struct HookTarget: Equatable, Identifiable {
             Entry(event: "SubagentStop", matcher: nil, waits: false, timeout: 5),
             Entry(event: "SessionEnd", matcher: nil, waits: false, timeout: 5),
         ],
-        footer: "If Motes isn't running, Claude Code carries on as usual."
+        footer: "It also runs before your status line to read your plan usage; your status line shows as before. If Motes isn't running, Claude Code carries on as usual.",
+        wrapsStatusLine: true
     )
 
     /// Codex reads `~/.codex/hooks.json` (same layout as Claude Code). Tool
@@ -91,6 +94,19 @@ enum HookSettings {
     }
 
     static func status(of settings: [String: Any], target: HookTarget = .claude, hookPath: String) -> Status {
+        let hooks = hookStatus(of: settings, target: target, hookPath: hookPath)
+        guard target.wrapsStatusLine else { return hooks }
+        switch hooks {
+        case .installed:
+            return StatusLineSettings.isInstalled(in: settings, hookPath: hookPath) ? .installed : .outdated
+        case .notInstalled:
+            return StatusLineSettings.motesCommand(in: settings) == nil ? .notInstalled : .outdated
+        case .outdated:
+            return .outdated
+        }
+    }
+
+    private static func hookStatus(of settings: [String: Any], target: HookTarget, hookPath: String) -> Status {
         let hooks = settings["hooks"] as? [String: Any] ?? [:]
         // Every Motes entry found, as (event, matcher, command, timeout).
         var found: [(String, String?, String, Int?)] = []
@@ -132,12 +148,13 @@ enum HookSettings {
             hooks[entry.event] = groups
         }
         result["hooks"] = hooks
-        return result
+        return target.wrapsStatusLine ? StatusLineSettings.installing(into: result, hookPath: hookPath) : result
     }
 
-    /// Settings without any Motes entry. Groups, events and the `hooks` key are
+    /// Settings without any Motes entry (and the user's status line back). Groups, events and the `hooks` key are
     /// dropped only when Motes' removal leaves them empty.
     static func removing(from settings: [String: Any]) -> [String: Any] {
+        let settings = StatusLineSettings.removing(from: settings)
         guard var hooks = settings["hooks"] as? [String: Any] else { return settings }
         var result = settings
         for (event, value) in hooks {

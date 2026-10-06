@@ -20,6 +20,10 @@ final class SessionController {
 
     var sessions: [AgentSession] { store.sessions }
 
+    /// Latest plan usage seen, until its windows reset.
+    private(set) var usage: PlanUsage?
+    var onUsageChange: ((PlanUsage?) -> Void)?
+
     func start() {
         let server = BridgeServer(path: BridgeProtocol.socketURL.path) { [weak self] data, responder in
             Task { @MainActor in self?.receive(data, responder: responder) }
@@ -50,8 +54,22 @@ final class SessionController {
             return
         }
         log.debug("\(String(describing: event.kind), privacy: .public) from \(event.agent, privacy: .public) tool=\(event.toolName ?? "-", privacy: .public) type=\(event.notificationType ?? "-", privacy: .public) wait=\(event.wait.map { "\($0)" } ?? "-", privacy: .public) tty=\(event.terminal["tty"] ?? "-", privacy: .public) responder=\(responder != nil, privacy: .public) bytes=\(data.count, privacy: .public)")
+        if event.kind == .statusLine {
+            // Usage is the account's; it doesn't touch the sessions. A payload
+            // without it (before the first reply, API key users) changes nothing.
+            if let usage = event.usage { setUsage(usage) }
+            responder?.reply(nil)
+            return
+        }
         if let responder { enqueue(event, responder: responder) }
         apply(event)
+    }
+
+    func setUsage(_ usage: PlanUsage?) {
+        guard usage != self.usage else { return }
+        self.usage = usage
+        onUsageChange?(usage)
+        refresh()
     }
 
     func apply(_ event: HookEvent) {
@@ -132,6 +150,22 @@ final class SessionController {
         apply(edit)
     }
 
+    /// Cycles fake plan usage: comfortable, near the limit, none.
+    func debugCycleFakeUsage() {
+        let reset = Date.now.addingTimeInterval(2 * 3600)
+        let week = Date.now.addingTimeInterval(4 * 86400)
+        switch usage?.peak?.usedPercent {
+        case nil:
+            setUsage(PlanUsage(windows: [.init(kind: .fiveHour, usedPercent: 23, resetsAt: reset),
+                                         .init(kind: .sevenDay, usedPercent: 41, resetsAt: week)]))
+        case let used? where used < PlanUsage.nearLimit:
+            setUsage(PlanUsage(windows: [.init(kind: .fiveHour, usedPercent: 93, resetsAt: reset),
+                                         .init(kind: .sevenDay, usedPercent: 74, resetsAt: week)]))
+        default:
+            setUsage(nil)
+        }
+    }
+
     func debugClearFakeSessions() {
         for session in store.sessions where session.id.hasPrefix("debug-") {
             apply(HookEvent(kind: .sessionEnd, sessionID: session.id, agent: session.agent))
@@ -144,6 +178,10 @@ final class SessionController {
         let now = Date.now
         store.tick(at: now)
         for alert in alerts.expired(at: now) { release(alert.id, reply: nil) }
+        if let usage, usage.current(at: now) != usage {
+            self.usage = usage.current(at: now)
+            onUsageChange?(self.usage)
+        }
         onChange?(store.sessions, store.focused, alerts.alerts)
         scheduleTick(after: now)
     }
@@ -151,7 +189,7 @@ final class SessionController {
     /// Sleeps until the next time-based rule applies; nothing runs in between.
     private func scheduleTick(after now: Date) {
         tickTask?.cancel()
-        let deadline = [store.nextDeadline(after: now), alerts.nextExpiry].compactMap { $0 }.min()
+        let deadline = [store.nextDeadline(after: now), alerts.nextExpiry, usage?.nextReset].compactMap { $0 }.min()
         guard let deadline else { return }
         tickTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(max(0.05, deadline.timeIntervalSinceNow)))

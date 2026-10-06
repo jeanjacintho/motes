@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         sessions.onChange = { [island] sessions, focused, alerts in
             island.setSessions(sessions, focused: focused, alerts: alerts)
         }
+        sessions.onUsageChange = { [island] usage in island.setUsage(usage) }
         island.setAlertHandlers { [sessions] id, choice in
             sessions.answer(id, permission: choice)
         } answers: { [sessions] id, answers in

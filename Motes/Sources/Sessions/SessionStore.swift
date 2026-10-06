@@ -20,6 +20,8 @@ struct SessionStore {
             sessions.removeAll { $0.id == event.sessionID }
             return
         }
+        // Status lines carry plan usage only; they never start or wake a session.
+        if event.kind == .statusLine { return }
 
         var session = sessions.first { $0.id == event.sessionID } ?? AgentSession(
             id: event.sessionID, agent: event.agent, name: Self.name(cwd: event.cwd, agent: event.agent),
@@ -82,7 +84,7 @@ struct SessionStore {
             set(&session, .idle, at: now)
             push(&session, "Interrupted")
 
-        case .sessionEnd, .other:
+        case .sessionEnd, .statusLine, .other:
             break
         }
 
