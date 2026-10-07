@@ -17,6 +17,8 @@ final class IslandModel {
     var alerts: [PendingAlert] = []
     /// Claude plan usage, shown on the open island's right shoulder.
     var usage: PlanUsage?
+    /// Open pull request of each session's branch, by session ID.
+    var pullRequests: [String: PullRequestStatus] = [:]
     /// Forced from the Debug menu; `nil` follows the sessions.
     var debugMoteState: MoteState?
     @ObservationIgnored var onNewMote: (() -> Void)?

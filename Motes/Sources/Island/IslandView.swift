@@ -203,6 +203,7 @@ private struct SessionListView: View {
                         personality: model.personality(for: session),
                         state: model.state(of: session),
                         anchor: anchor(row: index),
+                        pullRequest: model.pullRequests[session.id],
                         onShowDiff: { model.onShowDiff?(session.id, $0) }
                     )
                     .frame(height: Self.rowHeight)
@@ -240,6 +241,7 @@ private struct SessionRow: View {
     let personality: MotePersonality
     let state: MoteState
     let anchor: CGPoint
+    let pullRequest: PullRequestStatus?
     let onShowDiff: (UUID) -> Void
     static let moteSize: CGFloat = 40
 
@@ -272,6 +274,9 @@ private struct SessionRow: View {
 
             Spacer(minLength: 8)
 
+            if let pullRequest {
+                PullRequestChip(pullRequest: pullRequest)
+            }
             Text(Self.label(for: state))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(MoteStateStyle.of(state).color.color)

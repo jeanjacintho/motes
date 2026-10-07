@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     let sessions = SessionController()
     let library = MoteLibrary()
     let preferences = Preferences()
+    let gitHub = GitHubMonitor()
     let hookInstallers: [HookInstaller]
     let newMoteWindow: NewMoteWindowController
 
@@ -30,9 +31,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         preferences.reapplyHotKey()
         sessions.moteForFolder = { [library] cwd in Mote.owner(of: cwd, in: library.motes)?.id }
-        sessions.onChange = { [island] sessions, focused, alerts in
+        sessions.onChange = { [island, gitHub] sessions, focused, alerts in
             island.setSessions(sessions, focused: focused, alerts: alerts)
+            gitHub.update(sessions: sessions)
         }
+        gitHub.onChange = { [island] pullRequests in island.setPullRequests(pullRequests) }
+        gitHub.setEnabled(preferences.gitHubEnabled)
         sessions.onUsageChange = { [island] usage in island.setUsage(usage) }
         island.setAlertHandlers { [sessions] id, choice in
             sessions.answer(id, permission: choice)

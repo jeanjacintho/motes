@@ -80,6 +80,10 @@ final class IslandController {
         send(.holdChanged(isHeld: !alerts.isEmpty))
     }
 
+    func setPullRequests(_ pullRequests: [String: PullRequestStatus]) {
+        model.pullRequests = pullRequests
+    }
+
     func setUsage(_ usage: PlanUsage?) {
         model.usage = usage
     }

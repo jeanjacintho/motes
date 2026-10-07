@@ -10,11 +10,12 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Bridge/` — Unix socket server, hook payload parsing, decisions sent back to the hook.
   - `Sessions/` — session model, activity feed, focus rules, alert queue.
   - `Diff/` — `DiffEngine` and `FileChange`: live diffs built from hook payloads only (never reading files from disk).
+  - `GitHub/` — pull request, checks and reviews of each session's branch: `GitCheckout` (reads `.git` directly, no git process), `GitHubClient` (read-only REST calls), `GitHubToken` (Keychain or `gh auth token`), `GitHubMonitor` (polling).
   - `Usage/` — `PlanUsage`: Claude plan limits read from the status line (`rate_limits`), dropped at each window's reset.
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
   - `Character/` — `MoteLayer` (Core Animation), `MoteView` (SwiftUI wrapper), states and personalities, and pure helpers (blink rhythm, badge layout).
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
-  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards), `Diff/` (diff card), `Usage/` (plan usage gauge).
+  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards), `Diff/` (diff card), `Usage/` (plan usage gauge), `GitHub/` (pull request chip).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
   - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`). `ClaudeDesktopSessions` opens a Code session in the Claude desktop app through undocumented behavior (a `claude://code/continue` link and the app's session files, read only); it must always fall back to just activating the app.
   - `Settings/` — settings window, preferences (launch at login, shortcut).
@@ -38,7 +39,7 @@ Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferenc
 - Keep pure logic (state machine, hook parsing, focus rules, animation math) free of AppKit so it can be unit tested. Every new piece of pure logic gets tests.
 - Keep files small and per feature. No god files: split a view or a service once it passes ~400 lines.
 - Secrets live in the Keychain, never on disk or in git.
-- No telemetry. Network calls only to services the user configured.
+- No telemetry. Network calls only to services the user configured: GitHub (api.github.com only) is off until turned on in Settings, and asks only while sessions run.
 - Never block the agent: if the app doesn't answer within 300 ms, `motes-hook` exits 0 with no output and the agent carries on in its terminal.
 - Never overwrite a user config file (`~/.claude/settings.json`, `~/.codex/…`, `~/.gemini/…`): dated backup, merge, show the diff, write only after the user confirms. Uninstall removes only Motes entries. The user's own `statusLine` command is kept inside Motes' (`--then`) and restored on uninstall.
 - Never approve a permission or answer a question without an explicit click.

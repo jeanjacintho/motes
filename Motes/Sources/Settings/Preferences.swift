@@ -10,6 +10,7 @@ final class Preferences {
     private enum Key {
         static let hotKey = "hotKey"
         static let hotKeyEnabled = "hotKeyEnabled"
+        static let gitHubEnabled = "gitHubEnabled"
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -20,6 +21,8 @@ final class Preferences {
     private(set) var hotKey: HotKey
     private(set) var hotKeyEnabled: Bool
     private(set) var launchAtLogin: Bool
+    /// Pull requests and checks from GitHub; off until the user turns it on.
+    private(set) var gitHubEnabled: Bool
     private(set) var lastError: String?
 
     init(defaults: UserDefaults = .standard) {
@@ -27,6 +30,12 @@ final class Preferences {
         hotKey = defaults.data(forKey: Key.hotKey).flatMap { try? JSONDecoder().decode(HotKey.self, from: $0) } ?? .default
         hotKeyEnabled = defaults.object(forKey: Key.hotKeyEnabled) as? Bool ?? true
         launchAtLogin = SMAppService.mainApp.status == .enabled
+        gitHubEnabled = defaults.bool(forKey: Key.gitHubEnabled)
+    }
+
+    func setGitHubEnabled(_ value: Bool) {
+        gitHubEnabled = value
+        defaults.set(value, forKey: Key.gitHubEnabled)
     }
 
     /// The shortcut to register, or nil when turned off.

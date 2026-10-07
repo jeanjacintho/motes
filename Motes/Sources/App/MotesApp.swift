@@ -13,7 +13,7 @@ struct MotesApp: App {
 
         Settings {
             SettingsView(library: appDelegate.library, preferences: appDelegate.preferences,
-                         hookInstallers: appDelegate.hookInstallers) {
+                         hookInstallers: appDelegate.hookInstallers, gitHub: appDelegate.gitHub) {
                 appDelegate.newMoteWindow.show()
             }
         }

@@ -5,6 +5,7 @@ struct SettingsView: View {
     let library: MoteLibrary
     let preferences: Preferences
     let hookInstallers: [HookInstaller]
+    let gitHub: GitHubMonitor
     let onNewMote: () -> Void
 
     var body: some View {
@@ -14,6 +15,7 @@ struct SettingsView: View {
             ForEach(hookInstallers, id: \.target.id) { installer in
                 HooksSection(installer: installer)
             }
+            GitHubSection(preferences: preferences, monitor: gitHub)
 
             Section {
                 LabeledContent("Version", value: AppInfo.displayVersion(bundle: .main))

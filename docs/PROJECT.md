@@ -104,7 +104,7 @@ A control centre for coding agents: a quiet, living panel that only asks for att
 - ~~Live diff of edits.~~ Done: +N −M next to the session's last action, a diff card in the island (`Edit`, `MultiEdit`, `Write`, Codex `apply_patch`; built from hook payloads, never from disk; up to 200 KB / 4 000 lines, 50 edits per session).
 - ~~Claude plan usage gauge (statusLine).~~ Done: 5-hour and weekly limits on the open island's right shoulder, read from Claude Code's status line (the user's own status line runs through Motes and is restored on uninstall); idle Claude motes look tired from 90 %.
 - Other agents (Codex, Gemini CLI, Cursor) through the same protocol with the `motes_agent` field.
-- GitHub (PRs, CI, reviews).
+- ~~GitHub (PRs, CI, reviews).~~ Done: a chip in each session row with the branch's open pull request, its checks and reviews (click opens it). Off until turned on; uses the gh CLI's login or a token in the Keychain; polls every 30 s while checks run, 2 min otherwise, and 3 s after a turn ends.
 - File drop / window attach + chat.
 
 ## 5. Proposed architecture
