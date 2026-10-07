@@ -260,12 +260,14 @@ private struct SessionRow: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            MoteView(
-                personality: personality,
-                state: state,
-                screenAnchor: anchor
-            )
-            .frame(width: Self.moteSize, height: Self.moteSize)
+            MoteButton(enabled: onMessage != nil, action: { onMessage?() }) {
+                MoteView(
+                    personality: personality,
+                    state: state,
+                    screenAnchor: anchor
+                )
+                .frame(width: Self.moteSize, height: Self.moteSize)
+            }
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(title)
@@ -290,17 +292,6 @@ private struct SessionRow: View {
             if let pullRequest {
                 PullRequestChip(pullRequest: pullRequest)
             }
-            if let onMessage {
-                Button(action: onMessage) {
-                    Image(systemName: "text.bubble")
-                        .font(.system(size: 12, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.55))
-                        .frame(width: 22, height: 22)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("Message this session (or drop files on it)")
-            }
             Text(Self.label(for: state))
                 .font(.system(size: 11, weight: .medium))
                 .foregroundStyle(MoteStateStyle.of(state).color.color)
@@ -318,6 +309,29 @@ private struct SessionRow: View {
         case .finished: "Done"
         case .tired: "Tired"
         case .sleeping: "Asleep"
+        }
+    }
+}
+
+/// A session's mote: click it to write to that session. A soft halo shows it can be clicked.
+private struct MoteButton<Content: View>: View {
+    let enabled: Bool
+    let action: () -> Void
+    @ViewBuilder let content: Content
+    @State private var hovering = false
+
+    var body: some View {
+        if enabled {
+            Button(action: action) {
+                content
+                    .background(Circle().fill(Color.white.opacity(hovering ? 0.1 : 0)))
+                    .contentShape(Circle())
+            }
+            .buttonStyle(.plain)
+            .onHover { hovering = $0 }
+            .help("Message this session (or drop files on it)")
+        } else {
+            content
         }
     }
 }

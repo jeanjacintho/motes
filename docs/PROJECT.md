@@ -105,7 +105,7 @@ A control centre for coding agents: a quiet, living panel that only asks for att
 - ~~Claude plan usage gauge (statusLine).~~ Done: 5-hour and weekly limits on the open island's right shoulder, read from Claude Code's status line (the user's own status line runs through Motes and is restored on uninstall); idle Claude motes look tired from 90 %.
 - Other agents through the same protocol with the `motes_agent` field: ~~Codex~~ and ~~Gemini CLI~~ done (Gemini: live sessions only, since its hooks can't answer a tool confirmation); Cursor next.
 - ~~GitHub (PRs, CI, reviews).~~ Done: a chip in each session row with the branch's open pull request, its checks and reviews (click opens it). Off until turned on; uses the gh CLI's login or a token in the Keychain; polls every 30 s while checks run, 2 min otherwise, and 3 s after a turn ends.
-- ~~File drop + chat.~~ Done: a message button on each Terminal session (and dropping files on its row) opens a card; Send types the line into the session's Terminal tab, then Return. One line, control characters dropped, files as their paths; never while the terminal waits for an answer. Window attach stays a candidate.
+- ~~File drop + chat.~~ Done: clicking a session's mote (or dropping files on its row) opens a card; Send types the line into the session's Terminal tab, or pastes it into its Claude desktop chat and presses Return (Accessibility, asked on first use). One line, control characters dropped, files as their paths; never while the terminal waits for an answer. Window attach stays a candidate.
 
 ## 5. Proposed architecture
 

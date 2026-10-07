@@ -73,9 +73,11 @@ struct ComposeCardView: View {
             message = reason
             isError = true
         default:
-            message = TerminalMessage.availability(of: session) == .waitingForAnswer
-                ? "It's waiting for an answer: answer it first, then send."
-                : "Typed into its Terminal tab, then Return. Drop files to add their paths."
+            switch TerminalMessage.availability(of: session) {
+            case .waitingForAnswer: message = "It's waiting for an answer: answer it first, then send."
+            case .claudeDesktop: message = "Sent in its Claude chat, as if you typed it. Drop files to add their paths."
+            default: message = "Typed into its Terminal tab, then Return. Drop files to add their paths."
+            }
         }
         return Text(message)
             .font(.system(size: 11))

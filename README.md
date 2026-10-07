@@ -52,7 +52,7 @@ Run the tests with `xcodebuild -scheme Motes test`. Building it yourself also me
 
 - `motes-hook`, a small binary inside the app, receives Claude Code's hook events and forwards them over a private Unix socket. For permissions and questions it waits for your answer. See [docs/INTEGRATION.md](docs/INTEGRATION.md) to plug in another agent.
 - The island is a borderless panel over the notch; motes are Core Animation layers, so their breathing, orbit and blinks run in the system's render server, not in the app.
-- Messages to a session (the speech bubble on its row, or files dropped on it) are typed into its Terminal tab with Terminal's own scripting, then Return. macOS asks once to let Motes control Terminal.
+- Messages: click a session's mote (or drop files on its row) to write to it. In Terminal, Motes types the line into its tab with Terminal's own scripting (macOS asks once to let Motes control Terminal). In the Claude desktop app, Motes opens that conversation, pastes the line and presses Return, which needs the Accessibility permission (asked on the first send).
 - More in [docs/PROJECT.md](docs/PROJECT.md).
 
 ## Contributing

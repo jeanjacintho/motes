@@ -1,25 +1,32 @@
 import Foundation
 
-/// A message typed into a session's Terminal tab, as if the user typed it
-/// there: one line, then Return. Pure.
+/// A message sent to a session as if the user typed it there: one line, then
+/// Return. Into its Terminal tab, or into its chat in the Claude desktop app.
+/// Pure.
 enum TerminalMessage {
     static let maxLength = 4_000
 
     enum Availability: Equatable {
-        case ready(tty: String)
-        /// The terminal is asking for an approval or an answer: typed text could answer it.
+        /// A macOS Terminal tab, found by its device.
+        case terminal(tty: String)
+        /// A Code session of the Claude desktop app, by its CLI session ID.
+        case claudeDesktop(sessionID: String)
+        /// The session is asking for an approval or an answer: typed text could answer it.
         case waitingForAnswer
-        /// Not in a macOS Terminal tab Motes can find (another terminal, the desktop app).
+        /// Somewhere Motes can't type into (another terminal app, an IDE).
         case unsupported
     }
 
     static func availability(of session: AgentSession) -> Availability {
-        guard case .terminalTab(let tty?) = JumpTarget.resolve(session.terminal, sessionID: session.id) else {
-            return .unsupported
+        let target: Availability
+        switch JumpTarget.resolve(session.terminal, sessionID: session.id) {
+        case .terminalTab(let tty?): target = .terminal(tty: tty)
+        case .claudeDesktop(let sessionID): target = .claudeDesktop(sessionID: sessionID)
+        default: return .unsupported
         }
         switch session.state {
         case .approval, .question: return .waitingForAnswer
-        default: return .ready(tty: tty)
+        default: return target
         }
     }
 

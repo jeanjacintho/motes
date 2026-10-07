@@ -10,11 +10,11 @@ struct TerminalMessageTests {
 
     let terminalTab = ["TERM_PROGRAM": "Apple_Terminal", "tty": "/dev/ttys004"]
 
-    @Test func onlyTerminalTabsWithADeviceCanBeTypedInto() {
-        #expect(TerminalMessage.availability(of: session(.working, terminal: terminalTab)) == .ready(tty: "/dev/ttys004"))
+    @Test func terminalTabsAndDesktopChatsCanBeTypedInto() {
+        #expect(TerminalMessage.availability(of: session(.working, terminal: terminalTab)) == .terminal(tty: "/dev/ttys004"))
+        #expect(TerminalMessage.availability(of: session(.idle, terminal: ["__CFBundleIdentifier": "com.anthropic.claudefordesktop"])) == .claudeDesktop(sessionID: "s1"))
         #expect(TerminalMessage.availability(of: session(.idle, terminal: ["TERM_PROGRAM": "Apple_Terminal"])) == .unsupported)
         #expect(TerminalMessage.availability(of: session(.idle, terminal: ["TERM_PROGRAM": "iTerm.app", "tty": "/dev/ttys004"])) == .unsupported)
-        #expect(TerminalMessage.availability(of: session(.idle, terminal: ["__CFBundleIdentifier": "com.anthropic.claudefordesktop"])) == .unsupported)
         #expect(TerminalMessage.availability(of: session(.idle, terminal: [:])) == .unsupported)
     }
 
@@ -22,6 +22,8 @@ struct TerminalMessageTests {
         // Typed text could answer the terminal's prompt.
         #expect(TerminalMessage.availability(of: session(.approval, terminal: terminalTab)) == .waitingForAnswer)
         #expect(TerminalMessage.availability(of: session(.question, terminal: terminalTab)) == .waitingForAnswer)
+        let desktop = ["__CFBundleIdentifier": "com.anthropic.claudefordesktop"]
+        #expect(TerminalMessage.availability(of: session(.approval, terminal: desktop)) == .waitingForAnswer)
     }
 
     @Test func messagesStayOnOneLine() {

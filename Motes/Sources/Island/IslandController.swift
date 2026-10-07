@@ -16,7 +16,7 @@ final class IslandController {
     init() {
         model = IslandModel(geometry: Self.currentGeometry())
         panel = IslandPanel(contentRect: CGRect(origin: .zero, size: IslandLayout.panelSize))
-        let view = IslandView(model: model) { [weak self] in self?.send(.clicked) }
+        let view = IslandView(model: model) { [weak self] in self?.tapped() }
         model.onShowDiff = { [weak self] sessionID, changeID in self?.showDiff(sessionID: sessionID, changeID: changeID) }
         model.onCompose = { [weak self] sessionID, files in self?.compose(sessionID: sessionID, files: files) }
         model.onSendMessage = { [weak self] in self?.sendMessage() }
@@ -113,25 +113,57 @@ final class IslandController {
         updateHold()
     }
 
-    /// Types the message into the session's Terminal tab. Only from the Send button.
-    private func sendMessage() {
-        guard let compose = model.composing, compose.status != .sending, let session = model.composingSession else { return }
-        guard case .ready(let tty) = TerminalMessage.availability(of: session) else {
-            model.composing?.status = .failed("This session is waiting for an answer. Answer it first.")
-            return
+    /// Clicking the compact island's mote opens the message card for its session.
+    private func tapped() {
+        if model.mode == .compact, let focused = model.focused,
+           TerminalMessage.availability(of: focused) != .unsupported {
+            send(.openRequested)
+            compose(sessionID: focused.id, files: [])
+        } else {
+            send(.clicked)
         }
-        guard let line = TerminalMessage.line(text: compose.text, files: compose.files) else { return }
+    }
+
+    /// Sends the message to the session, as typed there. Only from the Send button.
+    private func sendMessage() {
+        guard let compose = model.composing, compose.status != .sending, let session = model.composingSession,
+              let line = TerminalMessage.line(text: compose.text, files: compose.files) else { return }
+        let availability = TerminalMessage.availability(of: session)
+        switch availability {
+        case .waitingForAnswer:
+            model.composing?.status = .failed("It's waiting for an answer. Answer it first.")
+            return
+        case .unsupported:
+            model.composing?.status = .failed("Motes can't type where this session runs.")
+            return
+        case .terminal, .claudeDesktop:
+            break
+        }
         model.composing?.status = .sending
         Task { [weak self] in
-            let result = await TerminalTyper.type(line, tty: tty)
+            let failure: String?
+            switch availability {
+            case .terminal(let tty):
+                switch await TerminalTyper.type(line, tty: tty) {
+                case .sent: failure = nil
+                case .missing: failure = "Its Terminal tab is gone."
+                case .failed: failure = "Motes couldn't type in Terminal. Allow it in System Settings → Privacy & Security → Automation."
+                }
+            case .claudeDesktop(let sessionID):
+                switch await DesktopTyper.send(line, cliSessionID: sessionID) {
+                case .sent: failure = nil
+                case .notFound: failure = "Couldn't find this conversation in the Claude app. Nothing was sent."
+                case .needsAccessibility: failure = "Allow Motes in System Settings → Privacy & Security → Accessibility, then Send again."
+                case .copied: failure = "Claude wasn't ready, so nothing was typed. The message is copied: press ⌘V and Return there."
+                }
+            case .waitingForAnswer, .unsupported:
+                failure = nil
+            }
             guard let self, self.model.composing?.sessionID == compose.sessionID else { return }
-            switch result {
-            case .sent:
+            if let failure {
+                self.model.composing?.status = .failed(failure)
+            } else {
                 self.endCompose()
-            case .missing:
-                self.model.composing?.status = .failed("Its Terminal tab is gone.")
-            case .failed:
-                self.model.composing?.status = .failed("Motes couldn't type in Terminal. Allow it in System Settings → Privacy & Security → Automation.")
             }
         }
     }
