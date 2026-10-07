@@ -15,9 +15,9 @@ Status: early stage. `docs/PROJECT.md` is the project vision, MVP scope and mile
   - `Island/` — `NSPanel`, notch geometry, state machine, click-through hit testing.
   - `Character/` — `MoteLayer` (Core Animation), `MoteView` (SwiftUI wrapper), states and personalities, and pure helpers (blink rhythm, badge layout).
   - `Motes/` — the user's motes (`Mote`, `MoteLibrary`, `MoteLauncher`), forms and palette (data only, no drawing code), and the automatic motes in `MoteRegistry`.
-  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards), `Diff/` (diff card), `Usage/` (plan usage gauge), `GitHub/` (pull request chip).
+  - `Features/` — one folder per feature view: `NewMote/`, `Alerts/` (approval and question cards), `Diff/` (diff card), `Usage/` (plan usage gauge), `GitHub/` (pull request chip), `Compose/` (message card).
   - `Setup/` — hook installation (backup → merge → diff → confirm).
-  - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`). `ClaudeDesktopSessions` opens a Code session in the Claude desktop app through undocumented behavior (a `claude://code/continue` link and the app's session files, read only); it must always fall back to just activating the app.
+  - `Terminal/` — jumping to a session's window (`JumpTarget`, `TerminalJumper`), and typing a message into its Terminal tab (`TerminalMessage`, pure; `TerminalTyper`, Terminal's `do script … in tab`). `ClaudeDesktopSessions` opens a Code session in the Claude desktop app through undocumented behavior (a `claude://code/continue` link and the app's session files, read only); it must always fall back to just activating the app.
   - `Settings/` — settings window, preferences (launch at login, shortcut).
 - `Motes/Hook/` — `motes-hook`, the small Swift relay executable bundled in the app (`Contents/MacOS`) and copied to `~/Library/Application Support/Motes/bin/` at launch.
 - `Motes/Shared/` — code compiled into both the app and the hook (socket protocol, relay, status line relay, socket helpers).
@@ -42,7 +42,7 @@ Bundle identifier: `app.motes.Motes`. Never change it (Keychain items, preferenc
 - No telemetry. Network calls only to services the user configured: GitHub (api.github.com only) is off until turned on in Settings, and asks only while sessions run.
 - Never block the agent: if the app doesn't answer within 300 ms, `motes-hook` exits 0 with no output and the agent carries on in its terminal.
 - Never overwrite a user config file (`~/.claude/settings.json`, `~/.codex/…`, `~/.gemini/…`): dated backup, merge, show the diff, write only after the user confirms. Uninstall removes only Motes entries. The user's own `statusLine` command is kept inside Motes' (`--then`) and restored on uninstall.
-- Never approve a permission or answer a question without an explicit click.
+- Never approve a permission or answer a question without an explicit click. Messages are typed into a terminal only from the Send button, never while it waits for an approval or an answer (typed text could answer it), as one line with control characters dropped.
 - Performance: 0 % CPU when the island is hidden, < 3 % when compact, < 100 MB of memory.
 - The transparent panel must never swallow a click outside the island shape.
 - Stable contract values, never rename: automatic mote IDs (`claude`, `codex`, `gemini`…), `MoteForm`, `MotePalette` and `MoteCLI` raw values (saved in `motes.json`), `MOTES_MOTE_ID`, and the socket keys.

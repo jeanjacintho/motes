@@ -2,7 +2,8 @@ import AppKit
 import SwiftUI
 
 /// Transparent, borderless panel hosting the island above the menu bar.
-/// It never activates the app or takes keyboard focus.
+/// It never activates the app, and takes the keyboard only while the user
+/// writes a message to a session.
 final class IslandPanel: NSPanel {
     init(contentRect: CGRect) {
         super.init(
@@ -24,7 +25,10 @@ final class IslandPanel: NSPanel {
         ignoresMouseEvents = true
     }
 
-    override var canBecomeKey: Bool { false }
+    /// Set while the message card is open.
+    var acceptsKeyboard = false
+
+    override var canBecomeKey: Bool { acceptsKeyboard }
     override var canBecomeMain: Bool { false }
 }
 

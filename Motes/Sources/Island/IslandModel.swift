@@ -40,7 +40,7 @@ final class IslandModel {
     var shownDiff: (sessionID: String, changeID: UUID)?
     @ObservationIgnored var onShowDiff: ((String, UUID) -> Void)?
 
-    var isShowingDiff: Bool { mode == .expanded && currentAlert == nil && shownDiffSession != nil }
+    var isShowingDiff: Bool { mode == .expanded && currentAlert == nil && composing == nil && shownDiffSession != nil }
 
     /// The session whose edit is open, while that edit still exists.
     var shownDiffSession: AgentSession? {
@@ -49,8 +49,29 @@ final class IslandModel {
         return session
     }
 
-    /// Alerts and diffs need more room than the session list.
-    var isTall: Bool { isShowingAlert || isShowingDiff }
+    /// A message being written to a session; its text is edited by the card.
+    var composing: Compose?
+    @ObservationIgnored var onCompose: ((String, [String]) -> Void)?
+    @ObservationIgnored var onSendMessage: (() -> Void)?
+    @ObservationIgnored var onEndCompose: (() -> Void)?
+
+    struct Compose: Equatable {
+        enum Status: Equatable { case editing, sending, failed(String) }
+        let sessionID: String
+        var files: [String]
+        var text = ""
+        var status = Status.editing
+    }
+
+    /// The session the message goes to, while it still runs.
+    var composingSession: AgentSession? {
+        composing.flatMap { session(id: $0.sessionID) }
+    }
+
+    var isComposing: Bool { mode == .expanded && currentAlert == nil && composingSession != nil }
+
+    /// Alerts, diffs and messages need more room than the session list.
+    var isTall: Bool { isShowingAlert || isShowingDiff || isComposing }
 
     func session(id: String) -> AgentSession? {
         sessions.first { $0.id == id }

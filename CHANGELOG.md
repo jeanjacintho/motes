@@ -6,6 +6,7 @@ All notable changes to Motes. Versions follow [Semantic Versioning](https://semv
 
 ### Added
 - Gemini CLI support: install its hooks from Settings (`~/.gemini/settings.json`) and see its sessions live, with their edits as diffs. When it asks to run a tool the mote shows it, and clicking the session takes you to the terminal (Gemini CLI doesn't let a hook answer).
+- Messages: write to a session from the island (the speech bubble on its row), or drop files on its row to send their paths. Motes types the message into the session's Terminal tab, then Return, only when you click Send, and never while the terminal is waiting for an approval or an answer. Terminal.app sessions only.
 
 ## [0.2.0] - 2026-10-06
 

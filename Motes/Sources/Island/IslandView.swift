@@ -71,6 +71,8 @@ private struct IslandContent: View {
                     if let alert = model.currentAlert {
                         AlertView(alert: alert, model: model)
                             .id(alert.id)
+                    } else if let session = model.composingSession {
+                        ComposeCardView(model: model, session: session)
                     } else if let session = model.shownDiffSession, let shown = model.shownDiff {
                         DiffCardView(session: session, changeID: shown.changeID) { changeID in
                             model.onShowDiff?(session.id, changeID)
@@ -196,6 +198,7 @@ private struct SessionListView: View {
         let sessions = ordered
         VStack(spacing: 0) {
             ForEach(Array(sessions.prefix(Self.maxRows).enumerated()), id: \.element.id) { index, session in
+                let canMessage = TerminalMessage.availability(of: session) != .unsupported
                 Button { model.onJump?(session) } label: {
                     SessionRow(
                         title: model.title(for: session),
@@ -204,13 +207,21 @@ private struct SessionListView: View {
                         state: model.state(of: session),
                         anchor: anchor(row: index),
                         pullRequest: model.pullRequests[session.id],
-                        onShowDiff: { model.onShowDiff?(session.id, $0) }
+                        onShowDiff: { model.onShowDiff?(session.id, $0) },
+                        onMessage: canMessage ? { model.onCompose?(session.id, []) } : nil
                     )
                     .frame(height: Self.rowHeight)
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .help("Show this session's window")
+                // Files dropped on a session's row start a message with their paths.
+                .dropDestination(for: URL.self) { urls, _ in
+                    let paths = urls.filter(\.isFileURL).map(\.path)
+                    guard canMessage, !paths.isEmpty else { return false }
+                    model.onCompose?(session.id, paths)
+                    return true
+                }
             }
             if sessions.count > Self.maxRows {
                 Text("+\(sessions.count - Self.maxRows) more")
@@ -243,6 +254,8 @@ private struct SessionRow: View {
     let anchor: CGPoint
     let pullRequest: PullRequestStatus?
     let onShowDiff: (UUID) -> Void
+    /// `nil` when the session isn't in a Terminal tab Motes can type into.
+    let onMessage: (() -> Void)?
     static let moteSize: CGFloat = 40
 
     var body: some View {
@@ -276,6 +289,17 @@ private struct SessionRow: View {
 
             if let pullRequest {
                 PullRequestChip(pullRequest: pullRequest)
+            }
+            if let onMessage {
+                Button(action: onMessage) {
+                    Image(systemName: "text.bubble")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.55))
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .help("Message this session (or drop files on it)")
             }
             Text(Self.label(for: state))
                 .font(.system(size: 11, weight: .medium))

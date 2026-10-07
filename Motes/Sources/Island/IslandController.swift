@@ -18,6 +18,9 @@ final class IslandController {
         panel = IslandPanel(contentRect: CGRect(origin: .zero, size: IslandLayout.panelSize))
         let view = IslandView(model: model) { [weak self] in self?.send(.clicked) }
         model.onShowDiff = { [weak self] sessionID, changeID in self?.showDiff(sessionID: sessionID, changeID: changeID) }
+        model.onCompose = { [weak self] sessionID, files in self?.compose(sessionID: sessionID, files: files) }
+        model.onSendMessage = { [weak self] in self?.sendMessage() }
+        model.onEndCompose = { [weak self] in self?.endCompose() }
         panel.contentView = IslandHostingView(rootView: view)
     }
 
@@ -76,8 +79,61 @@ final class IslandController {
         model.alerts = alerts
         // The session asking for something is the one in focus.
         model.focused = alerts.first.flatMap { alert in sessions.first { $0.id == alert.sessionID } } ?? focused
+        // A message to a session that ended has nowhere to go.
+        if model.composing != nil, model.composingSession == nil { endCompose() }
         send(.sessionsChanged(hasSessions: !sessions.isEmpty))
-        send(.holdChanged(isHeld: !alerts.isEmpty))
+        updateHold()
+    }
+
+    /// Alerts and a message being written keep the island open: clicking
+    /// outside (to drag a file from Finder) must not close it.
+    private func updateHold() {
+        send(.holdChanged(isHeld: !model.alerts.isEmpty || model.composing != nil))
+    }
+
+    // MARK: - Messages
+
+    /// Opens the message card for a session, or adds files to the open one.
+    func compose(sessionID: String, files: [String]) {
+        if let current = model.composing, current.sessionID == sessionID {
+            model.composing?.files = current.files + files.filter { !current.files.contains($0) }
+        } else {
+            model.composing = IslandModel.Compose(sessionID: sessionID, files: files)
+        }
+        model.shownDiff = nil
+        panel.acceptsKeyboard = true
+        panel.makeKey()
+        updateHold()
+    }
+
+    func endCompose() {
+        model.composing = nil
+        panel.acceptsKeyboard = false
+        panel.resignKey()
+        updateHold()
+    }
+
+    /// Types the message into the session's Terminal tab. Only from the Send button.
+    private func sendMessage() {
+        guard let compose = model.composing, compose.status != .sending, let session = model.composingSession else { return }
+        guard case .ready(let tty) = TerminalMessage.availability(of: session) else {
+            model.composing?.status = .failed("This session is waiting for an answer. Answer it first.")
+            return
+        }
+        guard let line = TerminalMessage.line(text: compose.text, files: compose.files) else { return }
+        model.composing?.status = .sending
+        Task { [weak self] in
+            let result = await TerminalTyper.type(line, tty: tty)
+            guard let self, self.model.composing?.sessionID == compose.sessionID else { return }
+            switch result {
+            case .sent:
+                self.endCompose()
+            case .missing:
+                self.model.composing?.status = .failed("Its Terminal tab is gone.")
+            case .failed:
+                self.model.composing?.status = .failed("Motes couldn't type in Terminal. Allow it in System Settings → Privacy & Security → Automation.")
+            }
+        }
     }
 
     func setPullRequests(_ pullRequests: [String: PullRequestStatus]) {
