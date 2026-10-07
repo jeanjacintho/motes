@@ -30,10 +30,15 @@ struct PendingAlert: Identifiable, Equatable, Sendable {
     static func approval(from event: HookEvent, id: UUID, at now: Date) -> PendingAlert? {
         guard event.kind == .permissionRequest, let tool = event.toolName else { return nil }
         // A patch is long and unreadable in the card: show the files it touches.
-        let patchFiles = tool == "apply_patch" ? event.toolInput["command"].map(ActivityLabel.patchFiles) : nil
-        let detail = patchFiles.flatMap { $0.isEmpty ? nil : $0.map(\.path).joined(separator: "\n") }
-            ?? event.toolInput["command"] ?? event.toolInput["file_path"]
-            ?? event.toolInput["notebook_path"] ?? event.toolInput["url"] ?? event.toolInput["pattern"]
+        // Kept in small steps: a long `??` chain is too slow to type-check for older compilers.
+        var patchPaths: String?
+        if tool == "apply_patch", let patch = event.toolInput["command"] {
+            let files = ActivityLabel.patchFiles(patch)
+            if !files.isEmpty { patchPaths = files.map(\.path).joined(separator: "\n") }
+        }
+        let input = event.toolInput
+        let fields = ["command", "file_path", "notebook_path", "url", "pattern"]
+        let detail: String? = patchPaths ?? fields.lazy.compactMap { input[$0] }.first
         let approval = Approval(
             toolName: tool,
             summary: ActivityLabel.tool(tool, input: event.toolInput),

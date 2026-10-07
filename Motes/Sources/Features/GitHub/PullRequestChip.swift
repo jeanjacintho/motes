@@ -11,26 +11,35 @@ struct PullRequestChip: View {
         Button {
             NSWorkspace.shared.open(pullRequest.url)
         } label: {
-            HStack(spacing: 4) {
-                // Verbatim: a localized number would read "#1.280".
-                Text(verbatim: "#\(pullRequest.number)")
-                if let ci = ciSymbol {
-                    Image(systemName: ci.name).foregroundStyle(ci.color)
-                }
-                if let review = reviewSymbol {
-                    Image(systemName: review.name).foregroundStyle(review.color)
-                }
-            }
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
-            .foregroundStyle(.white.opacity(pullRequest.isDraft ? 0.45 : 0.75))
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(Color.white.opacity(hovering ? 0.16 : 0.08), in: Capsule())
-            .contentShape(Capsule())
+            label
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
         .help(help)
+    }
+
+    private var label: some View {
+        let textOpacity: Double = pullRequest.isDraft ? 0.45 : 0.75
+        let backgroundOpacity: Double = hovering ? 0.16 : 0.08
+        return HStack(spacing: 4) {
+            // Verbatim: a localized number would read "#1.280".
+            Text(verbatim: "#\(pullRequest.number)")
+            symbol(ciSymbol)
+            symbol(reviewSymbol)
+        }
+        .font(.system(size: 11, weight: .semibold, design: .rounded))
+        .foregroundStyle(Color.white.opacity(textOpacity))
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(Color.white.opacity(backgroundOpacity), in: Capsule())
+        .contentShape(Capsule())
+    }
+
+    @ViewBuilder
+    private func symbol(_ symbol: (name: String, color: Color)?) -> some View {
+        if let symbol {
+            Image(systemName: symbol.name).foregroundStyle(symbol.color)
+        }
     }
 
     private var ciSymbol: (name: String, color: Color)? {
