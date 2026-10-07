@@ -43,7 +43,7 @@ A **mote** is the app's central entity: a named companion for one project.
 - With nothing running, the open island shows your motes; click one to open its terminal again.
 - **Sessions started outside Motes** (running `claude` in any terminal) use the mote whose folder contains their working directory, the deepest one winning. Otherwise they get the CLI's **automatic mote** (Claude: calm coral, Codex: restless blue, Gemini: curious violet, Cursor: bubbly pink, anything else: easygoing green).
 - Motes are saved in `~/Library/Application Support/Motes/motes.json`.
-- Live state needs the CLI's hooks. Claude Code's are installed from Settings; Codex and Gemini CLI open in Terminal but don't report state yet.
+- Live state needs the CLI's hooks, installed from Settings for Claude Code, Codex and Gemini CLI.
 
 **Personality model** (`Motes/Sources/Character/MotePersonality.swift`):
 
@@ -103,7 +103,7 @@ A control centre for coding agents: a quiet, living panel that only asks for att
 ### After the MVP (candidates)
 - ~~Live diff of edits.~~ Done: +N −M next to the session's last action, a diff card in the island (`Edit`, `MultiEdit`, `Write`, Codex `apply_patch`; built from hook payloads, never from disk; up to 200 KB / 4 000 lines, 50 edits per session).
 - ~~Claude plan usage gauge (statusLine).~~ Done: 5-hour and weekly limits on the open island's right shoulder, read from Claude Code's status line (the user's own status line runs through Motes and is restored on uninstall); idle Claude motes look tired from 90 %.
-- Other agents (Codex, Gemini CLI, Cursor) through the same protocol with the `motes_agent` field.
+- Other agents through the same protocol with the `motes_agent` field: ~~Codex~~ and ~~Gemini CLI~~ done (Gemini: live sessions only, since its hooks can't answer a tool confirmation); Cursor next.
 - ~~GitHub (PRs, CI, reviews).~~ Done: a chip in each session row with the branch's open pull request, its checks and reviews (click opens it). Off until turned on; uses the gh CLI's login or a token in the Keychain; polls every 30 s while checks run, 2 min otherwise, and 3 s after a turn ends.
 - File drop / window attach + chat.
 

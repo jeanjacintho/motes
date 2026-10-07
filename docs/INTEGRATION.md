@@ -121,6 +121,16 @@ Settings → Codex → **Install Hooks** writes `~/.codex/hooks.json` (same back
 - `apply_patch` edits are labelled with the files the patch touches.
 - `Interrupt` sets the mote back to idle and drops its pending alert.
 
+## Gemini CLI
+
+Settings → Gemini CLI → **Install Hooks** writes `~/.gemini/settings.json` (same backup, diff and confirmation). Hooks are on by default in Gemini CLI (`hooksConfig.enabled`).
+
+- Commands carry `--agent gemini`. Timeouts are in **milliseconds** there (`5000`).
+- Gemini's events map to the same moments: `BeforeAgent` → `UserPromptSubmit`, `BeforeTool` / `AfterTool` → `PreToolUse` / `PostToolUse` (matcher `*`), `AfterAgent` → `Stop` (its `prompt_response` is the summary). `SessionStart`, `Notification` and `SessionEnd` keep their names.
+- `Notification` with `notification_type: "ToolPermission"` puts the mote in its approval state. Gemini CLI has no way for a hook to answer a tool confirmation (a `BeforeTool` `allow` doesn't skip it), so there is no card: clicking the session takes you to its terminal.
+- `ask_user` shows the question state, without a card, for the same reason.
+- Tools: `replace` and `write_file` are diffed like `Edit` and `Write`; `run_shell_command`, `read_file`, `grep_search`, `glob`, `list_directory`, `google_web_search` and `web_fetch` get the same labels as Claude Code's tools.
+
 ## Supporting a new CLI
 
 1. Add a case to `MoteCLI` (command and agent name) and an automatic mote in `MoteRegistry` (a form plus a color, stable ID).

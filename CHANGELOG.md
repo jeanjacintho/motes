@@ -4,6 +4,9 @@ All notable changes to Motes. Versions follow [Semantic Versioning](https://semv
 
 ## [Unreleased]
 
+### Added
+- Gemini CLI support: install its hooks from Settings (`~/.gemini/settings.json`) and see its sessions live, with their edits as diffs. When it asks to run a tool the mote shows it, and clicking the session takes you to the terminal (Gemini CLI doesn't let a hook answer).
+
 ## [0.2.0] - 2026-10-06
 
 ### Added

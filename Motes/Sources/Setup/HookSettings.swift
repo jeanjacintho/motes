@@ -12,6 +12,8 @@ struct HookTarget: Equatable, Identifiable {
     let entries: [HookSettings.Entry]
     /// Shown under the install button: what the user still has to do.
     let footer: String
+    /// `timeout` unit in the settings file: 1 for seconds, 1000 for milliseconds (Gemini CLI).
+    var timeoutScale = 1
     /// Also wraps the agent's status line to read the plan usage (Claude Code).
     var wrapsStatusLine = false
 
@@ -61,7 +63,25 @@ struct HookTarget: Equatable, Identifiable {
         footer: "Codex runs new hooks only once you trust them: after installing, run /hooks in Codex and trust the Motes hooks."
     )
 
-    static let all: [HookTarget] = [.claude, .codex]
+    /// Gemini CLI reads `~/.gemini/settings.json`. Its events have their own
+    /// names (`BeforeAgent`, `BeforeTool`…), timeouts are in milliseconds, and
+    /// no hook can answer a tool confirmation, so nothing waits.
+    static let gemini = HookTarget(
+        id: "gemini", name: "Gemini CLI", agent: "gemini", settingsPath: ".gemini/settings.json",
+        entries: [
+            Entry(event: "SessionStart", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "BeforeAgent", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "BeforeTool", matcher: "*", waits: false, timeout: 5),
+            Entry(event: "AfterTool", matcher: "*", waits: false, timeout: 5),
+            Entry(event: "Notification", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "AfterAgent", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "SessionEnd", matcher: nil, waits: false, timeout: 5),
+        ],
+        footer: "Gemini CLI can't take an answer from a hook: when it asks to run a tool, Motes shows it and takes you to the terminal.",
+        timeoutScale: 1000
+    )
+
+    static let all: [HookTarget] = [.claude, .codex, .gemini]
 }
 
 /// Adds and removes Motes' entries in an agent's hook settings.
@@ -122,7 +142,7 @@ enum HookSettings {
         }
         if found.isEmpty { return .notInstalled }
         let expected = target.entries.map {
-            ($0.event, $0.matcher, command(hookPath: hookPath, agent: target.agent, waits: $0.waits), $0.timeout)
+            ($0.event, $0.matcher, command(hookPath: hookPath, agent: target.agent, waits: $0.waits), $0.timeout * target.timeoutScale)
         }
         let matches = found.count == expected.count && expected.allSatisfy { e in
             found.contains { $0.0 == e.0 && $0.1 == e.1 && $0.2 == e.2 && $0.3 == e.3 }
@@ -140,7 +160,7 @@ enum HookSettings {
                 "hooks": [[
                     "type": "command",
                     "command": command(hookPath: hookPath, agent: target.agent, waits: entry.waits),
-                    "timeout": entry.timeout,
+                    "timeout": entry.timeout * target.timeoutScale,
                 ]],
             ]
             if let matcher = entry.matcher { group["matcher"] = matcher }

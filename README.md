@@ -10,7 +10,7 @@ Each mote is a companion for one of your projects. It shows what its agent is do
 - **Jump back:** click a session to bring its Terminal tab, its Claude desktop conversation or its app to the front.
 - **Light on your Mac:** 0 % CPU when hidden, under 2 % while a mote is on screen, about 20 MB of memory. No telemetry, no account, no network calls.
 
-Requirements: macOS 15 or later. Agents: Claude Code and Codex (live sessions and approvals; questions are Claude Code only). Gemini CLI opens in Terminal but doesn't report its state yet.
+Requirements: macOS 15 or later. Agents: Claude Code and Codex (live sessions and approvals; questions are Claude Code only), and Gemini CLI (live sessions; it asks for approvals in its terminal, and Motes takes you there).
 
 ## Install
 
@@ -28,6 +28,7 @@ Builds are signed ad-hoc, so after an update macOS may ask again for the permiss
 
 1. Menu ✨ → **Settings… → Claude Code → Install Hooks…**. Motes shows exactly what it will add to `~/.claude/settings.json`, backs the file up and writes only when you confirm. **Remove Hooks** takes out only Motes' entries.
    For Codex: **Settings… → Codex → Install Hooks…** (`~/.codex/hooks.json`), then run `/hooks` in Codex once and trust the Motes hooks.
+   For Gemini CLI: **Settings… → Gemini CLI → Install Hooks…** (`~/.gemini/settings.json`).
 2. Optional: **New Mote…** (⌘N) to create a mote for a project, **Launch at login**, and the shortcut to open the island (⌃⌥M by default).
 3. Optional: **Settings… → GitHub → Show pull requests and checks** to see each session's open pull request, its checks and reviews. Motes uses the GitHub CLI's login (`gh auth login`) or a token you paste, kept in the Keychain. It is off until you turn it on.
 

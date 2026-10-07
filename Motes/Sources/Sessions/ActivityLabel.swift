@@ -14,6 +14,25 @@ enum ActivityLabel {
             label = join(name, input["notebook_path"].map(fileName))
         case "Bash":
             label = join(name, input["command"].map(firstLine))
+        // Gemini CLI's tools, labelled like Claude Code's.
+        case "replace":
+            label = join("Edit", input["file_path"].map(fileName))
+        case "write_file":
+            label = join("Write", input["file_path"].map(fileName))
+        case "read_file":
+            label = join("Read", input["file_path"].map(fileName))
+        case "run_shell_command":
+            label = join("Bash", input["command"].map(firstLine))
+        case "grep_search":
+            label = join("Grep", input["pattern"].map { "\"\($0)\"" })
+        case "glob":
+            label = join("Glob", input["pattern"])
+        case "list_directory":
+            label = join("List", input["dir_path"].map(fileName))
+        case "google_web_search":
+            label = join("WebSearch", input["query"])
+        case "web_fetch":
+            label = "WebFetch"
         case "apply_patch":
             // Codex edits files with a patch: name the files instead of showing it.
             let files = input["command"].map(patchFiles) ?? []

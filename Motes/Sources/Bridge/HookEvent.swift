@@ -16,17 +16,18 @@ struct HookEvent: Equatable, Sendable {
         case statusLine
         case other(String)
 
+        /// Claude Code and Codex names, and Gemini CLI's own names for the same moments.
         init(name: String) {
             switch name {
             case "SessionStart": self = .sessionStart
             case "SessionEnd": self = .sessionEnd
-            case "UserPromptSubmit": self = .userPromptSubmit
-            case "PreToolUse": self = .preToolUse
-            case "PostToolUse": self = .postToolUse
+            case "UserPromptSubmit", "BeforeAgent": self = .userPromptSubmit
+            case "PreToolUse", "BeforeTool": self = .preToolUse
+            case "PostToolUse", "AfterTool": self = .postToolUse
             case "PostToolUseFailure": self = .postToolUseFailure
             case "PermissionRequest": self = .permissionRequest
             case "Notification": self = .notification
-            case "Stop": self = .stop
+            case "Stop", "AfterAgent": self = .stop
             case "StopFailure": self = .stopFailure
             case "SubagentStart": self = .subagentStart
             case "SubagentStop": self = .subagentStop
@@ -85,7 +86,8 @@ struct HookEvent: Equatable, Sendable {
         event.wait = (object[BridgeProtocol.Key.wait] as? Double).flatMap { $0 > 0 ? $0 : nil }
         event.message = nonEmpty(object["message"])
         event.notificationType = nonEmpty(object["notification_type"])
-        event.lastAssistantMessage = nonEmpty(object["last_assistant_message"])
+        // Gemini CLI sends the reply as `prompt_response`.
+        event.lastAssistantMessage = nonEmpty(object["last_assistant_message"]) ?? nonEmpty(object["prompt_response"])
         event.terminal = (object[BridgeProtocol.Key.terminal] as? [String: String]) ?? [:]
         if event.kind == .statusLine { event.usage = PlanUsage.parse(object["rate_limits"]) }
         return event

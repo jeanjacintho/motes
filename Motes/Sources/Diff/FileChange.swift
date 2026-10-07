@@ -34,7 +34,7 @@ enum DiffEngine {
         guard let input,
               let object = (try? JSONSerialization.jsonObject(with: input)) as? [String: Any] else { return [] }
         switch tool {
-        case "Edit":
+        case "Edit", "replace":
             guard let path = object["file_path"] as? String else { return [] }
             let pairs = [(object["old_string"] as? String ?? "", object["new_string"] as? String ?? "")]
             return [change(path: path, pairs: pairs, at: date)]
@@ -43,7 +43,7 @@ enum DiffEngine {
                   let edits = object["edits"] as? [[String: Any]] else { return [] }
             let pairs = edits.map { ($0["old_string"] as? String ?? "", $0["new_string"] as? String ?? "") }
             return [change(path: path, pairs: pairs, at: date)]
-        case "Write":
+        case "Write", "write_file":
             guard let path = object["file_path"] as? String else { return [] }
             return [change(path: path, pairs: [("", object["content"] as? String ?? "")], at: date)]
         case "apply_patch":

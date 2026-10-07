@@ -44,7 +44,8 @@ struct SessionStore {
             if let prompt = event.prompt { push(&session, ActivityLabel.prompt(prompt)) }
 
         case .preToolUse:
-            if event.toolName == "AskUserQuestion" {
+            // Claude Code's and Gemini CLI's question tools.
+            if event.toolName == "AskUserQuestion" || event.toolName == "ask_user" {
                 set(&session, .question, at: now)
             } else {
                 set(&session, .working, at: now)
@@ -177,7 +178,7 @@ struct SessionStore {
         let message = event.message?.lowercased() ?? ""
         if message.contains("usage limit") || message.contains("rate limit") { return .tired }
         switch event.notificationType {
-        case "permission_prompt": return .approval
+        case "permission_prompt", "ToolPermission": return .approval
         case "idle_prompt": return .idle
         default: return message.contains("permission") ? .approval : nil
         }
