@@ -4,6 +4,8 @@ All notable changes to Motes. Versions follow [Semantic Versioning](https://semv
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-06
+
 ### Added
 - Codex support: install its hooks from Settings (`~/.codex/hooks.json`), see its sessions live and allow or deny its permission requests from the notch. Patch edits show the files they touch.
 - Live diffs: a session's last edit shows its +N −M in the island; click it to read the diff and step through the session's edits. Built from what the agent sends, never read from disk.
