@@ -4,9 +4,11 @@ All notable changes to Motes. Versions follow [Semantic Versioning](https://semv
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-09
+
 ### Added
 - Gemini CLI support: install its hooks from Settings (`~/.gemini/settings.json`) and see its sessions live, with their edits as diffs. When it asks to run a tool the mote shows it, and clicking the session takes you to the terminal (Gemini CLI doesn't let a hook answer).
-- Messages: click a session's mote to write to it, or drop files on its row to send their paths. Terminal.app sessions get the line typed into their tab; Claude desktop chats get it pasted and sent in that conversation (needs the Accessibility permission). Only when you click Send, and never while the session is waiting for an approval or an answer.
+- Messages: click a session's mote to write to it, or drop files on its row to send their paths. Terminal.app sessions get the line typed into their tab; Claude desktop chats get it pasted and sent in that conversation (needs the Accessibility permission). Only when you click Send, and never while the session is waiting for an approval or an answer. Releases are ad-hoc signed, so macOS may ask for Accessibility again after an update.
 
 ## [0.2.0] - 2026-10-06
 
