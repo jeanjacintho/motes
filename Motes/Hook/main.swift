@@ -8,7 +8,8 @@ import Foundation
 // With --wait, for events that can be answered from the notch (a permission
 // request, a question), it waits for the user's answer and prints the agent's
 // decision JSON. No answer in time, or "reply in terminal": it prints nothing
-// and the agent asks in its terminal as usual. Without --wait it never prints.
+// and the agent asks in its terminal as usual. Without --wait it never prints,
+// except for Cursor, which needs a JSON answer to carry on (`ask` or `{}`).
 //
 // With --statusline it is Claude Code's status line: it forwards the plan
 // usage, then runs the user's own status line (--then, base64) and exits with
@@ -58,18 +59,24 @@ if isStatusLine {
 let names = HookRelay.names(in: input)
 let wait = canWait ? HookRelay.waitTime(eventName: names.event ?? eventName, toolName: names.tool) : nil
 
+let fallback = HookRelay.fallbackOutput(agent: agent, eventName: names.event ?? eventName)
+
 guard let message = HookRelay.message(
     payload: input, agent: agent, eventName: eventName,
     environment: ProcessInfo.processInfo.environment, tty: TerminalTTY.current(), wait: wait
-) else { exit(0) }
+) else {
+    if let fallback { FileHandle.standardOutput.write(fallback) }
+    exit(0)
+}
 
 if let wait {
     let reply = UnixSocket.request(message, to: socketPath, timeout: BridgeProtocol.hookTimeout, replyTimeout: wait)
-    if let output = HookRelay.output(fromReply: reply) {
+    if let output = HookRelay.output(fromReply: reply) ?? fallback {
         FileHandle.standardOutput.write(output)
     }
 } else {
     UnixSocket.send(message, to: socketPath, timeout: BridgeProtocol.hookTimeout)
+    if let fallback { FileHandle.standardOutput.write(fallback) }
 }
 exit(0)
 

@@ -86,7 +86,7 @@ final class SessionController {
 
     func answer(_ alertID: UUID, permission: ClaudeReply.Permission) {
         guard let alert = alerts.remove(id: alertID) else { return }
-        release(alertID, reply: ClaudeReply.permission(permission, suggestions: alert.suggestions))
+        release(alertID, reply: PermissionReply.make(permission, agent: alert.agent, suggestions: alert.suggestions))
         refresh()
     }
 

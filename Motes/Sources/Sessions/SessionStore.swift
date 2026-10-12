@@ -72,6 +72,9 @@ struct SessionStore {
             set(&session, .finished, at: now)
             if let summary = event.lastAssistantMessage.flatMap(ActivityLabel.summary) { push(&session, summary) }
 
+        case .agentResponse:
+            if let summary = event.lastAssistantMessage.flatMap(ActivityLabel.summary) { push(&session, summary) }
+
         case .stopFailure:
             set(&session, .error, at: now)
 

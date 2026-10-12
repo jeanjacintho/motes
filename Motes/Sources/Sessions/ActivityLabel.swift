@@ -12,7 +12,7 @@ enum ActivityLabel {
             label = join(name, input["file_path"].map(fileName))
         case "NotebookEdit", "NotebookRead":
             label = join(name, input["notebook_path"].map(fileName))
-        case "Bash":
+        case "Bash", "Shell":
             label = join(name, input["command"].map(firstLine))
         // Gemini CLI's tools, labelled like Claude Code's.
         case "replace":

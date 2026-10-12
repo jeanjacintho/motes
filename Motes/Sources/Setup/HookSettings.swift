@@ -16,6 +16,7 @@ struct HookTarget: Equatable, Identifiable {
     var timeoutScale = 1
     /// Also wraps the agent's status line to read the plan usage (Claude Code).
     var wrapsStatusLine = false
+    var layout = HookSettings.Layout.grouped
 
     var settingsURL: URL {
         URL(fileURLWithPath: NSHomeDirectory()).appendingPathComponent(settingsPath)
@@ -81,7 +82,32 @@ struct HookTarget: Equatable, Identifiable {
         timeoutScale: 1000
     )
 
-    static let all: [HookTarget] = [.claude, .codex, .gemini]
+    /// Cursor reads `~/.cursor/hooks.json`: a `version` and one flat list of
+    /// entries per event. It asks before each shell command and MCP tool; those
+    /// wait for the notch, and without an answer Cursor asks as usual.
+    static let cursor = HookTarget(
+        id: "cursor", name: "Cursor", agent: "cursor", settingsPath: ".cursor/hooks.json",
+        entries: [
+            Entry(event: "sessionStart", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "beforeSubmitPrompt", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "preToolUse", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "postToolUse", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "postToolUseFailure", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "beforeShellExecution", matcher: nil, waits: true,
+                  timeout: Int(BridgeProtocol.approvalWait) + 10),
+            Entry(event: "beforeMCPExecution", matcher: nil, waits: true,
+                  timeout: Int(BridgeProtocol.approvalWait) + 10),
+            Entry(event: "afterFileEdit", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "afterAgentResponse", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "stop", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "subagentStop", matcher: nil, waits: false, timeout: 5),
+            Entry(event: "sessionEnd", matcher: nil, waits: false, timeout: 5),
+        ],
+        footer: "Cursor asks Motes before every shell command and MCP tool: allow or deny it from the notch, or let it wait and Cursor asks as usual. Cursor loads new hooks once restarted.",
+        layout: .flat
+    )
+
+    static let all: [HookTarget] = [.claude, .codex, .gemini, .cursor]
 }
 
 /// Adds and removes Motes' entries in an agent's hook settings.
@@ -98,6 +124,11 @@ enum HookSettings {
         /// Seconds the agent waits for the hook.
         let timeout: Int
     }
+
+    /// How entries sit under each event: in `{matcher, hooks: [...]}` groups
+    /// (Claude Code, Codex, Gemini CLI), or as a flat list with their own
+    /// matcher under a top-level `version` (Cursor).
+    enum Layout: Equatable { case grouped, flat }
 
     /// Any hook command containing this is considered Motes'.
     static let marker = "motes-hook"
@@ -133,8 +164,10 @@ enum HookSettings {
         for (event, value) in hooks {
             guard let groups = value as? [Any] else { continue }
             for case let group as [String: Any] in groups {
+                // A flat entry is its own group of one.
+                let entries = group["hooks"] as? [Any] ?? (group["command"] != nil ? [group] : [])
                 let matcher = group["matcher"] as? String
-                for case let entry as [String: Any] in group["hooks"] as? [Any] ?? [] {
+                for case let entry as [String: Any] in entries {
                     guard let command = entry["command"] as? String, command.contains(marker) else { continue }
                     found.append((event, matcher, command, entry["timeout"] as? Int))
                 }
@@ -156,18 +189,21 @@ enum HookSettings {
         var hooks = result["hooks"] as? [String: Any] ?? [:]
         for entry in target.entries {
             var groups = hooks[entry.event] as? [Any] ?? []
-            var group: [String: Any] = [
-                "hooks": [[
-                    "type": "command",
-                    "command": command(hookPath: hookPath, agent: target.agent, waits: entry.waits),
-                    "timeout": entry.timeout * target.timeoutScale,
-                ]],
+            let hook: [String: Any] = [
+                "command": command(hookPath: hookPath, agent: target.agent, waits: entry.waits),
+                "timeout": entry.timeout * target.timeoutScale,
             ]
+            var group: [String: Any]
+            switch target.layout {
+            case .grouped: group = ["hooks": [hook.merging(["type": "command"]) { $1 }]]
+            case .flat: group = hook
+            }
             if let matcher = entry.matcher { group["matcher"] = matcher }
             groups.append(group)
             hooks[entry.event] = groups
         }
         result["hooks"] = hooks
+        if target.layout == .flat, result["version"] == nil { result["version"] = 1 }
         return target.wrapsStatusLine ? StatusLineSettings.installing(into: result, hookPath: hookPath) : result
     }
 
@@ -181,7 +217,11 @@ enum HookSettings {
             guard let groups = value as? [Any] else { continue }
             var kept: [Any] = []
             for case let group as [String: Any] in groups {
-                guard let entries = group["hooks"] as? [Any] else { kept.append(group); continue }
+                guard let entries = group["hooks"] as? [Any] else {
+                    // A flat entry (Cursor): dropped when it is Motes'.
+                    if !(group["command"] as? String ?? "").contains(marker) { kept.append(group) }
+                    continue
+                }
                 let remaining = entries.filter { entry in
                     !((entry as? [String: Any])?["command"] as? String ?? "").contains(marker)
                 }

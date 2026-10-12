@@ -70,7 +70,7 @@ enum HookRelay {
     /// when the event can't be answered from the notch.
     static func waitTime(eventName: String?, toolName: String?) -> TimeInterval? {
         switch eventName {
-        case "PermissionRequest": BridgeProtocol.approvalWait
+        case "PermissionRequest", "beforeShellExecution", "beforeMCPExecution": BridgeProtocol.approvalWait
         case "PreToolUse" where toolName == "AskUserQuestion": BridgeProtocol.questionWait
         default: nil
         }
@@ -116,6 +116,18 @@ extension HookRelay {
     static func names(in payload: Data) -> (event: String?, tool: String?) {
         let object = (try? JSONSerialization.jsonObject(with: payload)) as? [String: Any]
         return (object?[BridgeProtocol.Key.eventName] as? String, object?["tool_name"] as? String)
+    }
+
+    /// What the hook prints when the app gives no answer. Cursor reads a missing
+    /// or invalid answer as a refusal, so it gets `ask` (it then asks the user
+    /// itself) for shell commands and MCP tools, and an empty object otherwise.
+    /// Other agents get nothing and carry on as usual.
+    static func fallbackOutput(agent: String?, eventName: String?) -> Data? {
+        guard agent == "cursor" else { return nil }
+        switch eventName {
+        case "beforeShellExecution", "beforeMCPExecution": return Data(#"{"permission":"ask"}"#.utf8)
+        default: return Data("{}".utf8)
+        }
     }
 
     /// What the hook prints for the agent: the app's reply when it is a JSON
