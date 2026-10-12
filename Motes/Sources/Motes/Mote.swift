@@ -50,23 +50,24 @@ struct Mote: Identifiable, Codable, Equatable, Sendable {
 
 /// Coding CLIs a mote can run.
 enum MoteCLI: String, CaseIterable, Codable, Sendable {
-    case claude, codex, gemini
+    case claude, codex, gemini, cursor
 
     var title: String {
         switch self {
         case .claude: "Claude Code"
         case .codex: "Codex"
         case .gemini: "Gemini CLI"
+        case .cursor: "Cursor CLI"
         }
     }
 
     /// Command typed in the terminal.
-    var command: String { rawValue }
+    var command: String { self == .cursor ? "cursor-agent" : rawValue }
 
     /// Agent name its hooks report (`motes_agent`).
     var agent: String { rawValue }
 
     /// Whether Motes can install this CLI's hooks yet. Without them the
     /// terminal opens fine, but the mote can't show live state.
-    var hasHookSupport: Bool { self == .claude || self == .codex || self == .gemini }
+    var hasHookSupport: Bool { true }
 }

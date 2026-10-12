@@ -38,12 +38,12 @@ A **mote** is the app's central entity: a named companion for one project.
   - a **folder**,
   - a **form**, one of five temperaments: *Calm*, *Restless*, *Curious*, *Bubbly*, *Easygoing* (eyes, orbit, proportions and rhythm),
   - a **color**, one of nine: coral, amber, yellow, green, teal, blue, violet, pink, silver,
-  - a **CLI**: Claude Code, Codex or Gemini CLI.
+  - a **CLI**: Claude Code, Codex, Gemini CLI or Cursor CLI (`cursor-agent`).
 - Creating it opens **Terminal** in the folder running the CLI. That shell carries `MOTES_MOTE_ID`, so every hook fired from it is tied to the mote, even with several chats in the same folder or after restarting the CLI. No Automation permission is needed: Motes opens a `.command` script with Terminal.
 - With nothing running, the open island shows your motes; click one to open its terminal again.
 - **Sessions started outside Motes** (running `claude` in any terminal) use the mote whose folder contains their working directory, the deepest one winning. Otherwise they get the CLI's **automatic mote** (Claude: calm coral, Codex: restless blue, Gemini: curious violet, Cursor: bubbly pink, anything else: easygoing green).
 - Motes are saved in `~/Library/Application Support/Motes/motes.json`.
-- Live state needs the CLI's hooks, installed from Settings for Claude Code, Codex and Gemini CLI.
+- Live state needs the CLI's hooks, installed from Settings for Claude Code, Codex, Gemini CLI and Cursor (its app and CLI share the same hooks).
 
 **Personality model** (`Motes/Sources/Character/MotePersonality.swift`):
 

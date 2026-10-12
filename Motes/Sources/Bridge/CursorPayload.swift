@@ -14,7 +14,8 @@ enum CursorPayload {
         if object["session_id"] == nil, let conversation = object["conversation_id"] {
             object["session_id"] = conversation
         }
-        if object["cwd"] == nil, let root = (object["workspace_roots"] as? [Any])?.first as? String {
+        // Tool events carry `"cwd": ""`.
+        if (object["cwd"] as? String ?? "").isEmpty, let root = (object["workspace_roots"] as? [Any])?.first as? String {
             object["cwd"] = root
         }
         guard let name = object[BridgeProtocol.Key.eventName] as? String else { return object }

@@ -42,6 +42,23 @@ struct CursorTests {
         #expect(tool.cwd == "/code/app/web")
     }
 
+    @Test func anEmptyFolderFallsBackToTheWorkspace() throws {
+        // Cursor sends `"cwd": ""` on tool events.
+        let tool = try event(["hook_event_name": "preToolUse", "tool_name": "Shell", "cwd": ""])
+        #expect(tool.cwd == "/code/app")
+    }
+
+    @Test func cursorMotesRunTheCursorCLI() throws {
+        #expect(MoteCLI.cursor.command == "cursor-agent")
+        #expect(MoteCLI.cursor.agent == "cursor")
+        #expect(MoteCLI.cursor.title == "Cursor CLI")
+        #expect(MoteCLI.cursor.hasHookSupport)
+        let mote = Mote(name: "Web", folder: "/code/web", form: .bubbly, color: .pink, cli: .cursor)
+        let decoded = try JSONDecoder().decode(Mote.self, from: try JSONEncoder().encode(mote))
+        #expect(decoded.cli == .cursor)
+        #expect(String(data: try JSONEncoder().encode(MoteCLI.cursor), encoding: .utf8) == "\"cursor\"")
+    }
+
     @Test func otherAgentsKeepTheirSessionID() throws {
         let data = try JSONSerialization.data(withJSONObject: [
             "hook_event_name": "Stop", "session_id": "s1", "conversation_id": "other",

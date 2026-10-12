@@ -140,7 +140,8 @@ Settings → Cursor → **Install Hooks** writes `~/.cursor/hooks.json` (same ba
 - `beforeShellExecution` (tool `Shell`, its `command`) and `beforeMCPExecution` (tool `MCP:<name>`) wait for the notch, like a `PermissionRequest`: **Allow** prints `{"permission":"allow"}`, **Deny** `{"permission":"deny", …}`. Cursor runs these for every command, not only the ones it would ask about. No **Always Allow**: Cursor has no rule to remember.
 - Cursor reads a missing or invalid answer as a refusal, so `motes-hook --agent cursor` always prints JSON: `{"permission":"ask"}` on those two events when the notch gives no answer (Motes closed, timeout, **Reply in terminal**), so Cursor asks as usual, and `{}` on every other event.
 - Edits are diffed from `afterFileEdit` (`file_path` and its `edits`), not from `postToolUse`.
-- Cursor sessions jump to the Cursor app (`__CFBundleIdentifier`).
+- The Cursor CLI (`cursor-agent`) fires the same hooks, and a mote can run it (`MoteCLI.cursor`): its sessions carry `MOTES_MOTE_ID` and jump to their Terminal tab. App sessions jump to the Cursor app (`__CFBundleIdentifier`).
+- Tool events send `"cwd": ""`; an empty `cwd` falls back to `workspace_roots[0]`.
 
 ## Supporting a new CLI
 

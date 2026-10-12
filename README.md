@@ -29,7 +29,7 @@ Builds are signed ad-hoc, so after an update macOS may ask again for the permiss
 1. Menu ✨ → **Settings… → Claude Code → Install Hooks…**. Motes shows exactly what it will add to `~/.claude/settings.json`, backs the file up and writes only when you confirm. **Remove Hooks** takes out only Motes' entries.
    For Codex: **Settings… → Codex → Install Hooks…** (`~/.codex/hooks.json`), then run `/hooks` in Codex once and trust the Motes hooks.
    For Gemini CLI: **Settings… → Gemini CLI → Install Hooks…** (`~/.gemini/settings.json`).
-   For Cursor: **Settings… → Cursor → Install Hooks…** (`~/.cursor/hooks.json`), then restart Cursor.
+   For Cursor: **Settings… → Cursor → Install Hooks…** (`~/.cursor/hooks.json`), then restart Cursor. It covers both the Cursor app and its CLI (`cursor-agent`).
 2. Optional: **New Mote…** (⌘N) to create a mote for a project, **Launch at login**, and the shortcut to open the island (⌃⌥M by default).
 3. Optional: **Settings… → GitHub → Show pull requests and checks** to see each session's open pull request, its checks and reviews. Motes uses the GitHub CLI's login (`gh auth login`) or a token you paste, kept in the Keychain. It is off until you turn it on.
 

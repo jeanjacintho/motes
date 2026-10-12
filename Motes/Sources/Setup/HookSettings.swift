@@ -103,7 +103,7 @@ struct HookTarget: Equatable, Identifiable {
             Entry(event: "subagentStop", matcher: nil, waits: false, timeout: 5),
             Entry(event: "sessionEnd", matcher: nil, waits: false, timeout: 5),
         ],
-        footer: "Cursor asks Motes before every shell command and MCP tool: allow or deny it from the notch, or let it wait and Cursor asks as usual. Cursor loads new hooks once restarted.",
+        footer: "For the Cursor app and its CLI (cursor-agent). Cursor asks Motes before every shell command and MCP tool: allow or deny it from the notch, or let it wait and Cursor asks as usual. Cursor loads new hooks once restarted.",
         layout: .flat
     )
 
