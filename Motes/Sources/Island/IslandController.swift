@@ -140,6 +140,12 @@ final class IslandController {
             break
         }
         model.composing?.status = .sending
+        if case .claudeDesktop = availability {
+            // The panel keeps the keyboard even with Claude in front: let it go,
+            // or Claude's message box never gets the focus.
+            panel.acceptsKeyboard = false
+            panel.resignKey()
+        }
         Task { [weak self] in
             let failure: String?
             switch availability {
@@ -162,6 +168,8 @@ final class IslandController {
             guard let self, self.model.composing?.sessionID == compose.sessionID else { return }
             if let failure {
                 self.model.composing?.status = .failed(failure)
+                // A click on the card takes the keyboard again; until then ⌘V goes to Claude.
+                self.panel.acceptsKeyboard = true
             } else {
                 self.endCompose()
             }
