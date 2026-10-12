@@ -100,12 +100,36 @@ A control centre for coding agents: a quiet, living panel that only asks for att
 5. **Jump to the right terminal**.
 6. **Menu bar + Settings**: install/remove hooks, launch at login (`SMAppService`), global hotkey.
 
-### After the MVP (candidates)
-- ~~Live diff of edits.~~ Done: +N −M next to the session's last action, a diff card in the island (`Edit`, `MultiEdit`, `Write`, Codex `apply_patch`; built from hook payloads, never from disk; up to 200 KB / 4 000 lines, 50 edits per session).
-- ~~Claude plan usage gauge (statusLine).~~ Done: 5-hour and weekly limits on the open island's right shoulder, read from Claude Code's status line (the user's own status line runs through Motes and is restored on uninstall); idle Claude motes look tired from 90 %.
-- Other agents through the same protocol with the `motes_agent` field: ~~Codex~~, ~~Gemini CLI~~ and ~~Cursor~~ done (Gemini: live sessions only, since its hooks can't answer a tool confirmation; Cursor: its agent's sessions, with each shell command and MCP tool approved from the notch).
-- ~~GitHub (PRs, CI, reviews).~~ Done: a chip in each session row with the branch's open pull request, its checks and reviews (click opens it). Off until turned on; uses the gh CLI's login or a token in the Keychain; polls every 30 s while checks run, 2 min otherwise, and 3 s after a turn ends.
-- ~~File drop + chat.~~ Done: clicking a session's mote (or dropping files on its row) opens a card; Send types the line into the session's Terminal tab, or pastes it into its Claude desktop chat and presses Return (Accessibility, asked on first use). One line, control characters dropped, files as their paths; never while the terminal waits for an answer. Window attach stays a candidate.
+### After the MVP: done
+- **Live diff of edits.** +N −M next to the session's last action, a diff card in the island (`Edit`, `MultiEdit`, `Write`, Codex `apply_patch`, Cursor `afterFileEdit`; built from hook payloads, never from disk; up to 200 KB / 4 000 lines, 50 edits per session).
+- **Claude plan usage gauge (statusLine).** 5-hour and weekly limits on the open island's right shoulder, read from Claude Code's status line (the user's own status line runs through Motes and is restored on uninstall); idle Claude motes look tired from 90 %.
+- **Other agents** through the same protocol with the `motes_agent` field: Codex, Gemini CLI (live sessions only, since its hooks can't answer a tool confirmation) and Cursor (app and `cursor-agent`, each shell command and MCP tool approved from the notch).
+- **GitHub (PRs, CI, reviews).** A chip in each session row with the branch's open pull request, its checks and reviews (click opens it). Off until turned on; uses the gh CLI's login or a token in the Keychain; polls every 30 s while checks run, 2 min otherwise, and 3 s after a turn ends.
+- **File drop + chat.** Clicking a session's mote (or dropping files on its row) opens a card; Send types the line into the session's Terminal tab, or pastes it into its Claude desktop chat and presses Return (Accessibility, asked on first use). One line, control characters dropped, files as their paths; never while the terminal waits for an answer.
+
+### Roadmap
+
+Reviewed on 2026-10-11 against [Coucou](https://github.com/Louis-CFM/coucou), the open notch companion closest to Motes. Motes already matches it on the agent side (sessions, approvals, questions, diffs, plan usage, PRs, messages) and goes further on Cursor (Coucou only tags Claude Code running in Cursor's terminal). What Coucou has and Motes doesn't is mostly **attention** (sounds, presence) and **charm** (reactions to the pointer). Its chat with AI providers, service integrations, music and outfits stay out of scope (§2.3).
+
+**0.4.0: Cursor** (ready, to release)
+- Cursor app and CLI sessions, approvals and diffs; a mote can run `cursor-agent`.
+
+**0.5.0: Attention.** The island only asks for attention when it needs to (§3.3), and today it can be missed when the user looks elsewhere.
+1. **Sounds** (resolves §9): a short, original set for the moments that need the user: approval, question, error, finished. Synthesised in code or recorded for Motes, never taken from another project. On by default for alerts only, with a volume and an off switch in Settings; no sound for silent updates (activity, diffs). Each mote form could pitch them differently, as data in its personality.
+2. **Away and back:** when there has been no keyboard or mouse input for a few minutes (configurable), the compact island hides; alerts still open it. On return, the island shows what happened meanwhile (finished sessions, errors) before collapsing. Uses the system idle time, no permission.
+3. **GitHub alerts:** the session's pull request already polled by `GitHubMonitor` badges its mote (and plays a sound) when its checks turn red or green, or when a review asks for changes.
+
+**0.6.0: Charm.** Motes react to the user, still through Core Animation and data only (no frame-by-frame drawing).
+1. **Reactions:** a mote's eyes widen and its dust gathers when the pointer rests on it, it shies away when poked, it gets dizzy after a few quick pokes. Each reaction is a short repeating animation in `MoteLayer`; which ones a mote does and how strongly lives in its `MotePersonality`.
+2. **Drag a mote:** pick up the focused mote and drop it on a session row to focus that session, or on the island's **+** to make it a project mote. **[decide]** whether a mote can also live on the desktop, like Coucou's.
+
+**Later (candidates)**
+- **Window attach:** drop a mote on a window to send it to the session as context. Needs Screen Recording, so it stays optional and off the MVP path (§10).
+- **Demo mode:** a menu item that plays fake sessions through every state, for screenshots, the README GIF and contributors without an agent at hand.
+- **More agents** through `motes_agent`: Antigravity (`agy`), GitHub Copilot CLI, Aider, when they offer hooks.
+- **Codex questions**, if Codex adds a question tool hooks can answer.
+
+**Not planned:** chat with AI providers, service integrations (Stripe, Notion, Vercel…), music control, outfits, Windows and Linux builds.
 
 ## 5. Proposed architecture
 
@@ -161,7 +185,7 @@ Claude Code ──hook──► motes-hook (Swift binary, inside the app bundle)
 - **First version:** 0.1.0.
 
 ## 9. Open questions
-1. Sounds: yes or no? Who makes them?
+1. Sounds: proposed for 0.5.0 (see Roadmap). Who makes them: synthesised in code, or recorded for Motes?
 
 ## 10. Getting ready for contributors
 Since the repository is public from day one (done in M6):
