@@ -4,6 +4,8 @@ All notable changes to Motes. Versions follow [Semantic Versioning](https://semv
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-12
+
 ### Added
 - Cursor support: install its hooks from Settings (`~/.cursor/hooks.json`) and see its agent's sessions live, with their edits as diffs. Allow or deny each shell command and MCP tool from the notch; without an answer, Cursor asks as usual. Works for the Cursor app and its CLI, and a new mote can run the Cursor CLI (`cursor-agent`).
 
