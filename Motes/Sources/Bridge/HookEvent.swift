@@ -12,6 +12,8 @@ struct HookEvent: Equatable, Sendable {
         case subagentStart, subagentStop
         /// The user stopped the agent mid-turn (Codex).
         case interrupt
+        /// The agent's reply, sent apart from the end of its turn (Cursor).
+        case agentResponse
         /// Claude Code's status line: plan usage only, not a session event.
         case statusLine
         case other(String)
@@ -32,11 +34,15 @@ struct HookEvent: Equatable, Sendable {
             case "SubagentStart": self = .subagentStart
             case "SubagentStop": self = .subagentStop
             case "Interrupt": self = .interrupt
+            case HookEvent.agentResponseName: self = .agentResponse
             case StatusLineRelay.eventName: self = .statusLine
             default: self = .other(name)
             }
         }
     }
+
+    /// Canonical name of `.agentResponse`; no agent sends it as is.
+    static let agentResponseName = "AgentResponse"
 
     var kind: Kind
     var sessionID: String
@@ -63,8 +69,11 @@ struct HookEvent: Equatable, Sendable {
     var usage: PlanUsage?
 
     static func parse(_ data: Data) -> HookEvent? {
-        guard let object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let name = object[BridgeProtocol.Key.eventName] as? String,
+        guard var object = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        if object[BridgeProtocol.Key.agent] as? String == CursorPayload.agent {
+            object = CursorPayload.canonical(object)
+        }
+        guard let name = object[BridgeProtocol.Key.eventName] as? String,
               let sessionID = object["session_id"] as? String, !sessionID.isEmpty
         else { return nil }
 

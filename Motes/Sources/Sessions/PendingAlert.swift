@@ -26,6 +26,8 @@ struct PendingAlert: Identifiable, Equatable, Sendable {
     /// Kept to build the reply.
     let toolInput: Data?
     let suggestions: Data?
+    /// The agent that asked, to answer in its format.
+    var agent = BridgeProtocol.defaultAgent
 
     static func approval(from event: HookEvent, id: UUID, at now: Date) -> PendingAlert? {
         guard event.kind == .permissionRequest, let tool = event.toolName else { return nil }
@@ -48,17 +50,17 @@ struct PendingAlert: Identifiable, Equatable, Sendable {
         return PendingAlert(
             id: id, sessionID: event.sessionID, kind: .approval(approval), receivedAt: now,
             expiresAt: now.addingTimeInterval(event.wait ?? BridgeProtocol.approvalWait),
-            toolInput: event.rawToolInput, suggestions: event.permissionSuggestions
+            toolInput: event.rawToolInput, suggestions: event.permissionSuggestions, agent: event.agent
         )
     }
 
     /// The alert a waiting hook event asks for, following what each agent can be answered with:
-    /// Claude Code gets approvals and questions, Codex approvals only, others nothing.
+    /// Claude Code gets approvals and questions, Codex and Cursor approvals only, others nothing.
     static func make(from event: HookEvent, id: UUID, at now: Date) -> PendingAlert? {
         switch event.agent {
         case BridgeProtocol.defaultAgent:
             approval(from: event, id: id, at: now) ?? question(from: event, id: id, at: now)
-        case HookTarget.codex.agent:
+        case HookTarget.codex.agent, HookTarget.cursor.agent:
             approval(from: event, id: id, at: now)
         default:
             nil

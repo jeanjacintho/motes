@@ -131,6 +131,17 @@ Settings → Gemini CLI → **Install Hooks** writes `~/.gemini/settings.json` (
 - `ask_user` shows the question state, without a card, for the same reason.
 - Tools: `replace` and `write_file` are diffed like `Edit` and `Write`; `run_shell_command`, `read_file`, `grep_search`, `glob`, `list_directory`, `google_web_search` and `web_fetch` get the same labels as Claude Code's tools.
 
+## Cursor
+
+Settings → Cursor → **Install Hooks** writes `~/.cursor/hooks.json` (same backup, diff and confirmation). That file has its own layout: a top-level `"version": 1` (added when missing) and, under `hooks`, a flat list of `{command, timeout}` entries per event instead of `{matcher, hooks}` groups. Cursor loads new hooks once restarted.
+
+- Commands carry `--agent cursor`. Timeouts are in seconds.
+- The relay keeps Cursor's payload as is; the app rewrites it (`CursorPayload`): `conversation_id` → `session_id`, `cwd` or else `workspace_roots[0]` → `cwd`, and the camelCase events to the same moments: `beforeSubmitPrompt` → `UserPromptSubmit`, `preToolUse` / `postToolUse` / `postToolUseFailure`, `afterAgentResponse` (its `text` is the summary), `stop` → `Stop`, or `StopFailure` / `Interrupt` when its `status` is `error` / `aborted`, `subagentStop`, `sessionStart` / `sessionEnd`.
+- `beforeShellExecution` (tool `Shell`, its `command`) and `beforeMCPExecution` (tool `MCP:<name>`) wait for the notch, like a `PermissionRequest`: **Allow** prints `{"permission":"allow"}`, **Deny** `{"permission":"deny", …}`. Cursor runs these for every command, not only the ones it would ask about. No **Always Allow**: Cursor has no rule to remember.
+- Cursor reads a missing or invalid answer as a refusal, so `motes-hook --agent cursor` always prints JSON: `{"permission":"ask"}` on those two events when the notch gives no answer (Motes closed, timeout, **Reply in terminal**), so Cursor asks as usual, and `{}` on every other event.
+- Edits are diffed from `afterFileEdit` (`file_path` and its `edits`), not from `postToolUse`.
+- Cursor sessions jump to the Cursor app (`__CFBundleIdentifier`).
+
 ## Supporting a new CLI
 
 1. Add a case to `MoteCLI` (command and agent name) and an automatic mote in `MoteRegistry` (a form plus a color, stable ID).
