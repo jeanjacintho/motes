@@ -4,6 +4,8 @@ All notable changes to Motes. Versions follow [Semantic Versioning](https://semv
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-12
+
 ### Fixed
 - Sending a message to a Claude desktop chat typed nothing and left it on the clipboard: the island kept the keyboard while Claude came to the front.
 
