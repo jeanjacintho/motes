@@ -9,6 +9,9 @@ async function main() {
   const db = createDb(config.databaseUrl);
   const server = createServer(db, logger);
   let stopping = false;
+  server.addHook('onResponse', async () => {
+    if (stopping) setImmediate(() => server.server.closeIdleConnections());
+  });
   const startup = (async () => {
     if (config.migrateOnStart) await migrate(db);
     if (!stopping) await server.listen({ port: config.port, host: '0.0.0.0' });
@@ -23,7 +26,9 @@ async function main() {
     deadline.unref();
     try {
       await startup.catch(() => {});
-      await server.close();
+      const draining = server.close();
+      server.server.closeIdleConnections();
+      await draining;
       await db.$client.end({ timeout: 1 });
       clearTimeout(deadline);
     } catch (error) {

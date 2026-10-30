@@ -34,7 +34,7 @@ describe('health', () => {
         .$client`UPDATE schema_migrations SET checksum = ${record.checksum} WHERE name = ${record.name}`;
   });
 
-  it('terminates on SIGTERM within five seconds', async () => {
+  it('drains an active keep-alive request and exits on SIGTERM', async () => {
     const socket = createNetServer();
     socket.listen(0, '127.0.0.1');
     await once(socket, 'listening');
@@ -75,8 +75,35 @@ describe('health', () => {
         }
       }
       expect(response?.status).toBe(200);
-      const start = performance.now();
-      child.kill('SIGTERM');
+      await response?.text();
+      let pending: Promise<Response> | undefined;
+      let start = 0;
+      await testDb.db.$client.begin(async (tx) => {
+        await tx`LOCK TABLE schema_migrations IN ACCESS EXCLUSIVE MODE`;
+        pending = fetch(`http://127.0.0.1:${port}/health`);
+        let blocked = false;
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const rows = await testDb.db.$client<{ blocked: boolean }[]>`
+            SELECT EXISTS (
+              SELECT 1 FROM pg_stat_activity
+              WHERE datname = current_database() AND wait_event_type = 'Lock'
+                AND query LIKE '%SELECT name, checksum FROM schema_migrations ORDER BY name%'
+            ) AS blocked`;
+          if (rows[0]?.blocked) {
+            blocked = true;
+            break;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        expect(blocked).toBe(true);
+        start = performance.now();
+        child.kill('SIGTERM');
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      });
+      expect(pending).toBeDefined();
+      const drained = await pending;
+      expect(drained?.status).toBe(200);
+      expect(await drained?.json()).toMatchObject({ database: true, migrations: true });
       const [code, signal] = await exited;
       expect(code).toBe(0);
       expect(signal).toBeNull();
