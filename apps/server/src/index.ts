@@ -20,7 +20,10 @@ async function main() {
     }
     return;
   }
-  const server = createServer(db, logger);
+  const server = createServer(db, logger, undefined, undefined, {
+    devRoutes: process.env.MOTES_DEV_ROUTES === 'true',
+    replayLimit: config.replayLimit,
+  });
   let stopping = false;
   server.addHook('onResponse', async () => {
     // Let Node mark the completed response's socket idle before closing it.

@@ -9,7 +9,7 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "dev": "tsx watch src/index.ts",
+    "dev": "MOTES_DEV_ROUTES=true tsx watch src/index.ts",
     "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
   },
   "dependencies": {

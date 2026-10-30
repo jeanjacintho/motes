@@ -10,6 +10,7 @@ const configSchema = z.object({
     .min(1)
     .default(join(homedir(), 'Library', 'Application Support', 'Motes')),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
+  MOTES_REPLAY_LIMIT: z.coerce.number().int().min(1).max(100000).default(5000),
   MOTES_MIGRATE_ON_START: z.enum(['true', 'false']).default('true'),
 });
 
@@ -25,6 +26,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     port: result.data.MOTES_PORT,
     dataDir: result.data.MOTES_DATA_DIR,
     logLevel: result.data.LOG_LEVEL,
+    replayLimit: result.data.MOTES_REPLAY_LIMIT,
     migrateOnStart: result.data.MOTES_MIGRATE_ON_START === 'true',
   };
 }
