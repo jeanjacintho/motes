@@ -12,6 +12,7 @@ export {
   type Usage,
   usageSchema,
 } from './base.js';
+export { canonicalJson } from './canonical-json.js';
 export {
   type ClientEvent,
   clientEventSchema,
