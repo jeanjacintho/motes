@@ -10,12 +10,19 @@
     "turbo": "catalog:",
     "typescript": "catalog:",
     "@types/node": "catalog:",
-    "@biomejs/biome": "catalog:"
+    "@biomejs/biome": "catalog:",
+    "vitest": "catalog:",
+    "jsdom": "catalog:",
+    "@testing-library/react": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:"
   },
   "scripts": {
     "build": "turbo run build",
-    "typecheck": "turbo run typecheck",
+    "typecheck": "turbo run typecheck && tsc -p tsconfig.test.json",
     "lint": "biome check .",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "test": "vitest run",
+    "test:watch": "vitest"
   }
 }
