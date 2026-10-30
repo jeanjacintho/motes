@@ -15,7 +15,7 @@ import {
   PairingScreen,
 } from '@motes/views';
 import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { z } from 'zod';
 import type { PairingRequest, PairingResult } from '../security';
 
@@ -25,6 +25,7 @@ const deviceList = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVI
 function Session({ bridge }: { bridge: Bridge }) {
   const queryClient = useQueryClient();
   const [paired, setPaired] = useState<boolean | null>(null);
+  const generation = useRef(0);
   const [history, setHistory] = useState(['/']);
   const path = history[history.length - 1] ?? '/';
   const adapter: NavigationAdapter = {
@@ -33,9 +34,11 @@ function Session({ bridge }: { bridge: Bridge }) {
     back: () => setHistory((previous) => (previous.length > 1 ? previous.slice(0, -1) : previous)),
   };
   async function request(input: PairingRequest) {
+    const started = generation.current;
     const result = await bridge(input);
     if (!result.ok) {
-      if (result.unauthorized) {
+      if (result.unauthorized && started === generation.current) {
+        generation.current++;
         setPaired(false);
         setHistory(['/']);
         queryClient.clear();
@@ -47,9 +50,10 @@ function Session({ bridge }: { bridge: Bridge }) {
   const status = useQuery({
     queryKey: ['pairing-status'],
     queryFn: async () => {
+      const started = generation.current;
       const value = await request({ action: 'status' });
       if (typeof value !== 'boolean') throw new Error('Invalid status');
-      setPaired(value);
+      if (started === generation.current) setPaired(value);
       return value;
     },
     retry: false,
@@ -79,6 +83,7 @@ function Session({ bridge }: { bridge: Bridge }) {
       <PairingScreen
         onPair={async (url, name, code) => {
           await request({ action: 'pair', url, name, code });
+          generation.current++;
           setPaired(true);
         }}
       />

@@ -2,6 +2,40 @@ import { describe, expect, it, vi } from 'vitest';
 import { createPairingService } from './pairing';
 
 describe('desktop pairing', () => {
+  it('preserves a replacement credential after a delayed 401 from the previous session', async () => {
+    let value: string | null = JSON.stringify({ url: 'http://localhost:3000', token: 'old' });
+    const storage = {
+      get: async () => value,
+      set: async (v: string) => {
+        value = v;
+      },
+      remove: async () => {
+        value = null;
+      },
+    };
+    let release: (response: { ok: boolean; status: number; json(): Promise<unknown> }) => void =
+      () => {};
+    const fetch = vi
+      .fn()
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            release = resolve;
+          }),
+      )
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ token: 'new' }) })
+      .mockResolvedValueOnce({ ok: true, status: 200, json: async () => [] });
+    const service = createPairingService(storage, fetch);
+    const old = service.devices().catch((error: unknown) => error);
+    await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await service.pair('http://localhost:3000', 'Laptop', 'code');
+    release({ ok: false, status: 401, json: async () => null });
+    const error = await old;
+    expect(error).not.toMatchObject({ status: 401 });
+    expect(await service.isPaired()).toBe(true);
+    await service.devices();
+    expect(fetch.mock.calls[2]?.[1].headers.authorization).toBe('Bearer new');
+  });
   it('stores a successful exchange securely and uses the token for device requests', async () => {
     let value: string | null = null;
     const storage = {

@@ -8,6 +8,16 @@ type Storage = {
 type Fetch = Parameters<typeof createApiClient>[0]['fetch'];
 
 export function createPairingService(storage: Storage, fetch: Fetch) {
+  let generation = 0;
+  let mutations: Promise<void> = Promise.resolve();
+  function synchronized<T>(operation: () => Promise<T>): Promise<T> {
+    const result = mutations.then(operation);
+    mutations = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
   async function credential() {
     const raw = await storage.get();
     if (!raw) return null;
@@ -32,7 +42,8 @@ export function createPairingService(storage: Storage, fetch: Fetch) {
     });
   }
   async function authenticated<T>(operation: (api: ReturnType<typeof client>) => Promise<T>) {
-    const saved = await credential();
+    const snapshot = await synchronized(async () => ({ saved: await credential(), generation }));
+    const { saved } = snapshot;
     if (!saved) throw new Error('Not paired');
     let invalid = false;
     try {
@@ -44,12 +55,20 @@ export function createPairingService(storage: Storage, fetch: Fetch) {
       if (invalid) throw new Error('Invalid server response');
       return result;
     } catch (error) {
-      if (error instanceof ApiError && error.status === 401) await storage.remove();
+      if (error instanceof ApiError && error.status === 401) {
+        const cleared = await synchronized(async () => {
+          if (snapshot.generation !== generation) return false;
+          await storage.remove();
+          generation++;
+          return true;
+        });
+        if (!cleared) throw new Error('Session changed');
+      }
       throw error;
     }
   }
   return {
-    isPaired: async () => (await credential()) !== null,
+    isPaired: () => synchronized(async () => (await credential()) !== null),
     async pair(url: string, name: string, code: string) {
       const parsed = new URL(url);
       if (
@@ -65,7 +84,10 @@ export function createPairingService(storage: Storage, fetch: Fetch) {
         invalid = true;
       }).pair({ name, code }, { token: '' });
       if (invalid || !result.token) throw new Error('Invalid server response');
-      await storage.set(JSON.stringify({ url: parsed.href, token: result.token }));
+      await synchronized(async () => {
+        await storage.set(JSON.stringify({ url: parsed.href, token: result.token }));
+        generation++;
+      });
     },
     devices: () => authenticated((api) => api.devices.list([])),
     revoke: (id: string) => authenticated((api) => api.devices.revoke(id, { revoked: false })),
