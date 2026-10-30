@@ -11,4 +11,20 @@ describe('query defaults', () => {
     expect(retry(0, new NetworkError('offline'))).toBe(true);
     expect(retry(3, new NetworkError('offline'))).toBe(false);
   });
+
+  it('does not repeat a query that rejects response validation', async () => {
+    const client = createQueryClient();
+    let calls = 0;
+    await expect(
+      client.fetchQuery({
+        queryKey: ['validation'],
+        queryFn: async () => {
+          calls++;
+          throw new Error('invalid response');
+        },
+        retryDelay: 0,
+      }),
+    ).rejects.toThrow('invalid response');
+    expect(calls).toBe(1);
+  });
 });

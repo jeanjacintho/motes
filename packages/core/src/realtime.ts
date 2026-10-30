@@ -20,7 +20,7 @@ const cursorKey = 'realtime.cursor';
 const cursor = z
   .string()
   .regex(/^(0|[1-9][0-9]*)$/)
-  .refine((s) => BigInt(s) <= 9223372036854775807n);
+  .refine((s) => /^(0|[1-9][0-9]*)$/.test(s) && BigInt(s) <= 9223372036854775807n);
 const messageSchema = z
   .union([
     z.object({ type: z.literal('resync_required') }),
