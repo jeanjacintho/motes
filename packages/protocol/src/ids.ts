@@ -8,6 +8,7 @@ export const ID_PREFIXES = Object.freeze({
   runtime: 'rt_',
   message: 'msg_',
   event: 'evt_',
+  device: 'dev_',
 } as const);
 
 export type IdKind = keyof typeof ID_PREFIXES;

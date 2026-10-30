@@ -19,7 +19,7 @@ function fixture() {
     join(root, 'docker'),
     `#!${process.execPath}
 require('node:fs').appendFileSync(process.env.CALL_LOG, JSON.stringify({args: process.argv.slice(2), user: process.env.POSTGRES_USER, password: process.env.POSTGRES_PASSWORD, database: process.env.POSTGRES_DB}) + '\\n');
-process.exit(Number(process.env.DOCKER_EXIT ?? 0));
+process.exit(Number(process.argv.includes('exec') ? (process.env.VERIFY_EXIT ?? 0) : (process.env.DOCKER_EXIT ?? 0)));
 `,
     { mode: 0o755 },
   );
@@ -62,24 +62,26 @@ test('up waits for health and reads connection settings from .env without loggin
   const { run, calls } = fixture();
   const result = run(['up']);
   expect(result.status).toBe(0);
-  expect(calls()).toEqual([
-    {
-      args: [
-        'compose',
-        '--file',
-        expect.stringContaining('docker-compose.yml'),
-        'up',
-        '--detach',
-        '--wait',
-        '--wait-timeout',
-        '60',
-        'postgres',
-      ],
-      user: 'local',
-      password: 'fixture-password',
-      database: 'local_db',
-    },
-  ]);
+  expect(calls()[0]).toEqual({
+    args: [
+      'compose',
+      '--project-name',
+      'motes',
+      '--file',
+      expect.stringContaining('docker-compose.yml'),
+      'up',
+      '--detach',
+      '--no-recreate',
+      '--wait',
+      '--wait-timeout',
+      '60',
+      'postgres',
+    ],
+    user: 'local',
+    password: 'fixture-password',
+    database: 'local_db',
+  });
+  expect(calls()[1].args).toContain('exec');
   expect(result.stdout + result.stderr).not.toContain('fixture-password');
 });
 
@@ -87,10 +89,17 @@ test('down preserves volumes; confirmed reset removes them without restarting', 
   const { run, calls } = fixture();
   expect(run(['down']).status).toBe(0);
   expect(run(['reset', '--confirm']).status).toBe(0);
-  expect(calls().map((call) => call.args.slice(3))).toEqual([['down'], ['down', '--volumes']]);
+  expect(calls().map((call) => call.args.slice(5))).toEqual([['down'], ['down', '--volumes']]);
 });
 
 test('Docker failures propagate to the caller', () => {
   const { run } = fixture();
   expect(run(['up'], { DOCKER_EXIT: '17' }).status).toBe(17);
+});
+
+test('up fails if the existing database rejects the configured credentials', () => {
+  const { run } = fixture();
+  const result = run(['up'], { VERIFY_EXIT: '1' });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('authentication');
 });

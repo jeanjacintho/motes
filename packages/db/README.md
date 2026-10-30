@@ -12,6 +12,14 @@ pnpm db:check
 pnpm db:migrate
 ```
 
+The Compose volume retains its initial database credentials even if the URL
+changes. `db:up` verifies a real authenticated connection and reports a mismatch
+without altering the volume. To isolate a development or test instance, choose
+an unused localhost port in `DATABASE_URL`; Compose uses a separate project and
+volume for that port. Use the same URL for `db:up`, tests and `db:down`. Keep
+credentials in the local environment, never in tracked files. `db:reset --confirm`
+deletes only the volume belonging to the selected port.
+
 `db:generate` uses Drizzle Kit's PostgreSQL API to write
 `migrations/NNNN_name.sql` and the matching `migrations/meta/NNNN_name.json`
 snapshot. Review the SQL by hand and commit both files. An unchanged schema

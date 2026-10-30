@@ -40,4 +40,5 @@ export {
   type RunId,
   type RuntimeId,
 } from './ids.js';
+export { pairRequestSchema, pairResponseSchema } from './pairing.js';
 export { type ParseLogger, parseWithFallback, tolerantEnum } from './parsing.js';
