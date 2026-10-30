@@ -59,6 +59,7 @@ For an output smoke check, Node packages must have `dist/index.js` and
 JavaScript. Temporary typed imports along `protocol → core → views → web`
 and `protocol → server` verify package resolution across both build modes.
 
-`pnpm lint` runs Biome, and `pnpm test` runs the workspace tests described in
-[testing.md](testing.md). The integrated `pnpm check`, boundary checker and
-Postgres scripts belong to later cards and are not available yet.
+`pnpm lint` runs the package boundary checker and Biome. `pnpm test` runs the
+workspace tests described in [testing.md](testing.md). `pnpm check` runs lint,
+typecheck and tests, matching CI. Postgres scripts arrive in P0-03-01 and are
+not available yet.
