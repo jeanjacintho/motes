@@ -11,6 +11,7 @@ import {
   tolerantEnum,
 } from '@motes/protocol';
 import { z } from 'zod';
+import { NetworkError } from './query-client.js';
 
 const devicesSchema = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVICE_KINDS) }));
 
@@ -63,7 +64,12 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
       headers['content-type'] = 'application/json';
       init.body = JSON.stringify(body);
     }
-    const response = await fetch(`${base}${path}`, init);
+    let response: Awaited<ReturnType<Fetch>>;
+    try {
+      response = await fetch(`${base}${path}`, init);
+    } catch (error) {
+      throw new NetworkError(error);
+    }
     let data: unknown;
     try {
       data = await response.json();
