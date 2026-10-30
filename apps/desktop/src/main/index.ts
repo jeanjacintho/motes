@@ -1,7 +1,22 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, ipcMain } from 'electron';
-import { createVersionHandler, isAllowedNavigation } from '../security';
+import keytar from 'keytar';
+import { createPairingService } from '../pairing';
+import { createPairingHandler, createVersionHandler, isAllowedNavigation } from '../security';
+
+const serviceName = 'Motes desktop';
+const account = 'paired-server';
+const pairing = createPairingService(
+  {
+    get: () => keytar.getPassword(serviceName, account),
+    set: (value) => keytar.setPassword(serviceName, account, value),
+    remove: async () => {
+      await keytar.deletePassword(serviceName, account);
+    },
+  },
+  fetch,
+);
 
 function createWindow() {
   const rendererFile = join(import.meta.dirname, '../renderer/index.html');
@@ -25,7 +40,11 @@ function createWindow() {
     'app:version',
     createVersionHandler(window.webContents, appUrl, () => app.getVersion()),
   );
-  window.on('closed', () => ipcMain.removeHandler('app:version'));
+  ipcMain.handle('pairing:request', createPairingHandler(window.webContents, appUrl, pairing));
+  window.on('closed', () => {
+    ipcMain.removeHandler('app:version');
+    ipcMain.removeHandler('pairing:request');
+  });
   void window.loadURL(appUrl);
 }
 

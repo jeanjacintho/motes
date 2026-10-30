@@ -1,7 +1,32 @@
 import { describe, expect, it } from 'vitest';
-import { assertTrustedSender, createVersionHandler, isAllowedNavigation } from './security';
+import {
+  assertTrustedSender,
+  createPairingHandler,
+  createVersionHandler,
+  isAllowedNavigation,
+} from './security';
 
 describe('desktop security', () => {
+  it('validates pairing IPC sender and payload', async () => {
+    const mainFrame = { url: 'http://localhost:5173/' };
+    const sender = { mainFrame };
+    const service = {
+      isPaired: async () => false,
+      pair: async () => {},
+      devices: async () => [],
+      revoke: async () => ({ revoked: true }),
+    };
+    const handler = createPairingHandler(sender, mainFrame.url, service);
+    await expect(
+      handler({ sender, senderFrame: mainFrame }, { action: 'status' }),
+    ).resolves.toEqual({ ok: true, value: false });
+    await expect(
+      handler({ sender, senderFrame: { url: mainFrame.url } }, { action: 'status' }),
+    ).rejects.toThrow('Untrusted IPC sender');
+    await expect(
+      handler({ sender, senderFrame: mainFrame }, { action: 'pair', url: 42 }),
+    ).rejects.toThrow('Invalid IPC request');
+  });
   it('rejects an IPC request from an unexpected frame in the handler', () => {
     const mainFrame = { url: 'http://localhost:5173/' };
     const sender = { mainFrame };
