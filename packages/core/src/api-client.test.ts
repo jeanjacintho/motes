@@ -32,6 +32,28 @@ describe('API client', () => {
     expect(error).toMatchObject({ code: 'unauthorized', envelope, status: 401 });
   });
 
+  it('preserves error context for a future error code', async () => {
+    const envelope = {
+      code: 'future_error',
+      message: 'Specific reason',
+      requestId: 'req-future',
+      details: { retry: false },
+    };
+    const client = createApiClient({
+      baseUrl: 'http://server',
+      getToken: () => null,
+      fetch: async () => ({ ok: false, status: 422, json: async () => envelope }),
+      logger: vi.fn(),
+    });
+    const error = await client.devices.list([]).catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(ApiError);
+    expect(error).toMatchObject({
+      code: 'unknown',
+      status: 422,
+      envelope: { ...envelope, code: 'unknown' },
+    });
+  });
+
   it('sends the correct requests and parses endpoint responses', async () => {
     const fetch = vi
       .fn()

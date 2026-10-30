@@ -1,7 +1,6 @@
 import {
-  type ApiErrorCode,
+  API_ERROR_CODES,
   apiErrorSchema,
-  type ApiError as ErrorEnvelope,
   type ParseLogger,
   pairResponseSchema,
   parseWithFallback,
@@ -27,8 +26,11 @@ const deviceSchema = z.object({
 const devicesSchema = z.array(deviceSchema);
 const revokeSchema = z.object({ revoked: z.boolean() });
 
+const clientErrorSchema = apiErrorSchema.extend({ code: tolerantEnum(API_ERROR_CODES) });
+type ErrorEnvelope = z.output<typeof clientErrorSchema>;
+
 export class ApiError extends Error {
-  readonly code: ApiErrorCode;
+  readonly code: ErrorEnvelope['code'];
   constructor(
     readonly envelope: ErrorEnvelope,
     readonly status: number,
@@ -82,7 +84,7 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
     }
     if (!response.ok) {
       const envelope = parseWithFallback(
-        apiErrorSchema,
+        clientErrorSchema,
         data,
         { code: 'internal', message: `HTTP ${response.status}`, requestId: 'unknown' },
         logger,
