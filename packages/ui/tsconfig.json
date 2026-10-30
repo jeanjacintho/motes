@@ -6,16 +6,9 @@
     "tsBuildInfoFile": "dist/build.tsbuildinfo",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "lib": [
-      "ES2024",
-      "DOM",
-      "DOM.Iterable"
-    ],
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "emitDeclarationOnly": true
   },
-  "include": [
-    "src/**/*.ts",
-    "src/**/*.tsx"
-  ]
+  "include": ["src/**/*.ts", "src/**/*.tsx"]
 }
