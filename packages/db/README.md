@@ -1,8 +1,7 @@
 # Database access and migrations
 
 `createDb(url)` returns the PostgreSQL Drizzle client. Close its pool with
-`await db.$client.end()` during shutdown. Business tables belong in
-`src/schema.ts`; this card intentionally introduces none.
+`await db.$client.end()` during shutdown. Tables belong in `src/schema.ts`.
 
 From the repository root, with Node 24 and dependencies installed:
 
@@ -100,3 +99,34 @@ Migration runner bootstrap tests deliberately use the underlying isolated
 database lifecycle without cloning: they must start unmigrated and exercise
 custom migration directories. All other database tests should use
 `withTestDb()`.
+
+## Event outbox
+
+`appendEvent(tx, envelope)` strictly validates with the protocol registry and
+inserts the event using the caller's Drizzle transaction. Pass the same
+transaction used for the domain change; the appender never commits it.
+Duplicate event ids fail. A rolled-back transaction exposes neither the
+domain change nor its event. The returned `{ seq, event }` is provisional
+until the caller's transaction commits. Timestamps are stored as UTC instants
+with millisecond precision and read as ISO strings.
+
+`readEventsAfter(db, seq, limit)` returns `{ seq, event }[]`, ordered by `seq`
+and strictly after the supplied cursor. Start with `0n`; limits use the shared
+pagination contract (1–200). Cursors stay `bigint` end to end; future wire
+adapters must encode them as decimal strings, never JavaScript numbers.
+Sequence gaps after rollback are expected.
+
+All event producers must use `appendEvent`. It acquires a transaction advisory
+lock before allocating a sequence, held until commit or rollback. Without
+this serialization, a later sequence could commit first and let a replay
+cursor skip an earlier event. Keep transactions short, and append events
+after domain writes to avoid holding the global event lock during other work.
+This deliberately serializes event-producing transactions at the append step.
+
+Migration `0000_event_outbox.sql` includes the generated table and a manually
+reviewed `AFTER INSERT` trigger. PostgreSQL delivers `NOTIFY motes_events`
+with the decimal sequence as payload only after commit; rollback discards it.
+The trigger and function are SQL-only objects outside Drizzle's table snapshot,
+covered by integration tests. Notifications are wakeup hints; the outbox is
+the durable source for replay. Listening, delivery and trigger matching belong
+to later cards.
