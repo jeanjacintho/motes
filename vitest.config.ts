@@ -13,42 +13,45 @@ const workspaces = ['apps', 'packages'].flatMap((directory) =>
 
 export default defineConfig({
   test: {
-    projects: workspaces.flatMap<TestProjectInlineConfiguration>((workspace) => {
-      const root = fileURLToPath(new URL(`./${workspace}/`, import.meta.url));
-      if (workspace === 'apps/desktop') {
+    projects: [
+      { test: { name: 'scripts', environment: 'node', include: ['scripts/**/*.test.ts'] } },
+      ...workspaces.flatMap<TestProjectInlineConfiguration>((workspace) => {
+        const root = fileURLToPath(new URL(`./${workspace}/`, import.meta.url));
+        if (workspace === 'apps/desktop') {
+          return [
+            {
+              test: {
+                name: `${workspace}:node`,
+                root,
+                environment: 'node',
+                include: ['src/**/*.test.{ts,tsx}'],
+                exclude: ['src/renderer/**'],
+              },
+            },
+            {
+              test: {
+                name: `${workspace}:renderer`,
+                root,
+                environment: 'jsdom',
+                include: ['src/renderer/**/*.test.{ts,tsx}'],
+                setupFiles: [domSetup],
+              },
+            },
+          ];
+        }
+        const dom = domWorkspaces.has(workspace);
         return [
           {
             test: {
-              name: `${workspace}:node`,
+              name: workspace,
               root,
-              environment: 'node',
+              environment: dom ? 'jsdom' : 'node',
               include: ['src/**/*.test.{ts,tsx}'],
-              exclude: ['src/renderer/**'],
-            },
-          },
-          {
-            test: {
-              name: `${workspace}:renderer`,
-              root,
-              environment: 'jsdom',
-              include: ['src/renderer/**/*.test.{ts,tsx}'],
-              setupFiles: [domSetup],
+              setupFiles: dom ? [domSetup] : [],
             },
           },
         ];
-      }
-      const dom = domWorkspaces.has(workspace);
-      return [
-        {
-          test: {
-            name: workspace,
-            root,
-            environment: dom ? 'jsdom' : 'node',
-            include: ['src/**/*.test.{ts,tsx}'],
-            setupFiles: dom ? [domSetup] : [],
-          },
-        },
-      ];
-    }),
+      }),
+    ],
   },
 });
