@@ -1,0 +1,5 @@
+{
+  "name": "@motes/engines",
+  "private": true,
+  "type": "module"
+}

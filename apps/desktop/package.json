@@ -1,0 +1,5 @@
+{
+  "name": "@motes/desktop",
+  "private": true,
+  "type": "module"
+}

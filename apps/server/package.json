@@ -1,0 +1,5 @@
+{
+  "name": "@motes/server",
+  "private": true,
+  "type": "module"
+}
