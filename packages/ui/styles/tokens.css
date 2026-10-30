@@ -1,0 +1,56 @@
+:root,
+[data-theme="light"] {
+  color-scheme: light;
+  --bg: #fff;
+  --fg: #171717;
+  --muted: #555;
+  --accent: #234c9c;
+  --danger: #a11;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --font-body: system-ui, sans-serif;
+}
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #171717;
+  --fg: #fff;
+  --muted: #ccc;
+  --accent: #a9c4ff;
+  --danger: #ffaaaa;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --space-sm: 0.5rem;
+  --space-md: 1rem;
+  --space-lg: 1.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --font-body: system-ui, sans-serif;
+}
+.motes-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 50%);
+}
+.motes-dialog {
+  position: fixed;
+  inset: 50% auto auto 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bg);
+  color: var(--fg);
+  padding: var(--space-md);
+  border: 1px solid var(--muted);
+  border-radius: var(--radius-md);
+}
+.motes-popup {
+  background: var(--bg);
+  color: var(--fg);
+  padding: var(--space-sm);
+  border: 1px solid var(--muted);
+}
