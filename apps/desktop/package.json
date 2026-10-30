@@ -10,8 +10,10 @@
     "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
   },
   "dependencies": {
-    "@motes/views": "workspace:*",
+    "@motes/core": "workspace:*",
     "@motes/ui": "workspace:*",
+    "@motes/views": "workspace:*",
+    "keytar": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
