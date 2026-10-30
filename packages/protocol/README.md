@@ -57,6 +57,37 @@ It preserves known values and maps every other string to `'unknown'`. Non-string
 inputs still fail validation, allowing `parseWithFallback` to report malformed
 responses. Its inferred output type includes the known literals and `'unknown'`.
 
+## Events
+
+`eventEnvelopeSchema` (`EventEnvelope`) validates the shared wire envelope:
+`id` is a branded event ID, `type` is nonempty, `occurredAt` is a UTC timestamp,
+`actor` has a known `kind` (`owner`, `bot`, `system`, `runtime`) and an optional
+nonempty `id`, `subject` has nonempty `kind` and `id`, and `payload` is required
+JSON. Actor and subject IDs are generic strings because not every subject or
+actor is an entity with a registered ID prefix. Envelope objects strip extra fields.
+
+Features declare `defineEvent(type, payloadSchema)` and add the descriptor to
+`eventRegistry`. A descriptor exposes its literal `type`, `payloadSchema` and
+typed envelope `schema`. Server and client event unions derive from that registry;
+there is no separate list of event types. `system.ping` is the first registered
+event and uses an empty object payload (`{}`); extra payload fields are rejected.
+
+`parseEvent(raw)` returns a `KnownEvent` or throws a zod error for an unregistered
+type, malformed envelope or invalid registered payload. Server writers must use
+this parser (or `eventSchema`), rather than only validating the generic envelope.
+Serialization uses ordinary `JSON.stringify`; parsing does not change IDs or time.
+
+`parseClientEvent(raw, logger)` uses `parseWithFallback` and returns a
+`ClientEvent`. An unregistered type produces `{ ...envelope, type: 'unknown',
+originalType }` (`UnknownEvent`), retaining its JSON payload and original type.
+Consumers can switch on `type`, ignore the unknown variant, and process the next
+event. Unknown actor kinds become `'unknown'` through `tolerantEnum`. A malformed
+envelope or invalid known payload is logged once and returns `null` to skip the
+message. Invalid known payloads never become the unknown-type variant. Clients
+can also compose `clientEventSchema` with their own fallback policy.
+
+The registry declares contracts only; storage and delivery belong to later cards.
+
 ## Entity IDs
 
 Entity IDs are exported from `@motes/protocol`:
