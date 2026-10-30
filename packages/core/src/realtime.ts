@@ -42,6 +42,7 @@ export function createRealtime(options: {
   let current: RealtimeSocket | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let active = false;
+  let generation = 0;
   let attempts = 0;
   let queue = Promise.resolve();
   const setStatus = (next: Status) => {
@@ -54,26 +55,31 @@ export function createRealtime(options: {
     timer = setTimeout(
       () => {
         timer = undefined;
-        void connect();
+        void connect(generation);
       },
       Math.min(1000 * 2 ** attempts++, 30_000),
     );
   };
-  async function connect() {
+  async function connect(attempt: number) {
+    const isCurrent = () => active && generation === attempt;
     try {
       await queue;
-      if (!active) return;
+      if (!isCurrent()) return;
       const [token, stored] = await Promise.all([
         options.getToken(),
         options.storage.get(cursorKey),
       ]);
-      if (!active) return;
+      if (!isCurrent()) return;
       if (!token) {
         schedule();
         return;
       }
       const parsedCursor = cursor.safeParse(stored);
       const socket = options.socket(options.url);
+      if (!isCurrent()) {
+        socket.close();
+        return;
+      }
       let halted = false;
       current = socket;
       socket.onopen = () => {
@@ -104,8 +110,11 @@ export function createRealtime(options: {
               return;
             }
             const event = parseClientEvent(message.event, options.logger);
-            if (!event) throw new Error('Invalid realtime event');
-            for (const handler of handlers.get(event.type) ?? []) await handler(event);
+            if (!event) {
+              await options.queryClient.invalidateQueries();
+            } else {
+              for (const handler of handlers.get(event.type) ?? []) await handler(event);
+            }
             await options.storage.set(cursorKey, message.seq);
             attempts = 0;
           })
@@ -122,7 +131,7 @@ export function createRealtime(options: {
         }
       };
     } catch {
-      schedule();
+      if (isCurrent()) schedule();
     }
   }
   function onEvent(type: string, handler: Handler) {
@@ -138,11 +147,13 @@ export function createRealtime(options: {
     async start() {
       if (active) return;
       active = true;
+      const attempt = ++generation;
       setStatus('connecting');
-      await connect();
+      await connect(attempt);
     },
     stop() {
       active = false;
+      generation++;
       if (timer) clearTimeout(timer);
       timer = undefined;
       current?.close();
