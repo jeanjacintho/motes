@@ -22,13 +22,16 @@
     "db:up": "node scripts/db.ts up",
     "db:down": "node scripts/db.ts down",
     "db:reset": "node scripts/db.ts reset",
-    "check": "pnpm lint && pnpm typecheck && pnpm test",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm db:check",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc -p tsconfig.test.json",
     "lint": "pnpm boundaries && biome check .",
     "boundaries": "node scripts/check-boundaries.ts",
     "format": "biome format --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:generate": "pnpm --filter @motes/db db:generate",
+    "db:migrate": "pnpm --filter @motes/db db:migrate",
+    "db:check": "pnpm --filter @motes/db db:check"
   }
 }

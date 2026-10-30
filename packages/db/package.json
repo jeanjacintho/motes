@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
-    "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
+    "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo",
+    "db:generate": "pnpm build && node dist/cli.js generate",
+    "db:migrate": "pnpm build && node dist/cli.js migrate",
+    "db:check": "pnpm build && node dist/cli.js check"
   },
   "exports": {
     ".": {
@@ -14,6 +17,14 @@
     }
   },
   "dependencies": {
-    "@motes/protocol": "workspace:*"
+    "@motes/protocol": "workspace:*",
+    "drizzle-orm": "catalog:",
+    "postgres": "catalog:"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "catalog:",
+    "@types/emscripten": "catalog:",
+    "drizzle-kit": "catalog:",
+    "mysql2": "catalog:"
   }
 }
