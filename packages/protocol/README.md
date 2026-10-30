@@ -23,8 +23,39 @@ The package exports shared zod schemas and their TypeScript types:
   counters; no relationship between cached and input tokens is assumed.
 
 These schemas validate values without coercing strings to numbers. Objects
-strip unknown fields using zod's default behavior; tolerant client parsing is
-introduced separately in P0-02-03.
+strip unknown fields using zod's default behavior.
+
+## Client parsing
+
+Clients parse with `parseWithFallback` and `tolerantEnum`; the server parses
+strictly with the shared schemas. Extend an enum field for client consumption
+without changing the server's allowed values:
+
+```ts
+import { API_ERROR_CODES, apiErrorSchema, parseWithFallback, tolerantEnum } from '@motes/protocol';
+
+const clientErrorSchema = apiErrorSchema.extend({ code: tolerantEnum(API_ERROR_CODES) });
+const error = parseWithFallback(
+  clientErrorSchema,
+  response,
+  { code: 'unknown', message: 'Unavailable', requestId: 'unknown' },
+  (error) => logger.warn(error.issues),
+);
+```
+
+`parseWithFallback(schema, data, fallback, logger)` returns the parsed output,
+including schema defaults, transforms and unknown-field stripping. On validation
+failure it calls the injected `ParseLogger` once with the zod error, then returns
+the supplied fallback unchanged. The fallback must match the schema's output
+type; it is not parsed again. The fourth argument is required so callers provide
+their logging policy without global state or built-in I/O in protocol. Use a
+logger that does not throw; schema transform exceptions and logger exceptions
+propagate rather than being treated as invalid responses.
+
+`tolerantEnum(values)` accepts a nonempty readonly tuple of known string values.
+It preserves known values and maps every other string to `'unknown'`. Non-string
+inputs still fail validation, allowing `parseWithFallback` to report malformed
+responses. Its inferred output type includes the known literals and `'unknown'`.
 
 ## Entity IDs
 

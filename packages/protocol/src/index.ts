@@ -26,3 +26,4 @@ export {
   type RunId,
   type RuntimeId,
 } from './ids.js';
+export { type ParseLogger, parseWithFallback, tolerantEnum } from './parsing.js';
