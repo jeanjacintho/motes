@@ -8,12 +8,16 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2024", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
+    "types": ["node"],
     "noEmit": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [
     {
       "path": "../../packages/views"
+    },
+    {
+      "path": "../../packages/ui"
     }
   ]
 }
