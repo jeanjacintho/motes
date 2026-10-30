@@ -15,19 +15,19 @@ export function installErrorHandler(app: FastifyInstance) {
     if (error instanceof NotFound) {
       status = 404;
       code = 'not_found';
-      message = error.message;
+      message = error.message || 'Resource not found';
     } else if (error instanceof Conflict) {
       status = 409;
       code = 'conflict';
-      message = error.message;
+      message = error.message || 'Conflict';
     } else if (error instanceof Forbidden) {
       status = 403;
       code = 'unauthorized';
-      message = error.message;
+      message = error.message || 'Forbidden';
     } else if (error instanceof ValidationFailed) {
       status = 400;
       code = 'validation_failed';
-      message = error.message;
+      message = error.message || 'Validation failed';
       details = error.details;
     } else if (error instanceof z.ZodError) {
       status = 400;

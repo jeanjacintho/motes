@@ -1,4 +1,4 @@
-import { NotFound } from '@motes/domain';
+import { Conflict, Forbidden, NotFound, ValidationFailed } from '@motes/domain';
 import { apiErrorSchema } from '@motes/protocol';
 import Fastify from 'fastify';
 import { describe, expect, it } from 'vitest';
@@ -29,6 +29,31 @@ describe('route contracts', () => {
     expect(apiErrorSchema.parse(invalid.json())).toMatchObject({
       code: 'validation_failed',
       details: [{ path: ['name'] }],
+    });
+    await app.close();
+  });
+  it.each([
+    [new NotFound(), 404, 'not_found'],
+    [new Conflict(''), 409, 'conflict'],
+    [new Forbidden(), 403, 'unauthorized'],
+    [new ValidationFailed(''), 400, 'validation_failed'],
+  ] as const)('preserves the response for an empty domain error', async (error, status, code) => {
+    const app = Fastify();
+    installErrorHandler(app);
+    route(app, {
+      method: 'GET',
+      url: '/test',
+      response: z.string(),
+      handler: () => {
+        throw error;
+      },
+    });
+    const response = await app.inject('/test');
+    expect(response.statusCode).toBe(status);
+    expect(apiErrorSchema.parse(response.json())).toMatchObject({
+      code,
+      message: expect.any(String),
+      requestId: expect.any(String),
     });
     await app.close();
   });
