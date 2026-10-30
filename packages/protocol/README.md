@@ -1,5 +1,38 @@
 # Protocol
 
+## Canonical JSON and digests
+
+`canonicalJson(value)` from `@motes/protocol` serializes JSON data with object
+keys sorted recursively by UTF-16 code units, no insignificant whitespace, and
+array order preserved. Numeric-looking keys are sorted as strings too. Strings
+use JSON escaping and retain their whitespace and Unicode content; numbers use
+JavaScript's JSON representation (including `-0` becoming `0`). Inputs are values,
+not JSON source text: parse source text before passing it to these helpers.
+
+The serializer accepts null, booleans, strings, finite numbers, dense arrays and
+plain objects (including null-prototype records). It throws `TypeError` for
+undefined, functions, symbols, bigints, non-finite numbers, sparse arrays,
+cycles and non-plain objects such as Date, Map and Set. Object properties follow
+JSON's own enumerable string-key convention; inherited, non-enumerable and
+symbol-keyed properties and extra array properties are not serialized. It does
+not invoke `toJSON` hooks or mutate the input. Repeated non-circular references
+are allowed. This is the Motes serialization contract, not an RFC 8785 claim.
+
+Server-side Node code imports `digest` from the Node-only subpath:
+
+```ts
+import { canonicalJson } from '@motes/protocol';
+import { digest } from '@motes/protocol/node';
+
+canonicalJson({ b: 2, a: 1 }); // '{"a":1,"b":2}'
+digest({ b: 2, a: 1 }); // SHA-256 of that canonical UTF-8 JSON, lowercase hex
+```
+
+`digest(value)` applies the same validation as `canonicalJson`. The `./node`
+export requires the `node` resolution condition and has no browser fallback.
+The root entry point stays browser-safe and does not import `node:crypto`.
+Capability normalization belongs to P2-02-01.
+
 ## Base schemas
 
 The package exports shared zod schemas and their TypeScript types:
