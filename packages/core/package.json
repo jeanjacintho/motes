@@ -12,6 +12,11 @@
   },
   "dependencies": {
     "@motes/protocol": "workspace:*",
+    "@tanstack/react-query": "catalog:",
+    "react": "catalog:",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:"
   }
 }

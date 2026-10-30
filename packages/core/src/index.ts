@@ -10,3 +10,4 @@ export {
   createMemoryStorageAdapter,
 } from './adapters.js';
 export { ApiError, createApiClient } from './api-client.js';
+export { createQueryClient, NetworkError } from './query-client.js';

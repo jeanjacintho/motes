@@ -3,6 +3,7 @@ packages:
   - packages/*
 
 catalog:
+  "@tanstack/react-query": 5.105.0
   "@fastify/websocket": 11.3.4
   "@types/ws": 8.18.2
   ws: 8.22.0
