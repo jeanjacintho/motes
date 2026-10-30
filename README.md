@@ -79,3 +79,15 @@ and use `type(scope): summary (Pn-EE-CC)` for commits and PR titles.
 - [Foundation cards](docs/roadmap/P0-foundation.md)
 - [Build and TypeScript configuration](docs/build.md)
 - [Testing guide](docs/testing.md)
+
+## License
+
+Motes' original code is source available under the
+[PolyForm Noncommercial License 1.0.0](LICENSE)
+(`PolyForm-Noncommercial-1.0.0`). Use, modification and redistribution are
+subject to the permitted purposes and conditions of that license, including
+its provisions for noncommercial organizations. It does not grant general
+permission for commercial use.
+
+The full license text governs over this summary. Third-party components
+remain subject to their own licenses.

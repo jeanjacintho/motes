@@ -1,5 +1,6 @@
 {
   "name": "@motes/daemon",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
