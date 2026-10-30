@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { expect, it, vi } from 'vitest';
-import { Button, Dialog, IconButton, Menu } from './index';
+import { Button, Dialog, IconButton, Menu, Toast } from './index';
 
 it('activates named buttons using keyboard and pointer', async () => {
   const user = userEvent.setup();
@@ -55,3 +55,51 @@ it('opens a menu and invokes an item with the keyboard', async () => {
   await user.keyboard('{Enter}');
   expect(action).toHaveBeenCalledTimes(1);
 });
+
+it.each(['Cancel', 'Save'])('closes the dialog with %s and restores focus', async (label) => {
+  const user = userEvent.setup();
+  const action = vi.fn();
+  render(
+    <Dialog trigger={<Button>Open</Button>} title="Settings">
+      <Dialog.Close asChild>
+        <Button onClick={action}>{label}</Button>
+      </Dialog.Close>
+    </Dialog>,
+  );
+  const trigger = screen.getByRole('button', { name: 'Open' });
+  await user.click(trigger);
+  await user.click(screen.getByRole('button', { name: label }));
+  expect(action).toHaveBeenCalledOnce();
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(document.activeElement).toBe(trigger);
+});
+
+it.each([
+  {
+    provider: undefined,
+    viewport: undefined,
+    region: 'Notificações (F8)',
+    announcement: 'Notificação Salvo',
+  },
+  {
+    provider: 'Aviso',
+    viewport: 'Mensagens ({hotkey})',
+    region: 'Mensagens (F8)',
+    announcement: 'Aviso Salvo',
+  },
+])(
+  'localizes toast accessibility labels and permits overrides',
+  async ({ provider, viewport, region, announcement }) => {
+    render(
+      <Toast.Provider label={provider}>
+        <Toast.Root duration={60000}>
+          <Toast.Title>Salvo</Toast.Title>
+        </Toast.Root>
+        <Toast.Viewport label={viewport} />
+      </Toast.Provider>,
+    );
+    expect(screen.getByRole('region', { name: region })).toBeTruthy();
+    const status = await screen.findByRole('status');
+    await vi.waitFor(() => expect(status.textContent).toContain(announcement));
+  },
+);

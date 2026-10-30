@@ -29,7 +29,7 @@ export function Spinner({ label = 'Carregando' }: { label?: string }) {
   );
 }
 
-export function Dialog({
+function DialogRoot({
   trigger,
   title,
   description,
@@ -58,6 +58,8 @@ export function Dialog({
     </RadixDialog.Root>
   );
 }
+export const Dialog = Object.assign(DialogRoot, { Close: RadixDialog.Close });
+
 function MenuRoot({ trigger, children }: { trigger: ReactElement; children: ReactNode }) {
   return (
     <DropdownMenu.Root>
@@ -81,12 +83,24 @@ export function Tooltip({ trigger, children }: { trigger: ReactElement; children
     </RadixTooltip.Provider>
   );
 }
+function ToastProvider({
+  label = 'Notificação',
+  ...props
+}: ComponentProps<typeof RadixToast.Provider>) {
+  return <RadixToast.Provider label={label} {...props} />;
+}
+function ToastViewport({
+  label = 'Notificações ({hotkey})',
+  ...props
+}: ComponentProps<typeof RadixToast.Viewport>) {
+  return <RadixToast.Viewport label={label} {...props} />;
+}
 export const Toast = {
-  Provider: RadixToast.Provider,
+  Provider: ToastProvider,
   Root: RadixToast.Root,
   Title: RadixToast.Title,
   Description: RadixToast.Description,
   Action: RadixToast.Action,
   Close: RadixToast.Close,
-  Viewport: RadixToast.Viewport,
+  Viewport: ToastViewport,
 };
