@@ -46,6 +46,15 @@ export function parseEvent(raw: unknown): KnownEvent {
 }
 
 const clientActorSchema = actorSchema.extend({ kind: tolerantEnum(actorKinds) });
+
+function clientSchemaFor(descriptor: (typeof eventRegistry)[keyof typeof eventRegistry]) {
+  return descriptor.schema.extend({
+    actor: clientActorSchema,
+    // Validate JSON, then strip additive fields without relaxing known field validation.
+    payload: z.json().pipe(descriptor.payloadSchema.strip()),
+  });
+}
+
 const unknownEventSchema = eventEnvelopeSchema
   .extend({ actor: clientActorSchema })
   .refine(
@@ -56,8 +65,8 @@ const unknownEventSchema = eventEnvelopeSchema
 
 export const clientEventSchema = z.union([
   z.discriminatedUnion('type', [
-    firstDescriptor.schema.extend({ actor: clientActorSchema }),
-    ...otherDescriptors.map((descriptor) => descriptor.schema.extend({ actor: clientActorSchema })),
+    clientSchemaFor(firstDescriptor),
+    ...otherDescriptors.map(clientSchemaFor),
   ]),
   unknownEventSchema,
 ]);

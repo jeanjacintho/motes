@@ -54,7 +54,7 @@ describe('event contracts', () => {
     expect(() => parseEvent(future)).toThrow(z.ZodError);
   });
 
-  test.each([undefined, null, [], 'ping', 1, { unexpected: true }])(
+  test.each([undefined, null, [], 'ping', 1])(
     'rejects invalid known payloads on the server and reports them on the client: %j',
     (payload) => {
       const raw = { ...ping, payload };
@@ -62,6 +62,18 @@ describe('event contracts', () => {
       const logger = vi.fn();
       expect(parseClientEvent(raw, logger)).toBeNull();
       expect(logger).toHaveBeenCalledExactlyOnceWith(expect.any(z.ZodError));
+    },
+  );
+
+  test.each([{ serverVersion: 'next' }, { unexpected: true }])(
+    'strips additive known payload fields on clients while servers reject them: %j',
+    (payload) => {
+      const raw = { ...ping, payload };
+      const logger = vi.fn();
+      expect(parseClientEvent(raw, logger)).toEqual(ping);
+      expect(logger).not.toHaveBeenCalled();
+      expect(() => parseEvent(raw)).toThrow(z.ZodError);
+      expect(raw.payload).toEqual(payload);
     },
   );
 

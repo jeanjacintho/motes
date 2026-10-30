@@ -70,7 +70,9 @@ Features declare `defineEvent(type, payloadSchema)` and add the descriptor to
 `eventRegistry`. A descriptor exposes its literal `type`, `payloadSchema` and
 typed envelope `schema`. Server and client event unions derive from that registry;
 there is no separate list of event types. `system.ping` is the first registered
-event and uses an empty object payload (`{}`); extra payload fields are rejected.
+event and uses an empty object payload (`{}`); extra payload fields are rejected
+on the server and stripped on clients. Client object payload schemas derive from
+the registered schemas with `.strip()`, preserving validation of known fields.
 
 `parseEvent(raw)` returns a `KnownEvent` or throws a zod error for an unregistered
 type, malformed envelope or invalid registered payload. Server writers must use
@@ -81,7 +83,9 @@ Serialization uses ordinary `JSON.stringify`; parsing does not change IDs or tim
 `ClientEvent`. An unregistered type produces `{ ...envelope, type: 'unknown',
 originalType }` (`UnknownEvent`), retaining its JSON payload and original type.
 Consumers can switch on `type`, ignore the unknown variant, and process the next
-event. Unknown actor kinds become `'unknown'` through `tolerantEnum`. A malformed
+event. Additive fields in known payloads are stripped so a newer server does not
+cause an installed client to discard a known event. Unknown actor kinds become
+`'unknown'` through `tolerantEnum`. A malformed
 envelope or invalid known payload is logged once and returns `null` to skip the
 message. Invalid known payloads never become the unknown-type variant. Clients
 can also compose `clientEventSchema` with their own fallback policy.
