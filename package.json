@@ -20,6 +20,7 @@
   },
   "scripts": {
     "db:up": "node scripts/db.ts up",
+    "dev:server": "pnpm --filter @motes/server^... build && pnpm --filter @motes/server dev",
     "db:down": "node scripts/db.ts down",
     "db:reset": "node scripts/db.ts reset",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm db:check",
