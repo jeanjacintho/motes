@@ -115,6 +115,34 @@ test('blocks Zustand factory imports and aliases in views while allowing types',
   expect(types.status).toBe(0);
 });
 
+test.each([
+  'import { createWithEqualityFn } from "zustand/traditional";',
+  'import { createWithEqualityFn as makeStore } from "zustand/traditional";',
+  'export { createWithEqualityFn } from "zustand/traditional";',
+  'export { createWithEqualityFn as makeStore } from "zustand/traditional";',
+])('rejects the equality store factory in views: %s', (statement) => {
+  const result = check({ 'packages/views/src/store.ts': `\n${statement}` });
+  expect(result.status).toBe(1);
+  expect(result.stderr).toContain('packages/views/src/store.ts:2:1:');
+  expect(result.stderr).toContain('views must not import Zustand store factories');
+  expect(result.stderr).toContain('"zustand/traditional"');
+});
+
+test('allows equality hooks and type-only factory imports and re-exports in views', () => {
+  const result = check({
+    'packages/views/src/hooks.ts': [
+      'import { useStoreWithEqualityFn } from "zustand/traditional";',
+      'export { useStoreWithEqualityFn as useStore } from "zustand/traditional";',
+      'import type { createWithEqualityFn } from "zustand/traditional";',
+      'import { type createWithEqualityFn as Factory } from "zustand/traditional";',
+      'export type { createWithEqualityFn } from "zustand/traditional";',
+      'export { type createWithEqualityFn as Factory } from "zustand/traditional";',
+    ].join('\n'),
+  });
+  expect(result.stderr).toBe('');
+  expect(result.status).toBe(0);
+});
+
 test('checks relative imports and tsconfig path aliases across boundaries', () => {
   const result = check({
     'packages/ui/tsconfig.json': JSON.stringify({

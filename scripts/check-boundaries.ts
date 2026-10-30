@@ -170,7 +170,9 @@ function check(root: string): number {
           if (
             workspace.name === 'views' &&
             (specifier === 'zustand' || specifier.startsWith('zustand/')) &&
-            entry.names.some((name) => ['create', 'createStore', '*'].includes(name))
+            entry.names.some((name) =>
+              ['create', 'createStore', 'createWithEqualityFn', '*'].includes(name),
+            )
           ) {
             reason =
               'views must not import Zustand store factories (use named hooks or types instead)';
