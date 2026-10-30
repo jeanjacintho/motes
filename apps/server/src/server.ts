@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { type Db, migrationsUpToDate } from '@motes/db';
-import { authenticate, listDevices, pairDevice, revokeDevice } from '@motes/domain';
+import { authenticate, emitPing, listDevices, pairDevice, revokeDevice } from '@motes/domain';
 import { pairRequestSchema, pairResponseSchema } from '@motes/protocol';
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import type { Logger } from 'pino';
@@ -25,6 +25,7 @@ export function createServer(
   logger: Logger,
   registerRoutes?: (server: ReturnType<typeof Fastify>, services: Services) => void,
   services: Services = createServices(db),
+  options: { replayLimit?: number; devRoutes?: boolean } = {},
 ) {
   const server = Fastify({ loggerInstance: logger as FastifyBaseLogger, bodyLimit: 1024 * 1024 });
   installErrorHandler(server);
@@ -46,8 +47,13 @@ export function createServer(
         .send({ code: 'unauthorized', message: 'Authentication required', requestId: request.id });
     request.principal = principal;
   });
-  const connections = registerWebsocket(server, services);
+  const connections = registerWebsocket(server, services, options.replayLimit);
   registerRoutes?.(server, services);
+  if (options.devRoutes)
+    server.post('/dev/ping', async () => {
+      await emitPing(services);
+      return { ok: true };
+    });
   server.get('/devices', async () => listDevices(services));
   server.delete('/devices/:id', async (request) => {
     const { id } = z.object({ id: z.string().min(1) }).parse(request.params);

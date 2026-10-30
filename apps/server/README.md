@@ -12,3 +12,11 @@ code. `POST /pair` accepts `{ "code": "...", "name": "..." }` and returns
 the device token once; protect the code and token as credentials. Five failed
 attempts lock pairing for ten minutes. Authentication middleware and device
 management follow in P0-04-05.
+
+WebSocket clients authenticate with `{ "token": "...", "resumeAfter": "<seq>" }`.
+The cursor is a decimal string; event messages contain `{ seq, event }`. If more
+than `MOTES_REPLAY_LIMIT` events are pending (default 5000), the server sends
+`{ "type": "resync_required" }` and closes the connection so the client can
+refetch. Omitting the cursor starts at the current event head. The authenticated
+`POST /dev/ping` route is enabled by `pnpm dev:server` or explicitly with
+`MOTES_DEV_ROUTES=true`; do not enable it in production.
