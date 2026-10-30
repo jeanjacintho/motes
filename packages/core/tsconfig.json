@@ -6,7 +6,8 @@
     "tsBuildInfoFile": "dist/build.tsbuildinfo",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "emitDeclarationOnly": true
+    "emitDeclarationOnly": true,
+    "types": ["node"]
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [

@@ -200,6 +200,9 @@ importers:
       '@motes/protocol':
         specifier: workspace:*
         version: link:../protocol
+      zod:
+        specifier: 'catalog:'
+        version: 4.6.7
 
   packages/db:
     dependencies:
