@@ -11,7 +11,13 @@ const heartbeatMs = 20_000;
 export function registerWebsocket(server: FastifyInstance, services: Services) {
   const connections = new Map<string, Set<WebSocket>>();
   server.register(async (app) => {
-    await app.register(websocket, { options: { maxPayload: 4096 } });
+    await app.register(websocket, {
+      options: { maxPayload: 4096 },
+      preClose(done) {
+        for (const socket of this.websocketServer.clients) socket.terminate();
+        this.websocketServer.close(done);
+      },
+    });
     app.get('/ws', { websocket: true }, (socket) => {
       let deviceId: string | undefined;
       let alive = true;
@@ -55,9 +61,6 @@ export function registerWebsocket(server: FastifyInstance, services: Services) {
           socket.close(1008, 'Authentication required');
         }
       });
-    });
-    app.addHook('onClose', async () => {
-      for (const sockets of connections.values()) for (const socket of sockets) socket.terminate();
     });
   });
   return connections;
