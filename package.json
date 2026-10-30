@@ -18,6 +18,7 @@
     "react-dom": "catalog:"
   },
   "scripts": {
+    "check": "pnpm lint && pnpm typecheck && pnpm test",
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc -p tsconfig.test.json",
     "lint": "pnpm boundaries && biome check .",
