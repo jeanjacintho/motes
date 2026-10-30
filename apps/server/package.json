@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
   },
   "dependencies": {
+    "@fastify/websocket": "catalog:",
     "@motes/bots": "workspace:*",
     "@motes/channels": "workspace:*",
     "@motes/db": "workspace:*",
@@ -25,6 +26,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
-    "tsx": "catalog:"
+    "@types/ws": "catalog:",
+    "tsx": "catalog:",
+    "ws": "catalog:"
   }
 }
