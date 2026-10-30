@@ -1,5 +1,6 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
+  "exclude": ["**/*.test.ts", "**/*.test.tsx"],
   "compilerOptions": {
     "target": "ES2024",
     "lib": ["ES2024"],

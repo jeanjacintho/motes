@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2024", "DOM", "DOM.Iterable"],
+    "types": ["node"],
+    "jsx": "react-jsx",
+    "composite": false,
+    "declaration": false,
+    "declarationMap": false,
+    "noEmit": true
+  },
+  "include": [
+    "apps/*/src/**/*.test.ts",
+    "apps/*/src/**/*.test.tsx",
+    "packages/*/src/**/*.test.ts",
+    "packages/*/src/**/*.test.tsx",
+    "vitest.config.ts",
+    "vitest.setup.dom.ts"
+  ],
+  "exclude": ["node_modules", "**/dist"]
+}
