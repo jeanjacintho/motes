@@ -81,7 +81,7 @@
 **Deps:** P0-01-02 · **Touches:** scripts, root · **Size:** M
 
 ### P0-01-06 · Continuous integration
-**What this is:** a GitHub Actions workflow that runs the full check on every push and PR.
+**What this is:** a GitHub Actions workflow that runs the full check on pull requests.
 **Why:** cards are built by agents; CI is the first reviewer.
 **Steps:**
 1. `.github/workflows/ci.yml`: checkout, pnpm setup with cache, Node 24, `pnpm install --frozen-lockfile`.
