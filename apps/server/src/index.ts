@@ -1,4 +1,7 @@
+#!/usr/bin/env node
 import { createDb, migrate } from '@motes/db';
+import { createPairingCode } from '@motes/domain';
+import { createServices } from './composition.js';
 import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
 import { createServer } from './server.js';
@@ -7,6 +10,16 @@ async function main() {
   const config = loadConfig();
   const logger = createLogger(config.logLevel);
   const db = createDb(config.databaseUrl);
+  if (process.argv[2] === 'pair') {
+    try {
+      await migrate(db);
+      const code = await createPairingCode(createServices(db));
+      console.log(`Setup code: ${code} (valid for 10 minutes)`);
+    } finally {
+      await db.$client.end();
+    }
+    return;
+  }
   const server = createServer(db, logger);
   let stopping = false;
   server.addHook('onResponse', async () => {
@@ -15,6 +28,8 @@ async function main() {
   });
   const startup = (async () => {
     if (config.migrateOnStart) await migrate(db);
+    const code = await createPairingCode(createServices(db), true);
+    if (code) logger.info(`Setup code: ${code} (valid for 10 minutes)`);
     if (!stopping) await server.listen({ port: config.port, host: '0.0.0.0' });
   })();
   const shutdown = async () => {

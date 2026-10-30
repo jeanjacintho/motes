@@ -4,6 +4,9 @@
   "license": "PolyForm-Noncommercial-1.0.0",
   "private": true,
   "type": "module",
+  "bin": {
+    "motes-server": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc -b",
     "dev": "tsx watch src/index.ts",

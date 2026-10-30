@@ -30,7 +30,13 @@ export function defineEvent<const Type extends string, Payload extends z.ZodType
 
 // Ping carries no data; its envelope supplies identity and time for the P0 gate.
 const systemPing = defineEvent('system.ping', z.strictObject({}));
-export const eventRegistry = Object.freeze({ [systemPing.type]: systemPing });
+const pairingChanged = defineEvent('pairing.changed', z.strictObject({}));
+const devicePaired = defineEvent('device.paired', z.strictObject({}));
+export const eventRegistry = Object.freeze({
+  [systemPing.type]: systemPing,
+  [pairingChanged.type]: pairingChanged,
+  [devicePaired.type]: devicePaired,
+});
 
 const [firstDescriptor, ...otherDescriptors] = Object.values(eventRegistry);
 if (!firstDescriptor) throw new Error('The event registry must contain at least one event');
