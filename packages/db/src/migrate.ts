@@ -10,6 +10,28 @@ const migrationLock = 1984020302;
 type Migration = { name: string; sql: string; checksum: string };
 type AppliedMigration = { name: string; checksum: string };
 
+export async function migrationsUpToDate(
+  db: Db,
+  directory = migrationsDirectory,
+): Promise<boolean> {
+  const names = await listMigrationNames(directory);
+  const exists = await db.$client<
+    { present: boolean }[]
+  >`SELECT to_regclass('schema_migrations') IS NOT NULL AS present`;
+  if (!exists[0]?.present) return false;
+  const history = await db.$client<
+    AppliedMigration[]
+  >`SELECT name, checksum FROM schema_migrations ORDER BY name`;
+  if (history.length !== names.length) return false;
+  for (const [index, name] of names.entries()) {
+    const checksum = createHash('sha256')
+      .update(await readFile(join(directory, name)))
+      .digest('hex');
+    if (history[index]?.name !== name || history[index]?.checksum !== checksum) return false;
+  }
+  return true;
+}
+
 export async function listMigrationNames(directory: string): Promise<string[]> {
   const names = (await readdir(directory)).filter((name) => name.endsWith('.sql')).sort();
   const prefixes = new Set<string>();

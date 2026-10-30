@@ -1,10 +1,12 @@
 {
   "name": "@motes/server",
+  "version": "0.0.0",
   "license": "PolyForm-Noncommercial-1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "build": "tsc -b",
+    "dev": "tsx watch src/index.ts",
     "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
   },
   "dependencies": {
@@ -15,7 +17,11 @@
     "@motes/domain": "workspace:*",
     "@motes/protocol": "workspace:*",
     "@motes/security": "workspace:*",
+    "fastify": "catalog:",
     "pino": "catalog:",
     "zod": "catalog:"
+  },
+  "devDependencies": {
+    "tsx": "catalog:"
   }
 }
