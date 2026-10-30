@@ -14,6 +14,7 @@ declare module 'fastify' {
 
 import { createServices, type Services } from './composition.js';
 import { installErrorHandler, route } from './route.js';
+import { registerWebsocket } from './websocket.js';
 
 const packageInfo = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -31,6 +32,9 @@ export function createServer(
   server.addHook('onRequest', async (request, reply) => {
     if (
       (request.method === 'GET' && request.routeOptions.url === '/health') ||
+      (request.method === 'GET' &&
+        request.routeOptions.url === '/ws' &&
+        request.headers.upgrade?.toLowerCase() === 'websocket') ||
       (request.method === 'POST' && request.routeOptions.url === '/pair')
     )
       return;
@@ -42,6 +46,7 @@ export function createServer(
         .send({ code: 'unauthorized', message: 'Authentication required', requestId: request.id });
     request.principal = principal;
   });
+  const connections = registerWebsocket(server, services);
   registerRoutes?.(server, services);
   server.get('/devices', async () => listDevices(services));
   server.delete('/devices/:id', async (request) => {
@@ -69,5 +74,5 @@ export function createServer(
     if (!database || !migrations) reply.code(503);
     return { version: packageInfo.version, uptime: process.uptime(), database, migrations };
   });
-  return server;
+  return Object.assign(server, { connections });
 }
