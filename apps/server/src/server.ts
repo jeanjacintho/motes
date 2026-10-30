@@ -1,9 +1,17 @@
 import { readFileSync } from 'node:fs';
 import { type Db, migrationsUpToDate } from '@motes/db';
-import { pairDevice } from '@motes/domain';
+import { authenticate, listDevices, pairDevice, revokeDevice } from '@motes/domain';
 import { pairRequestSchema, pairResponseSchema } from '@motes/protocol';
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import type { Logger } from 'pino';
+import { z } from 'zod';
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    principal: { deviceId: string; kind: 'client' | 'daemon' } | null;
+  }
+}
+
 import { createServices, type Services } from './composition.js';
 import { installErrorHandler, route } from './route.js';
 
@@ -19,7 +27,28 @@ export function createServer(
 ) {
   const server = Fastify({ loggerInstance: logger as FastifyBaseLogger, bodyLimit: 1024 * 1024 });
   installErrorHandler(server);
+  server.decorateRequest('principal', null);
+  server.addHook('onRequest', async (request, reply) => {
+    if (
+      (request.method === 'GET' && request.routeOptions.url === '/health') ||
+      (request.method === 'POST' && request.routeOptions.url === '/pair')
+    )
+      return;
+    const match = /^Bearer ([^\s]+)$/i.exec(request.headers.authorization ?? '');
+    const principal = match?.[1] ? await authenticate(services, match[1]) : null;
+    if (!principal)
+      return reply
+        .code(401)
+        .send({ code: 'unauthorized', message: 'Authentication required', requestId: request.id });
+    request.principal = principal;
+  });
   registerRoutes?.(server, services);
+  server.get('/devices', async () => listDevices(services));
+  server.delete('/devices/:id', async (request) => {
+    const { id } = z.object({ id: z.string().min(1) }).parse(request.params);
+    await revokeDevice(services, id);
+    return { revoked: true };
+  });
   route(server, {
     method: 'POST',
     url: '/pair',

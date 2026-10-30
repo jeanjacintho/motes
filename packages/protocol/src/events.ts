@@ -32,10 +32,14 @@ export function defineEvent<const Type extends string, Payload extends z.ZodType
 const systemPing = defineEvent('system.ping', z.strictObject({}));
 const pairingChanged = defineEvent('pairing.changed', z.strictObject({}));
 const devicePaired = defineEvent('device.paired', z.strictObject({}));
+const deviceUsed = defineEvent('device.used', z.strictObject({}));
+const deviceRevoked = defineEvent('device.revoked', z.strictObject({}));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
   [pairingChanged.type]: pairingChanged,
   [devicePaired.type]: devicePaired,
+  [deviceUsed.type]: deviceUsed,
+  [deviceRevoked.type]: deviceRevoked,
 });
 
 const [firstDescriptor, ...otherDescriptors] = Object.values(eventRegistry);
