@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@motes/core": "workspace:*",
+    "@motes/protocol": "workspace:*",
+    "@tanstack/react-query": "catalog:",
     "@motes/ui": "workspace:*",
     "@motes/views": "workspace:*",
     "keytar": "catalog:",

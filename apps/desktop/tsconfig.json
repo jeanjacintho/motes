@@ -16,6 +16,7 @@
     {
       "path": "../../packages/core"
     },
+    { "path": "../../packages/protocol" },
     {
       "path": "../../packages/views"
     },
