@@ -4,3 +4,5 @@ packages:
 
 catalog:
   turbo: 2.11.10
+  typescript: 5.9.3
+  "@types/node": 24.19.2

@@ -7,6 +7,12 @@
     "node": ">=24 <25"
   },
   "devDependencies": {
-    "turbo": "catalog:"
+    "turbo": "catalog:",
+    "typescript": "catalog:",
+    "@types/node": "catalog:"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck"
   }
 }
