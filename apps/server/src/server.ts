@@ -1,7 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { type Db, migrationsUpToDate } from '@motes/db';
 import { authenticate, emitPing, listDevices, pairDevice, revokeDevice } from '@motes/domain';
-import { pairRequestSchema, pairResponseSchema } from '@motes/protocol';
+import {
+  deviceListResponseSchema,
+  healthResponseSchema,
+  pairRequestSchema,
+  pairResponseSchema,
+  revokeDeviceResponseSchema,
+} from '@motes/protocol';
 import Fastify, { type FastifyBaseLogger } from 'fastify';
 import type { Logger } from 'pino';
 import { z } from 'zod';
@@ -54,11 +60,11 @@ export function createServer(
       await emitPing(services);
       return { ok: true };
     });
-  server.get('/devices', async () => listDevices(services));
+  server.get('/devices', async () => deviceListResponseSchema.parse(await listDevices(services)));
   server.delete('/devices/:id', async (request) => {
     const { id } = z.object({ id: z.string().min(1) }).parse(request.params);
     await revokeDevice(services, id);
-    return { revoked: true };
+    return revokeDeviceResponseSchema.parse({ revoked: true });
   });
   route(server, {
     method: 'POST',
@@ -78,7 +84,12 @@ export function createServer(
       logger.error({ err: error }, 'Health check failed');
     }
     if (!database || !migrations) reply.code(503);
-    return { version: packageInfo.version, uptime: process.uptime(), database, migrations };
+    return healthResponseSchema.parse({
+      version: packageInfo.version,
+      uptime: process.uptime(),
+      database,
+      migrations,
+    });
   });
   return Object.assign(server, { connections });
 }

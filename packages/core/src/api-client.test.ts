@@ -54,6 +54,24 @@ describe('API client', () => {
     });
   });
 
+  it('accepts a newer device kind without losing the device', async () => {
+    const device = {
+      id: 'dev_1',
+      name: 'Laptop',
+      kind: 'future',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      lastUsedAt: null,
+      revokedAt: null,
+    };
+    const client = createApiClient({
+      baseUrl: 'http://server',
+      getToken: () => null,
+      fetch: async () => ({ ok: true, status: 200, json: async () => [device] }),
+      logger: vi.fn(),
+    });
+    expect(await client.devices.list([])).toEqual([{ ...device, kind: 'unknown' }]);
+  });
+
   it('sends the correct requests and parses endpoint responses', async () => {
     const fetch = vi
       .fn()

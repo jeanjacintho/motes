@@ -42,3 +42,10 @@ export {
 } from './ids.js';
 export { pairRequestSchema, pairResponseSchema } from './pairing.js';
 export { type ParseLogger, parseWithFallback, tolerantEnum } from './parsing.js';
+export {
+  DEVICE_KINDS,
+  deviceListResponseSchema,
+  deviceResponseSchema,
+  healthResponseSchema,
+  revokeDeviceResponseSchema,
+} from './responses.js';

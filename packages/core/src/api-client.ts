@@ -1,30 +1,18 @@
 import {
   API_ERROR_CODES,
   apiErrorSchema,
+  DEVICE_KINDS,
+  deviceResponseSchema,
+  healthResponseSchema,
   type ParseLogger,
   pairResponseSchema,
   parseWithFallback,
-  timestampSchema,
+  revokeDeviceResponseSchema,
   tolerantEnum,
 } from '@motes/protocol';
 import { z } from 'zod';
 
-const healthSchema = z.object({
-  version: z.string(),
-  uptime: z.number(),
-  database: z.boolean(),
-  migrations: z.boolean(),
-});
-const deviceSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  kind: tolerantEnum(['client', 'daemon']),
-  createdAt: timestampSchema,
-  lastUsedAt: timestampSchema.nullable(),
-  revokedAt: timestampSchema.nullable(),
-});
-const devicesSchema = z.array(deviceSchema);
-const revokeSchema = z.object({ revoked: z.boolean() });
+const devicesSchema = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVICE_KINDS) }));
 
 const clientErrorSchema = apiErrorSchema.extend({ code: tolerantEnum(API_ERROR_CODES) });
 type ErrorEnvelope = z.output<typeof clientErrorSchema>;
@@ -94,15 +82,20 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
     return parseWithFallback(schema, data, fallback, logger);
   }
   return {
-    health: (fallback: z.output<typeof healthSchema>) =>
-      request('/health', 'GET', healthSchema, fallback, undefined, false),
+    health: (fallback: z.output<typeof healthResponseSchema>) =>
+      request('/health', 'GET', healthResponseSchema, fallback, undefined, false),
     pair: (input: { code: string; name: string }, fallback: z.output<typeof pairResponseSchema>) =>
       request('/pair', 'POST', pairResponseSchema.strip(), fallback, input, false),
     devices: {
       list: (fallback: z.output<typeof devicesSchema>) =>
         request('/devices', 'GET', devicesSchema, fallback),
-      revoke: (id: string, fallback: z.output<typeof revokeSchema>) =>
-        request(`/devices/${encodeURIComponent(id)}`, 'DELETE', revokeSchema, fallback),
+      revoke: (id: string, fallback: z.output<typeof revokeDeviceResponseSchema>) =>
+        request(
+          `/devices/${encodeURIComponent(id)}`,
+          'DELETE',
+          revokeDeviceResponseSchema,
+          fallback,
+        ),
     },
   };
 }
