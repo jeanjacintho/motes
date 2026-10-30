@@ -9,12 +9,17 @@
   },
   "devDependencies": {
     "@testing-library/react": "catalog:",
+    "@testing-library/user-event": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./tokens.css": "./styles/tokens.css"
+  },
+  "dependencies": {
+    "radix-ui": "catalog:"
   }
 }
