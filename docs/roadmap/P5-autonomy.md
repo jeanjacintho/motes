@@ -4,7 +4,7 @@
 
 **Goal of the phase:** bots act on their own. They wake on events, schedules and webhooks, hand work to each other, remember what matters, reuse playbooks, and the Boss keeps the owner informed with digests, all without the owner wiring a flow for each case.
 
-**Gate P5:** for one full working day, the owner gives orders only through the Boss on the phone. At least one chain (office bot → card → dev run → review → Boss report) completes with no owner action except the final review. Review the day's cost per tier in the cost view.
+**Gate P5:** for one full working day, the owner gives orders only through the Boss on the phone. At least one chain (office bot → card → dev run → review → Boss report) completes with no owner action except the final review. Review the day's usage per tier in the usage view.
 
 ---
 
@@ -15,10 +15,10 @@
 **Steps:**
 1. Protocol: `triggerSchema` (`id`, `botId`, `kind` `event|cron|webhook`, `eventType?`, `filter?` (project, labels, status, channel, trust), `cron?`, `timezone`, `enabled`, `instruction` (text given to the bot when it fires)).
 2. Table `triggers`; service create, update, enable, delete; audit.
-3. Triggers can also be declared in the bot spec and synced on save.
+3. Triggers can also be declared in `bot.yaml` and are synced when the skills directory changes (P1-05-02).
 **Done when:**
 - [ ] Schema tests; a filter on labels matches only cards with all listed labels.
-**Deps:** P4-02-03 · **Touches:** protocol, db, domain · **Size:** M
+**Deps:** P4-02-04 · **Touches:** protocol, db, domain · **Size:** M
 
 ### P5-01-02 · Event matcher
 **What this is:** the worker that reads the event outbox and turns matching events into bot work.
@@ -102,7 +102,7 @@
 3. Events `handoff.*`; activity entries on the card (P1-03-02).
 **Done when:**
 - [ ] Test: a handoff appears in the target's queue and on the card timeline.
-**Deps:** P4-02-03, P1-03-02 · **Touches:** protocol, db, domain, bots · **Size:** M
+**Deps:** P4-02-04, P1-03-02 · **Touches:** protocol, db, domain, bots · **Size:** M
 
 ### P5-04-02 · Bot messages
 **Steps:**
@@ -178,22 +178,25 @@
 
 ## P5-06 · Skills
 
-### P5-06-01 · Skill entity
-**What this is:** a reusable playbook (markdown plus optional files), like "how we release", "how to reproduce a customer bug".
+### P5-06-01 · Shared skills
+**What this is:** playbooks that several bots use ("how we release", "how to reproduce a customer bug"), in the same standard format as the bots' own skills, under `skills/shared/`.
+**Why:** a bot's own skill defines who it is (P1-05); shared skills hold knowledge that should not be copied into every bot.
 **Steps:**
-1. Tables `skills` (`id`, `slug`, `name`, `description`, `body`) and `skill_files`; import and export as a folder with `SKILL.md`.
+1. Index shared skill folders with the watcher from P1-05-02 (`skills` table: `slug`, `name`, `description`, `digest`).
+2. Import a skill from a folder or a zip, and export one, validated with the standard format.
+3. Edits go through the same write-validate-commit path as bots (P1-05-03).
 **Done when:**
-- [ ] Round-trip test for import and export.
-**Deps:** P1-05-02 · **Touches:** protocol, db, domain · **Size:** S
+- [ ] Round-trip test for import and export; an invalid skill is rejected without touching the directory.
+**Deps:** P1-05-03 · **Touches:** protocol, db, domain · **Size:** S
 
-### P5-06-02 · Attach and inject
+### P5-06-02 · Attach shared skills
 **Steps:**
-1. Attach skills to bots (`bot_skills`).
-2. Office bots: skill descriptions in the prompt, full body loaded on demand with a `skill.read` tool.
-3. Dev runs: skill folders written into the worktree under `.motes/skills/` and referenced in `.motes/context.md`.
+1. `bot.yaml` `skills: [slug, ...]` attaches shared skills.
+2. Dev runs and office turns both install the bot's own skill plus its attached skills where the CLI loads skills natively (extending P1-07-06 and P4-02-03), so the CLI decides when to read each one.
+3. A missing attached skill is a load error on the bot, not a silent skip.
 **Done when:**
-- [ ] Test: a dev run's worktree contains the attached skill files; an office prompt lists skill descriptions only.
-**Deps:** P5-06-01, P1-07-06, P4-02-01 · **Touches:** domain, daemon, bots · **Size:** M
+- [ ] Tests: a dev run's worktree and an office turn's scratch directory contain the attached skills; a missing one shows as a bot load error.
+**Deps:** P5-06-01, P1-07-06, P4-02-03 · **Touches:** domain, daemon, bots · **Size:** M
 
 ### P5-06-03 · Skills screen `UI · visual TBD`
 **Steps:**
@@ -210,7 +213,7 @@
 **What this is:** the Boss's periodic summary for the owner.
 **Steps:**
 1. Collect `digest`-level items since the last digest (P4-06-03) and the activity summary (P4-03-03).
-2. Code builds the structure (per project: done, in review, blocked, failed, cost); the cheap tier only writes the short pt-BR text around it.
+2. Code builds the structure (per project: done, in review, blocked, failed, usage); the cheap tier only writes the short pt-BR text around it.
 **Done when:**
 - [ ] Test: a fixture day produces a digest whose numbers match the events.
 **Deps:** P4-06-03, P4-03-03 · **Touches:** bots · **Size:** M

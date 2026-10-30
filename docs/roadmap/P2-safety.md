@@ -4,7 +4,7 @@
 
 **Goal of the phase:** before any bot gets autonomy, every side effect is recorded, every risky action is decided by deterministic code against exact capabilities, secrets never leak into prompts or logs, and spending has hard limits with a stop button.
 
-**Gate P2:** (1) pick ten actions from P1 (move a card, merge, push from a run, revoke a device…) and find each one in the audit viewer; (2) set a Dev bot budget below one run's cost, assign a card, and see the bot paused with an inbox item; (3) press the kill switch during a run and see it cancelled and nothing new start.
+**Gate P2:** (1) pick ten actions from P1 (move a card, merge, push from a run, revoke a device…) and find each one in the audit viewer; (2) set a Dev bot daily budget of one run, assign two cards, assign a card, and see the bot paused with an inbox item; (3) press the kill switch during a run and see it cancelled and nothing new start.
 
 ---
 
@@ -36,7 +36,7 @@
 **What this is:** copying every command, push and PR creation from dev runs into the audit log.
 **Why:** DESIGN §10: unattended CLI runs skip their own prompts, so Motes must at least see everything they ran.
 **Steps:**
-1. When the server ingests `command` log entries (P1-08-07), write `run.command` audit entries (argv, cwd relative to the worktree, exit code).
+1. When the server ingests `command` log entries (P1-08-09), write `run.command` audit entries (argv, cwd relative to the worktree, exit code).
 2. Daemon push and PR steps (P1-09-01/02) write `run.push` and `run.pr_open`.
 **Done when:**
 - [ ] Test: a fake run with three commands and a push produces four audit entries in order.
@@ -58,7 +58,7 @@
 **What this is:** a structured description of what an action will do (e.g. `{ kind: 'channel.send', channel: 'whatsapp', to: '+55…' }`, `{ kind: 'git.merge', repo, pr }`), normalized so equivalent sets look identical.
 **Why:** decisions are made on exactly what will happen, never on the goal text a model wrote (DESIGN §10).
 **Steps:**
-1. Protocol: a discriminated union of capability kinds used by Motes tools (start with `card.write`, `card.assign_bot`, `git.merge`, `channel.send`, `bot.message`, `spend.over_threshold`, `memory.write`, `secret.use`).
+1. Protocol: a discriminated union of capability kinds used by Motes tools (start with `card.write`, `card.assign_bot`, `git.merge`, `channel.send`, `bot.message`, `usage.over_threshold`, `memory.write`, `secret.use`).
 2. `normalize(capabilities)`: strip free-text reasons, canonicalize paths and handles, sort, dedupe.
 **Done when:**
 - [ ] Tests: two sets differing only in order or reason text normalize to the same value.
@@ -117,7 +117,7 @@
 **What this is:** how a caller (a tool call in a bot turn) waits for the owner without blocking a thread.
 **Steps:**
 1. `awaitApproval(id, { timeout })` resolving on `approval.resolved|expired` events.
-2. Turns waiting on approval are persisted so a server restart resumes them (used by P4-02-03).
+2. Turns waiting on approval are persisted so a server restart resumes them (used by P4-02-04).
 **Done when:**
 - [ ] Test: restart while waiting, then resolve → the waiting caller continues.
 **Deps:** P2-03-02 · **Touches:** security, domain · **Size:** M
@@ -169,7 +169,7 @@
 ## P2-05 · Secrets
 
 ### P2-05-01 · Keychain secret store
-**What this is:** storing tokens and keys (Plow, Telegram, model API keys) in the macOS Keychain, with only a reference in the database.
+**What this is:** storing tokens and keys (Plow line token, Telegram bot token, Jev key, WhatsApp session key) in the macOS Keychain, with only a reference in the database.
 **Steps:**
 1. `SecretStore` interface (`put`, `get`, `delete`, `list`) with a Keychain implementation (service `dev.motes`, account = secret id) and an in-memory one for tests.
 2. Table `secret_refs` (`id`, `name`, `kind`, `createdAt`, `lastUsedAt`).
@@ -185,7 +185,7 @@
 2. Bots receive `secret.use` capabilities with references, never values.
 **Done when:**
 - [ ] Test: after a tool uses a secret, scanning logs, events, run log and audit finds no value.
-**Deps:** P2-05-01, P1-08-07 · **Touches:** security, server, domain · **Size:** M
+**Deps:** P2-05-01, P1-08-09 · **Touches:** security, server, domain · **Size:** M
 
 ### P2-05-03 · Secrets screen `UI · visual TBD`
 **Steps:**
@@ -198,20 +198,21 @@
 
 ## P2-06 · Budgets and kill switch
 
-### P2-06-01 · Budget model `Pending owner decision (Q2)`
-**What this is:** spending limits per bot (daily), per chain of bot work (used in P5) and a global daily cap.
+### P2-06-01 · Budget model
+**What this is:** limits on how much of the owner's subscriptions each bot may use, per chain of bot work (used in P5), and globally.
+**Why:** billing is the owner's own subscriptions (Q2). What runs out is the CLIs' usage windows, and the owner needs capacity left for their own work.
 **Steps:**
-1. Bot spec `budget`: `dailyUsd?`, `dailyRuns?`, `perRunUsd?`; global settings `dailyUsd`, `dailyRuns`.
-2. Support both money (API-key billing) and run counts / usage-window signals (subscription billing) until Q2 is answered.
-3. Function `remainingBudget(botId, now)` from usage rollups (P1-10-02).
+1. `bot.yaml` `budget`: `runsPerDay?`, `turnsPerDay?`, `minutesPerDay?`, `maxRunMinutes?`, `maxTurnsPerRun?`; global settings with the same fields plus `maxParallelRuns`.
+2. Per-engine reserve: "stop bot use of this CLI when the CLI reports less than X% of its window left" for CLIs that report it; otherwise rely on limit messages (P1-10-02).
+3. Function `remainingBudget(botId, now)` from usage rollups.
 **Done when:**
-- [ ] Tests for each unit with a fake clock across midnight.
+- [ ] Tests for each unit with a fake clock across midnight; a CLI reporting its window below the reserve is skipped for bots.
 **Deps:** P1-10-02, P1-05-01 · **Touches:** protocol, domain · **Size:** M
 
 ### P2-06-02 · Enforcement
 **Steps:**
 1. Check before queuing a run, before a daemon claim, and in the gate pipeline hook (P2-04-02).
-2. A run already started that crosses `perRunUsd` is stopped with reason `budget`.
+2. A run already started that crosses `maxRunMinutes` or `maxTurnsPerRun` is stopped with reason `budget`.
 **Done when:**
 - [ ] Test: a bot over budget gets no new runs; a run crossing its per-run limit is stopped.
 **Deps:** P2-06-01, P2-04-02 · **Touches:** domain, security, daemon · **Size:** M
@@ -232,4 +233,4 @@
 3. (Channel command added in P4-06-05.)
 **Done when:**
 - [ ] Manual: gate step (3).
-**Deps:** P2-06-02, P1-08-08 · **Touches:** domain, server, daemon, views · **Size:** M
+**Deps:** P2-06-02, P1-08-10 · **Touches:** domain, server, daemon, views · **Size:** M

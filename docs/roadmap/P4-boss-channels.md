@@ -46,23 +46,34 @@
 **Steps:**
 1. Sections in fixed order: bot instructions, attached skills (P5), memory (P5), current time and owner preferences, conversation window, the new input.
 2. Third-party text and tool results are wrapped in clearly delimited data blocks with a standing instruction that they are data, never instructions (DESIGN §10).
-3. Secrets redacted (P2-05-02); total size capped with oldest messages dropped first (compaction in P4-02-05).
+3. Secrets redacted (P2-05-02); total size capped with oldest messages dropped first (compaction in P4-02-06).
 **Done when:**
 - [ ] Snapshot tests of built prompts; a test that a third-party message containing "ignore previous instructions" appears only inside a data block.
 **Deps:** P4-01-01, P2-05-02 · **Touches:** bots · **Size:** M
 
-### P4-02-02 · Agent loop
-**What this is:** one turn of an office bot: model call → tool calls through the gateway → repeat until a reply or the turn limit.
+### P4-02-02 · Motes MCP server
+**What this is:** an MCP server, run by Motes, through which a CLI running an office-bot turn reaches Motes' tools.
+**Why:** office bots run on the owner's CLIs (Q2), and MCP is how those CLIs call outside tools. Every call still goes through the tool gateway.
 **Steps:**
-1. The model for each step comes from the decider (P3) with the bot's tier limits; a turn usually runs at `cheap_llm`.
-2. Tool calls go through the gate pipeline (P2-04-02); denied or pending tools return a structured result to the model.
-3. Limits: max steps and max cost per turn from the bot spec.
-4. Output: zero or more messages, tool results recorded as run log entries (an office turn is a `run` with no runtime).
+1. A local MCP server (official TypeScript SDK) exposing the tools registered for the bot (P2-04-01), authenticated per turn with a short-lived token bound to `(botId, turnId)`.
+2. Each tool call is forwarded to the gate pipeline (P2-04-02); denials and pending approvals come back as tool results.
+3. A per-CLI config writer that points the headless CLI at this server for the turn.
 **Done when:**
-- [ ] Test with a scripted fake model: a three-tool turn completes; hitting the step limit ends the turn with a note.
-**Deps:** P4-02-01, P3-04-02, P2-04-02 · **Touches:** bots, domain · **Size:** M
+- [ ] Tests: a token from one turn cannot call tools in another; a tool not registered for the bot is not listed.
+**Deps:** P2-04-02 · **Touches:** bots, security · **Size:** M
 
-### P4-02-03 · Durable turn queue
+### P4-02-03 · Office-bot turn
+**What this is:** one turn of an office bot: a headless CLI call with the built prompt, the bot's skill, and the Motes MCP server as its only tools.
+**Steps:**
+1. The decider (P3) picks the tier, and so the engine and model, within the bot's limits; most turns run at `cheap_llm`.
+2. Run the CLI through the hub's daemon in a scratch directory with every built-in tool disabled (no shell, no file writes), the bot's `SKILL.md` installed where the CLI loads skills, and the Motes MCP server configured (P4-02-02).
+3. Limits from `bot.yaml`: max turns and max minutes per turn.
+4. Output: zero or more messages; tool calls and results recorded as run log entries (an office turn is a `run` on the hub's runtime).
+**Done when:**
+- [ ] Test with the fake engine: a three-tool turn completes; a built-in tool call attempt is refused; hitting the turn limit ends the turn with a note.
+**Deps:** P4-02-02, P3-04-02, P1-07-06 · **Touches:** bots, domain, daemon · **Size:** M
+
+### P4-02-04 · Durable turn queue
 **What this is:** each office bot handles one turn at a time from a FIFO queue that survives restarts.
 **Steps:**
 1. Table `bot_queue` (`botId`, `seq`, `input` (message or event ref), `state`, `attempts`); pause, resume, cancel per bot.
@@ -70,25 +81,25 @@
 3. Idempotency: a turn's outgoing messages carry the turn id, so a resumed turn does not send twice.
 **Done when:**
 - [ ] Test: kill the worker mid-turn, restart, and get exactly one reply.
-**Deps:** P4-02-02 · **Touches:** bots, db · **Size:** M
+**Deps:** P4-02-03 · **Touches:** bots, db · **Size:** M
 
-### P4-02-04 · Office engines in the bot spec
-**What this is:** extending the bot spec for office bots.
+### P4-02-05 · Office settings in `bot.yaml`
+**What this is:** the configuration fields office bots need.
 **Steps:**
-1. `engine: 'llm'` for office bots with `decision` tier limits (P3-04-02) and an optional preferred model per tier.
-2. Validation: office bots cannot pick dev engines and vice versa.
+1. Office bots: `engines` in preference order, `models` per tier, `decision` tier limits (P3-04-02), `tools` (which Motes tools the bot gets), `projects` (where it may write).
+2. Validation: office bots must declare their tools; dev bots ignore office-only fields.
 **Done when:**
 - [ ] Schema tests.
 **Deps:** P1-05-01, P3-04-02 · **Touches:** protocol · **Size:** S
 
-### P4-02-05 · Context compaction
+### P4-02-06 · Context compaction
 **What this is:** summarizing old parts of a long conversation so it fits the model window cheaply.
 **Steps:**
 1. When the window exceeds a threshold, summarize the oldest segment at `cheap_llm` and store `conversation_summaries` linked to the message range.
 2. The prompt builder uses summaries for old ranges and raw messages for recent ones.
 **Done when:**
 - [ ] Test: a 500-message fixture conversation stays under the configured token budget and the summary links back to its messages.
-**Deps:** P4-02-02 · **Touches:** bots, db · **Size:** M
+**Deps:** P4-02-03 · **Touches:** bots, db · **Size:** M
 
 ---
 
@@ -101,18 +112,18 @@
 2. Capability `pipeline.read` (default allow).
 **Done when:**
 - [ ] Each tool has input schema tests and a gateway test.
-**Deps:** P4-02-02 · **Touches:** bots, domain · **Size:** M
+**Deps:** P4-02-03 · **Touches:** bots, domain · **Size:** M
 
 ### P4-03-02 · Write tools
 **Steps:**
 1. `cards.create`, `cards.update`, `cards.assign` (to a bot or the owner), `cards.comment`, `cards.move`.
-2. Capabilities `card.write` (default allow in projects the bot is allowed on), `card.assign_bot` (default allow for dev bots listed in the bot spec).
+2. Capabilities `card.write` (default allow in projects the bot is allowed on), `card.assign_bot` (default allow for dev bots listed in `bot.yaml`).
 **Done when:**
 - [ ] Gateway tests: writing to a project outside the bot's list requires approval.
 **Deps:** P4-03-01 · **Touches:** bots, domain, protocol · **Size:** M
 
 ### P4-03-03 · Activity summary tool
-**What this is:** a tool that returns a compact, structured summary of what happened in a time window (runs started and finished, cards moved, failures, costs), built by code, not by a model.
+**What this is:** a tool that returns a compact, structured summary of what happened in a time window (runs started and finished, cards moved, failures, usage), built by code, not by a model.
 **Why:** the Boss answers "how is everything?" from this, cheaply.
 **Steps:**
 1. `activity.summary({ since, projectIds? })` aggregating events and rollups.
@@ -130,7 +141,7 @@
 2. Tool calls and results shown as compact expandable rows.
 **Done when:**
 - [ ] Manual: chat with a fake-model bot works and survives an app restart.
-**Deps:** P4-01-03, P4-02-03 · **Touches:** views · **Size:** M
+**Deps:** P4-01-03, P4-02-04 · **Touches:** views · **Size:** M
 
 ### P4-04-02 · Bots as contacts list
 **Steps:**
@@ -197,7 +208,7 @@
 
 ### P4-06-01 · Boss bot and its single thread
 **Steps:**
-1. Seed the Boss: office bot, slug `boss`, `cheap_llm` default tier, frontier allowed for planning-type requests only; instructions: coordinate, never write code, be brief, use cards for anything that is work.
+1. Seed the Boss as a skill folder `bots/boss/`: office bot, `cheap_llm` default tier, frontier allowed for planning-type requests only; its `SKILL.md` says: coordinate, never write code, be brief, use cards for anything that is work.
 2. One owner conversation shared by the app and all channels; each message keeps its origin.
 **Done when:**
 - [ ] Test: messages from the app and from a fake channel land in the same Boss conversation.
@@ -301,7 +312,7 @@
 3. In the app, questions show as inbox items with an answer box.
 **Done when:**
 - [ ] Test: the answer resumes the right turn after a server restart.
-**Deps:** P4-08-02, P4-02-03 · **Touches:** bots, channels, domain · **Size:** M
+**Deps:** P4-08-02, P4-02-04 · **Touches:** bots, channels, domain · **Size:** M
 
 ---
 

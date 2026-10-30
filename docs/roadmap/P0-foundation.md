@@ -133,7 +133,7 @@ The shared language between server, daemon and clients. Only zod and pure functi
 1. `timestampSchema` (ISO 8601 string, UTC).
 2. `pageRequestSchema` (`cursor?`, `limit` 1–200) and `pageSchema(item)` (`items`, `nextCursor`).
 3. `apiErrorSchema` (`code`, `message`, `details?`, `requestId`) and a list of stable error codes (`unauthorized`, `not_found`, `validation_failed`, `conflict`, `rate_limited`, `internal`).
-4. `usageSchema` (input/output/cached tokens, `costUsd`, `estimated: boolean`).
+4. `usageSchema` (input/output/cached tokens, turns, `durationMs`, `estimatedUsd?` shown only when a CLI reports it; billing is the owner's subscriptions).
 **Done when:**
 - [ ] Tests for valid and invalid inputs of each schema.
 **Out of scope:** entity schemas (added by the cards that create each entity).

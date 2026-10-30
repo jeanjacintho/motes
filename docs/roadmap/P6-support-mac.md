@@ -96,7 +96,7 @@
 
 ### P6-03-02 · Support bot template
 **Steps:**
-1. Seeded office bot `support`: `cheap_llm` tier, frontier forbidden; classification `bug|question|complaint|other` at the classifier tier (P3-05).
+1. Seeded skill folder `bots/support/` (office bot): `cheap_llm` tier, frontier forbidden; classification `bug|question|complaint|other` at the classifier tier (P3-05).
 2. Answers questions from the knowledge base; on `bug`, collects missing details from the customer (what, where, when, screenshot), then hands off to Triage with the conversation and contact.
 3. Tells the customer the report was received; never promises a date.
 **Done when:**
@@ -105,7 +105,7 @@
 
 ### P6-03-03 · Triage bot template
 **Steps:**
-1. Seeded office bot `triage`: turns a handoff into a card (title, steps to reproduce, expected vs actual, links to the conversation and contact, label `bug` + `customer`), picks the project and repository, assigns the Dev bot or leaves it in `todo` with a reason.
+1. Seeded skill folder `bots/triage/` (office bot): turns a handoff into a card (title, steps to reproduce, expected vs actual, links to the conversation and contact, label `bug` + `customer`), picks the project and repository, assigns the Dev bot or leaves it in `todo` with a reason.
 2. Detects duplicates against open cards (lexical first) and links instead of creating.
 **Done when:**
 - [ ] Test: two similar reports produce one card with two linked conversations.
@@ -129,7 +129,7 @@
 2. A fake MCP server mimicking Latch's tools and decisions for tests.
 **Done when:**
 - [ ] Notes reviewed by the owner; fake used by the next cards.
-**Deps:** P4-02-02 · **Touches:** security · **Size:** S
+**Deps:** P4-02-03 · **Touches:** security · **Size:** S
 
 ### P6-04-02 · MCP client through the relay
 **Steps:**
@@ -142,7 +142,7 @@
 ### P6-04-03 · Latch tools in the tool registry
 **Steps:**
 1. Register each Latch tool as a Motes tool whose capability is `mac.latch` with the tool name and arguments, so Motes audits it too; Motes default policy allows it, because Latch decides.
-2. Per bot: which Latch tools are exposed (bot spec `latchTools`).
+2. Per bot: which Latch tools are exposed (`bot.yaml` `latchTools`).
 **Done when:**
 - [ ] Test: a bot without `latchTools` cannot see or call them; every call creates a Motes audit entry.
 **Deps:** P6-04-02, P2-04-01 · **Touches:** security, bots · **Size:** M

@@ -2,9 +2,9 @@
 
 > Back to [ROADMAP](../ROADMAP.md) · Design refs: DESIGN §6.1 (processes), §6.2 (dev bots), §6.3 (core domain), §10 (dev runs)
 
-**Goal of the phase:** the board pipeline works for dev work. The owner creates a card, assigns it to a Dev bot, a daemon on the Mac mini runs Claude Code or Codex in an isolated worktree, the log streams live, and the result arrives as a PR with the card in review.
+**Goal of the phase:** the board pipeline works for dev work. The owner creates a card, assigns it to a Dev bot, a daemon on the Mac mini runs one of the owner's CLIs (Claude Code, Codex, OpenCode, Cursor) in an isolated worktree, the log streams live, and the result arrives as a PR with the card in review.
 
-**Gate P1:** on the Mac mini, with a real repository: create a card "fix typo in README", assign it to the Dev bot, watch the run log live in the app, and get a PR link on the card with status `in_review` and its cost shown. Repeat with Codex.
+**Gate P1:** on the Mac mini, with a real repository: create a card "fix typo in README", assign it to the Dev bot, watch the run log live in the app, and get a PR link on the card with status `in_review` and its usage shown. Repeat with Codex, OpenCode and the Cursor CLI.
 
 ---
 
@@ -205,49 +205,58 @@
 
 ## P1-05 · Bots
 
-### P1-05-01 · Bot spec schema
-**What this is:** the definition of a bot as in DESIGN §6.2.
+### P1-05-01 · Bot folder format
+**What this is:** the definition of a bot as a skill folder (DESIGN §6.2): `SKILL.md` holds the behavior, `bot.yaml` holds the Motes configuration.
+**Why:** the owner decided that a bot's behavior is defined by its skill file. Keeping `SKILL.md` in the standard format means every supported CLI can load it as is.
 **Steps:**
-1. Protocol: `botSpecSchema` (`slug`, `name`, `avatar`, `kind` `dev|office`, `role`, `instructions`, `engine` (dev: `claude|codex`; office: filled in P4), `model?`, `effort?`, `limits` (max turns, max run minutes), `budget` (filled in P2), `enabled`).
-2. Validation messages per field.
+1. Protocol: `skillFrontMatterSchema` (`name`, `description`, standard fields only) and a parser for `SKILL.md` (front matter + markdown body).
+2. Protocol: `botConfigSchema` for `bot.yaml` (`slug` (= folder name), `displayName`, `avatar`, `kind` `dev|office`, `engines` (`claude|codex|opencode|cursor`, in preference order), `models` per tier, `effort?`, `limits` (max turns, max run minutes, max parallel runs), `skills` (attached shared skills), `enabled`; budget, triggers and tools are added by later cards).
+3. `loadBotFolder(path)` returns `{ config, skill, references }` with field-level validation errors pointing to the file.
 **Done when:**
-- [ ] Tests: invalid slug, missing engine for dev bots, unknown engine all fail with field paths.
-**Deps:** P0-02-02 · **Touches:** protocol · **Size:** S
+- [ ] Tests: a valid folder loads; a missing `SKILL.md`, a non-standard field in the skill front matter, or an unknown engine fails with a readable error.
+**Out of scope:** storage and watching (next card).
+**Deps:** P0-02-02 · **Touches:** protocol · **Size:** M
 
-### P1-05-02 · Bot registry
-**What this is:** storage, service and routes for bots.
+### P1-05-02 · Skills directory and bot index
+**What this is:** the folder on the hub where all bot and shared skills live, and the database index the rest of the system queries.
+**Why:** the files are the source of truth, but cards, runs and the UI need fast lookups by id.
 **Steps:**
-1. Table `bots`; service create, update, enable/disable, delete (refused while it has running runs); events `bot.*`.
-2. Routes `GET/POST /bots`, `GET/PATCH/DELETE /bots/:id`; `core` hooks.
+1. Directory `~/Motes/skills/` with `bots/<slug>/` and `shared/<slug>/`; initialized as a git repository on first start.
+2. A watcher that loads changed folders (P1-05-01), validates them, and upserts the index table `bots` (`id`, `slug`, `kind`, `engines`, `enabled`, `skillDigest`, `loadError?`); the behavior text itself stays in the file.
+3. A folder with errors keeps its last valid version active and shows `loadError` in the app.
+4. Routes `GET /bots`, `GET /bots/:id` (config + skill content read from disk); events `bot.*`.
 **Done when:**
-- [ ] Tests: unique slug; disabling a bot prevents new runs (checked in P1-08-03).
-**Deps:** P1-05-01 · **Touches:** db, domain, server, core · **Size:** M
+- [ ] Tests (temp dir): adding, editing and deleting a folder updates the index and emits events; an invalid edit keeps the previous version and reports the error.
+**Deps:** P1-05-01, P0-03-04 · **Touches:** domain, db, server, core · **Size:** M
 
-### P1-05-03 · `bot.md` import and export
-**What this is:** a bot as a markdown file with front matter, so specs can be versioned and shared.
+### P1-05-03 · Editing bots through their files
+**What this is:** the server API that changes a bot by writing its files and committing them.
+**Why:** every behavior change has a history and can be reverted.
 **Steps:**
-1. `parseBotMd(text)` and `renderBotMd(spec)` in protocol.
-2. Routes `GET /bots/:id/export`, `POST /bots/import`.
+1. Routes `PUT /bots/:id/skill` (new `SKILL.md`), `PATCH /bots/:id/config` (fields of `bot.yaml`), `POST /bots` (new folder from a template), `DELETE /bots/:id` (refused while it has running runs).
+2. Each write validates first, writes atomically, and commits to the skills repo with a message like `bot(support): update behavior`.
+3. `GET /bots/:id/history` and `POST /bots/:id/revert/:commit`.
+4. Audit entries for each change (wired in P2-01-02).
 **Done when:**
-- [ ] Round-trip test keeps the spec identical; malformed front matter returns a readable error.
-**Deps:** P1-05-02 · **Touches:** protocol, server · **Size:** S
+- [ ] Tests: an invalid write changes nothing on disk; a revert restores the previous behavior.
+**Deps:** P1-05-02 · **Touches:** server, domain · **Size:** M
 
 ### P1-05-04 · Default Dev bot
 **What this is:** a seeded Dev bot so the pipeline works on day one.
 **Steps:**
-1. Seed on first start: slug `dev`, kind `dev`, engine `claude`, instructions for working on a card (read the card, work only in the worktree, run the project's tests, write a summary).
-2. Also seed `dev-codex` disabled.
+1. On first start, create `bots/dev/` with a `SKILL.md` describing how to work on a card (read `.motes/context.md`, work only in the worktree, run the project's tests, finish with a summary) and a `bot.yaml` with kind `dev` and engines `[claude, codex]`.
+2. Seeding is idempotent and never overwrites an existing folder.
 **Done when:**
-- [ ] Fresh database has both bots; seeding is idempotent.
-**Deps:** P1-05-02 · **Touches:** domain · **Size:** S
+- [ ] A fresh install has the Dev bot; editing its skill survives a restart.
+**Deps:** P1-05-03 · **Touches:** domain · **Size:** S
 
-### P1-05-05 · Bot list and editor `UI · visual TBD`
+### P1-05-05 · Bot list and skill editor `UI · visual TBD`
 **Steps:**
-1. Bots page: list with status (enabled, running, idle), create, edit, enable toggle, export/import.
-2. Editor form generated from the schema field list, instructions as a markdown editor.
+1. Bots page: list with status (enabled, running, idle, load error), create from template, enable toggle.
+2. Bot page: a markdown editor for `SKILL.md`, a form for `bot.yaml` fields, the change history with revert.
 **Done when:**
-- [ ] Manual: edit the Dev bot's instructions and see it update live.
-**Deps:** P1-05-02, P0-06-03 · **Touches:** views · **Size:** M
+- [ ] Manual: editing the Dev bot's skill in the app changes the file on disk and creates a commit; the next run uses it.
+**Deps:** P1-05-03, P0-06-03 · **Touches:** views · **Size:** M
 
 ---
 
@@ -314,8 +323,8 @@
 ### P1-07-03 · Engine discovery
 **What this is:** finding which agent CLIs are installed and logged in.
 **Steps:**
-1. Look up `claude` and `codex` on PATH (plus configured extra paths); read versions.
-2. Report them in register and on change.
+1. Look up the supported CLIs on PATH (`claude`, `codex`, `opencode`, `cursor-agent`, plus configured extra paths); read versions and whether each one is logged in (the owner's subscription), without making a model call.
+2. Report them in register and on change; a CLI that is installed but logged out is shown as such.
 3. Tests use fake executables only (never real CLIs, per AGENTS.md).
 **Done when:**
 - [ ] Test with fake binaries: versions detected; a missing binary is reported as absent.
@@ -343,7 +352,8 @@
 **Steps:**
 1. Resolve the repo's local path for this runtime (P1-01-02); fail the run with a clear reason if missing.
 2. `git fetch`, then `git worktree add ~/.motes/worktrees/<run-id> -b motes/<card-key>-<n>-<run-short> origin/<defaultBranch>`.
-3. Write `.motes/context.md` in the worktree with the card, timeline summary and bot instructions (from the snapshot).
+3. Write `.motes/context.md` in the worktree with the card and timeline summary (from the snapshot).
+4. Install the bot's own skill (its behavior, P1-05-01) and its attached skills where the engine loads skills natively (e.g. `.claude/skills/` for Claude Code, the equivalent folder for the other CLIs), excluded from commits through `.git/info/exclude`.
 **Done when:**
 - [ ] Test against a temp git repo: the worktree exists on a new branch from the default branch.
 **Deps:** P1-07-05 · **Touches:** daemon · **Size:** M
@@ -397,8 +407,8 @@
 1. Assigning a card to an enabled dev bot → one run (`assignment`).
 2. `comment.mentioned` for a dev bot → one run with the comment as instruction (`mention`).
 3. "Run again" button → `manual`.
-4. Context snapshot stored on the run: card fields, last N timeline items, bot instructions, repository.
-5. Never two active runs of the same bot on the same card; a new trigger while one runs becomes a steering message (P1-08-09).
+4. Context snapshot stored on the run: card fields, last N timeline items, the bot's skill digest, repository.
+5. Never two active runs of the same bot on the same card; a new trigger while one runs becomes a steering message (P1-08-11).
 **Done when:**
 - [ ] Tests: each trigger creates exactly one run; a disabled bot creates none.
 **Deps:** P1-08-02, P1-03-03 · **Touches:** domain · **Size:** M
@@ -406,7 +416,7 @@
 ### P1-08-04 · Engine driver contract and fake engine
 **What this is:** the interface every agent CLI driver implements in `packages/engines`.
 **Steps:**
-1. `EngineDriver`: `start({ cwd, prompt, env, model, effort }) → EngineRun` with `events` (async iterable of normalized log entries), `send(message)`, `stop()`, `result` (summary, usage).
+1. `EngineDriver`: `start({ cwd, prompt, env, model, effort, skillsDir }) → EngineRun` with `events` (async iterable of normalized log entries), `send(message)`, `stop()`, `result` (summary, usage).
 2. Normalized log entry types: `message`, `tool_call`, `tool_result`, `command`, `output`, `error`, `usage`.
 3. `FakeEngine` driven by a script fixture (used by all daemon and e2e tests).
 **Done when:**
@@ -416,7 +426,7 @@
 ### P1-08-05 · Claude Code driver
 **Steps:**
 1. Spawn `claude -p --output-format stream-json --verbose` (plus the flags needed for unattended work, documented in the driver) in the worktree.
-2. Map stream events to normalized entries; capture final usage and cost (`estimated` flag per Q2).
+2. Map stream events to normalized entries; capture tokens and turns, and any usage-window or rate-limit message the CLI prints (subscription billing, Q2).
 3. Recorded stream fixtures for tests; a live smoke test only when `MOTES_RUN_REAL_AGENT_SMOKE=1`.
 **Done when:**
 - [ ] Fixture tests produce the expected entries and usage.
@@ -430,7 +440,25 @@
 - [ ] Fixture tests pass.
 **Deps:** P1-08-04 · **Touches:** engines · **Size:** M
 
-### P1-08-07 · Execution log ingestion
+### P1-08-07 · OpenCode driver
+**What this is:** support for OpenCode as an engine, which also gives access to local models (Ollama, LM Studio) and to providers the owner has logged in to through OpenCode.
+**Steps:**
+1. Drive OpenCode in its headless or server mode inside the worktree; select provider and model per run.
+2. Same normalized log mapping, usage capture and fixture/live split as P1-08-05.
+**Done when:**
+- [ ] Fixture tests pass, including one run on a local model fixture.
+**Deps:** P1-08-04 · **Touches:** engines · **Size:** M
+
+### P1-08-08 · Cursor CLI driver
+**Steps:**
+1. Drive the Cursor agent CLI in headless mode with streamed JSON output inside the worktree.
+2. Same mapping, usage capture and fixture/live split as P1-08-05.
+3. Document in the driver how to add the next CLI (a checklist), so new engines are one card each.
+**Done when:**
+- [ ] Fixture tests pass; the "adding an engine" checklist exists in `packages/engines/README.md`.
+**Deps:** P1-08-04 · **Touches:** engines · **Size:** M
+
+### P1-08-09 · Execution log ingestion
 **What this is:** sending log entries from the daemon to the server and to clients.
 **Steps:**
 1. Daemon batches entries (every 250 ms or 50 entries) to `POST /daemon/runs/:id/log` with sequence numbers.
@@ -441,24 +469,24 @@
 - [ ] Test: entries arrive in order even when batches are retried; duplicates are ignored by `seq`.
 **Deps:** P1-08-04, P0-04-07 · **Touches:** daemon, server, domain, db · **Size:** M
 
-### P1-08-08 · Cancel a run
+### P1-08-10 · Cancel a run
 **Steps:**
 1. `POST /runs/:id/cancel` → state `cancelled` requested; daemon receives it (WS nudge or next heartbeat) and calls `stop()`.
 2. If the engine does not stop in 10 s, kill the process group.
 **Done when:**
 - [ ] Test with the fake engine: cancel stops it and the run ends `cancelled`.
-**Deps:** P1-08-07 · **Touches:** server, daemon, engines · **Size:** S
+**Deps:** P1-08-09 · **Touches:** server, daemon, engines · **Size:** S
 
-### P1-08-09 · Steering a running run
+### P1-08-11 · Steering a running run
 **What this is:** a new message for a bot while it is already working on the card.
 **Steps:**
 1. If the engine supports input mid-run, deliver through `send()`; otherwise queue the message for the next run.
 2. Record which path was used in the run log.
 **Done when:**
 - [ ] Tests cover both paths with the fake engine.
-**Deps:** P1-08-05, P1-08-06, P1-08-08 · **Touches:** engines, daemon, domain · **Size:** M
+**Deps:** P1-08-05, P1-08-06, P1-08-10 · **Touches:** engines, daemon, domain · **Size:** M
 
-### P1-08-10 · Retries, timeouts and stalls
+### P1-08-12 · Retries, timeouts and stalls
 **Steps:**
 1. Stall detection by inactivity (no log entry for N minutes, configurable), not by total time.
 2. Max run time from the bot's `limits`.
@@ -466,15 +494,15 @@
 4. Clear `failureReason` shown on the card timeline.
 **Done when:**
 - [ ] Test with a fake clock: a stalled run fails as `stalled` and is retried once.
-**Deps:** P1-08-07 · **Touches:** domain, daemon · **Size:** M
+**Deps:** P1-08-09 · **Touches:** domain, daemon · **Size:** M
 
-### P1-08-11 · Run screens `UI · visual TBD`
+### P1-08-13 · Run screens `UI · visual TBD`
 **Steps:**
-1. Run list on the card (state, bot, runtime, duration, cost).
+1. Run list on the card (state, bot, engine, runtime, duration, usage).
 2. Run detail with the live log (virtualized list), cancel button, "run again".
 **Done when:**
 - [ ] Manual: log streams live during a fake run; scroll stays usable with 10 000 entries.
-**Deps:** P1-08-07, P1-04-03 · **Touches:** views, core · **Size:** M
+**Deps:** P1-08-09, P1-04-03 · **Touches:** views, core · **Size:** M
 
 ---
 
@@ -488,7 +516,7 @@
 3. If there are no changes, end the run as `completed` with a "no changes" note.
 **Done when:**
 - [ ] Test against a temp bare remote: the branch exists remotely; an attempt to push the default branch is refused.
-**Deps:** P1-08-07 · **Touches:** daemon · **Size:** S
+**Deps:** P1-08-09 · **Touches:** daemon · **Size:** S
 
 ### P1-09-02 · Open the pull request
 **Steps:**
@@ -538,22 +566,22 @@
 
 ## P1-10 · Inbox and usage
 
-### P1-10-01 · Usage records `Pending owner decision (Q2)`
-**What this is:** tokens and cost for every run.
+### P1-10-01 · Usage records
+**What this is:** what each run consumed from the owner's subscriptions.
 **Steps:**
-1. Table `usage_records` (`runId`, `botId`, `cardId?`, `engine`, `model`, tokens, `costUsd`, `estimated`, `recordedAt`).
-2. Also store rate-limit or usage-window signals reported by the CLI (e.g. "limit reached, resets at …") as `usage_limits` rows per engine.
+1. Table `usage_records` (`runId`, `botId`, `cardId?`, `engine`, `model`, tokens, turns, `durationMs`, `estimatedUsd?` (only if the CLI reports it), `recordedAt`).
+2. Table `usage_limits` per engine: limit messages and reset times parsed from the CLI output (e.g. "usage limit reached, resets at ...").
 **Done when:**
-- [ ] Test: a fake run's usage is recorded once even if the daemon retries the report.
+- [ ] Test: a fake run's usage is recorded once even if the daemon retries the report; a fixture limit message produces a `usage_limits` row with the reset time.
 **Deps:** P1-08-05 · **Touches:** db, domain · **Size:** S
 
-### P1-10-02 · Usage rollups and limit handling `Pending owner decision (Q2)`
+### P1-10-02 · Usage rollups and limit handling
 **Steps:**
-1. Rollups per bot, card, project and day (materialized on write or by a periodic job).
-2. When an engine reports a usage-window limit, the daemon stops claiming runs for that engine until the reset time and the server emits `engine.limited`.
-3. Routes `GET /usage?groupBy=bot|card|project|day&from&to`.
+1. Rollups per bot, card, project, engine and day (runs, turns, tokens, minutes).
+2. When an engine reports a usage-window limit, the daemon stops claiming runs for that engine until the reset time and the server emits `engine.limited`. If the bot lists another engine in its preference order, the run can go to that engine instead.
+3. Routes `GET /usage?groupBy=bot|card|project|engine|day&from&to`.
 **Done when:**
-- [ ] Test: a limit signal pauses claims for that engine only, and they resume after the reset time (fake clock).
+- [ ] Test: a limit signal pauses claims for that engine only, a bot with a second engine falls back to it, and claims resume after the reset time (fake clock).
 **Deps:** P1-10-01, P1-07-05 · **Touches:** domain, daemon, server · **Size:** M
 
 ### P1-10-03 · Inbox items
@@ -569,7 +597,7 @@
 ### P1-10-04 · Inbox and usage screens `UI · visual TBD`
 **Steps:**
 1. Inbox page with filters by kind; unread badge in the sidebar; desktop notification for new `failure` and `approval` items.
-2. Usage on the card, the bot page and a simple usage page (table by day and bot).
+2. Usage on the card, the bot page and a simple usage page (table by day, bot and engine, with current usage-window status per CLI).
 **Done when:**
 - [ ] Gate P1 passes.
-**Deps:** P1-10-03, P1-08-11 · **Touches:** views, desktop · **Size:** M
+**Deps:** P1-10-03, P1-08-13 · **Touches:** views, desktop · **Size:** M

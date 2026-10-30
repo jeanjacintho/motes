@@ -28,11 +28,11 @@ The owner touched nothing until step 5, and no frontier model was used before st
 ## 4. Goals, non-goals, anti-goals
 
 **Goals**
-- A pipeline with the usability of a good issue board: cards, statuses, assignees (bots or the owner), comments, run history, execution logs, review gates, inbox, cost per run.
+- A pipeline with the usability of a good issue board: cards, statuses, assignees (bots or the owner), comments, run history, execution logs, review gates, inbox, usage per run.
 - Autonomous bots with standing roles, event triggers, bot-to-bot handoff and memory.
 - A Boss that is the owner's single point of contact: digests, proactive reports, forwarding, questions, approvals.
 - External channels: iMessage (through Plow), Telegram, WhatsApp.
-- A tiered decision layer that keeps the token cost low and visible.
+- A tiered decision layer that keeps subscription usage low and visible.
 - Security that holds even when the owner is away: deterministic owner identity, untrusted third-party text, approvals bound to exact capabilities, an append-only audit log.
 - Multiple machines: the Mac mini as hub and runtime, the MacBook Air as another runtime.
 
@@ -96,7 +96,7 @@ flowchart LR
 |---|---|
 | **Server** | HTTP API, WebSocket events, Postgres access, the run queue, the scheduler (cron, deferred runs, wakeups), the event bus, the approval service, the audit log. One process on the hub. |
 | **Daemon** | One per machine. Registers as a **runtime**, heartbeats, claims queued dev runs, prepares a worktree, drives the agent CLI, streams the execution log, reports usage, cleans up. Connects outward to the server, so a machine on Tailscale works away from home. |
-| **Bot runtime** | Runs **office bots** (Boss, Support, Triage and similar) in the server host. Each turn is a short agent loop on a model chosen by the decision layer, with tools exposed by the server. It is a module inside the server process at first **(builder's call)**, behind an interface so it can become its own process. |
+| **Bot runtime** | Runs **office bots** (Boss, Support, Triage and similar) in the server host. It queues turns, builds the context, and runs each turn as a headless CLI call (engine and model chosen by the decision layer) on the hub's daemon. The CLI reaches Motes' tools through a **Motes MCP server**, and every tool call goes through the tool gateway (§10) **(builder's call)**. It is a module inside the server process at first, behind an interface so it can become its own process. |
 | **Channel adapters** | Plow (iMessage), Telegram, WhatsApp. They live in the server process and talk to the core only through the channel contract. |
 | **Clients** | The desktop app (Electron) first, a web app from the same views. Mobile and the notch app come later. |
 
@@ -105,12 +105,23 @@ flowchart LR
 | | Dev bots | Office bots |
 |---|---|---|
 | Examples | Dev, Reviewer, Test runner | Boss, Support, Triage, Reporter |
-| Engine | Agent CLIs (Claude Code, Codex, later OpenCode) on a machine runtime | Model APIs (Anthropic, OpenAI-compatible such as OpenRouter or Ollama) chosen per turn by the decision layer |
-| Where | The daemon, in an isolated git worktree | The bot runtime on the hub |
+| Engine | Agent CLIs (Claude Code, Codex, OpenCode, Cursor CLI, more through the driver interface) on a machine runtime | The same CLIs in headless mode, with the model chosen per turn by the decision layer (a small model for routine turns, a large one only when needed) |
+| Where | The daemon, in an isolated git worktree | The bot runtime on the hub, through the hub's daemon |
 | Acts on the Mac through | Its own CLI tools inside the worktree; work lands in review, never on `main` | Latch MCP tools through the Plow relay (owner decision), or Motes' own tools |
 | Trigger | A run: assignment, mention, chat message, wakeup, autopilot | An event subscription, a message, a cron, a handoff |
 
-A bot is defined by a **spec**: name, avatar, role, instructions, engine, default decision tier, model limits, budget, triggers, tools, permissions. Specs are stored in the database and editable in the app. Export and import as a `bot.md` file with front matter **(builder's call)**.
+**A bot's behavior is defined by a skill (owner decision).** Each bot is a folder whose `SKILL.md` says how the bot behaves: its role, how it works, what it must and must not do. The file is the source of truth; the app edits the file, and changing the file changes the bot.
+
+```
+skills/bots/support/
+  SKILL.md        behavior (standard skill format: name + description front matter, markdown body)
+  bot.yaml        Motes runtime config: kind, engine, models per tier, triggers, limits, tools, permissions
+  references/     optional files the skill points to (FAQ, examples)
+```
+
+- `SKILL.md` stays in the standard agent-skill format so the CLIs can load it natively (Claude Code, Codex, OpenCode and Cursor all read skills). Motes-specific settings live in `bot.yaml`, not in the skill **(builder's call)**.
+- The skills directory lives on the hub (`~/Motes/skills/`) and is a git repository, so every behavior change has history **(builder's call)**. The server watches it and keeps an index in Postgres for queries. The database never holds a second copy of the behavior.
+- Bots can also attach shared skills (playbooks such as "how we release"), which use the same format.
 
 ### 6.3 Core domain
 
@@ -123,12 +134,12 @@ A bot is defined by a **spec**: name, avatar, role, instructions, engine, defaul
 - **Conversation** and **Message**: direct chat with a bot, the Boss thread, and channel conversations (owner or third party). Messages carry their origin and a trust level.
 - **Handoff**: a bot asking another bot to take something, with context and a reason. Recorded in the activity log.
 - **Trigger**: an event subscription, a cron schedule or a webhook bound to a bot.
-- **Skill**: a reusable playbook (markdown plus optional files) attachable to bots.
+- **Skill**: a folder with a `SKILL.md` in the standard format. A bot's own skill defines its behavior; shared skills are playbooks attachable to several bots.
 - **Memory**: per-bot facts with provenance, written through a reviewed path (§9.5).
-- **Decision**: a record of every decision-layer call (tier, model, input size, cost, outcome, escalation).
+- **Decision**: a record of every decision-layer call (tier, model, input size, usage, outcome, escalation).
 - **Approval**, **Rule**, **Audit event**, **Secret reference** (§10).
 - **Inbox item**: what needs the owner (review, question, approval, failure, budget).
-- **Usage**: tokens and cost per run, per bot, per card, per day.
+- **Usage**: tokens, turns and run time per run, bot, card and day, plus each CLI's subscription usage-window and rate-limit signals. Dollar figures, when a CLI reports them, are shown as estimates only.
 
 ### 6.4 Main flows
 
@@ -157,9 +168,10 @@ A bot is defined by a **spec**: name, avatar, role, instructions, engine, defaul
 - Server: **Fastify**, **zod** schemas shared from `packages/protocol`, **Drizzle** for queries with plain SQL migration files, a Postgres-backed queue (`FOR UPDATE SKIP LOCKED`) instead of Redis, WebSocket for realtime **(builder's call)**.
 - Clients: **React 19**, **TanStack Query** for server data, **Zustand** for client state, **Electron** (via electron-vite) for desktop, **Vite** for web **(builder's call)**.
 - Machines on **Tailscale** for remote access (carried over from the previous design).
+- **Billing is the owner's own subscriptions (owner decision).** Motes connects to the agent CLIs the owner is logged in to (Claude Code, Codex, OpenCode, Cursor CLI, and others through the driver interface). Motes does not require model API keys. Every model call, for dev and office bots alike, goes through a CLI or a local model server (Ollama, LM Studio, typically used through OpenCode).
 - Secrets in the **macOS Keychain**, referenced by id from the database.
 - **Deployment (builder's call):** the server and daemons run **natively** on macOS as LaunchAgents, so they can reach the Keychain. Only Postgres may run in Docker (or Postgres.app). Each machine's daemon uses its own Keychain and its own logins for the agent CLIs and `gh`; the hub never ships credentials to a daemon.
-- **External services are faked first (builder's call):** Plow, Latch's relay, Jev and WhatsApp each get a fake implementation and recorded-fixture contract tests before the real adapter. Live tests run behind env flags. If Jev is not available, the classifier tier falls back to the cheap LLM tier with a structured-output prompt.
+- **External services are faked first (builder's call):** Plow, Latch's relay, Jev and WhatsApp each get a fake implementation and recorded-fixture contract tests before the real adapter. Live tests run behind env flags. If Jev is not available, the classifier tier falls back to a local model (or to the cheap LLM tier) with a structured-output prompt.
 
 ## 8. Repository layout and boundaries
 
@@ -231,7 +243,7 @@ Per-bot memory with provenance. Facts proposed by a bot go through a review path
 - **Approvals**: in-app, or by code through a channel (§6.4). Single use, expiring, bound to the capability digest. Five invalid codes in 10 minutes disable channel approvals until re-enabled in the app.
 - **Secrets** in the Keychain. Bots receive secret references, never values in prompts.
 - **Audit**: append-only table of every decision, approval, tool call with side effects and permission change.
-- **Budgets**: per bot, per chain and per day. Exceeding one pauses the bot and creates an inbox item. A global kill switch stops all bots.
+- **Budgets**: measured in what subscriptions actually limit: runs and turns per bot per day, run minutes, parallel runs, and each CLI's usage window. When a CLI reports its limit, Motes stops using that CLI until the reset, and can fall back to another CLI if the bot allows it. Exceeding a bot or chain budget pauses the bot and creates an inbox item. A global kill switch stops all bots.
 
 **Known limits, accepted for now**
 - Latch approvals happen in the Latch desktop app. Remote approval for Latch actions depends on rules, approve mode or the reviewer, until Latch or Plow offers remote approval.
@@ -251,17 +263,19 @@ type DecisionRequest<T> = {
   input: unknown;
   minTier?: Tier;              // a bot spec can force a floor
   maxTier?: Tier;              // and a ceiling
-  budget?: { maxCostUsd: number };
+  budget?: { maxTurns?: number; maxTokens?: number };
 };
-type DecisionResult<T> = { value: T; tier: Tier; model?: string; confidence?: number; costUsd: number; escalatedFrom?: Tier[] };
+type DecisionResult<T> = { value: T; tier: Tier; engine?: string; model?: string; confidence?: number; usage: Usage; escalatedFrom?: Tier[] };
 ```
 
 - **Rule tier**: deterministic handlers registered per `kind` (command words, known senders, CI status, duplicate detection). Free.
 - **Classifier tier**: a decision model returning typed choices with calibrated confidence. **Jev** (TypeSafe AI) is the first provider the owner wants to try. Below a confidence threshold it escalates. The provider sits behind an interface, so it can be swapped if it is not reliable enough.
-- **Cheap LLM tier**: a small model through Anthropic or an OpenAI-compatible endpoint (OpenRouter, Ollama, LM Studio).
-- **Frontier tier**: used by office bots only when a decision needs real reasoning. Dev bots use frontier models for the work itself, but never for deciding whether to run.
-- Every call writes a **Decision** record. The app shows cost per bot, per kind and per tier.
-- An **eval harness** replays recorded decisions against new thresholds or providers before switching them (vendor cost claims for decision models are not independently verified).
+- **Cheap LLM tier**: a small model through one of the owner's CLIs in headless mode (for example a small Claude model through Claude Code, a mini model through Codex) or a local model through OpenCode with Ollama or LM Studio. A local model costs no subscription usage at all.
+- **Frontier tier**: a large model through a CLI, used by office bots only when a decision needs real reasoning. Dev bots use large models for the work itself, but never for deciding whether to run.
+- The point of the tiers, with subscriptions, is to **save usage-window capacity and time**, not money per token: routine decisions should not consume the window the dev bots and the owner need.
+- Every call writes a **Decision** record. The app shows usage per bot, per kind and per tier.
+- An **eval harness** replays recorded decisions against new thresholds or providers before switching them (vendor claims for decision models are not independently verified).
+- **Exception to "subscriptions only":** Jev is an external service with its own account. It is optional; without it the classifier tier is served by a local model or skipped (see §7).
 
 ## 12. Channels
 

@@ -67,7 +67,13 @@ flowchart LR
 | # | Question | Assumption used until answered | Cards affected |
 |---|---|---|---|
 | Q1 | Can the Boss merge a PR from a chat message, or does the owner always merge on GitHub? | Merge through Motes requires an approval code (never a plain message); merging on GitHub is always possible and Motes detects it | P1-09-04, P1-09-05, P4-06-04 |
-| Q2 | Are Claude Code and Codex paid by subscription or by API key? | Track both: tokens and estimated cost, and the CLI's usage-window or rate-limit signals; budgets support both units | P1-10-01, P1-10-02, P2-06-01 |
+
+## Resolved decisions
+
+| # | Question | Decision (2026-10-29) | Cards updated |
+|---|---|---|---|
+| Q2 | How are the agent CLIs paid? | The owner's own subscriptions. Motes connects to the CLIs the owner is logged in to (Claude Code, Codex, OpenCode, Cursor CLI…); no model API keys. Office bots also run through CLIs or local models. Budgets count runs, turns, minutes and usage windows | P1-08, P1-10, P2-06, P3-03, P3-04, P4-02 |
+| Q3 | How is a bot's behavior defined? | By a skill: each bot is a folder with a standard `SKILL.md` (behavior) and a `bot.yaml` (Motes config) | P1-05, P5-06 |
 
 ## Progress
 
@@ -76,10 +82,10 @@ Mark cards here as they merge (or track them only in the issue tracker and delet
 | Phase | Cards | Done |
 |---|---|---|
 | P0 | 31 | 0 |
-| P1 | 56 | 0 |
+| P1 | 58 | 0 |
 | P2 | 22 | 0 |
 | P3 | 16 | 0 |
-| P4 | 31 | 0 |
+| P4 | 32 | 0 |
 | P5 | 22 | 0 |
 | P6 | 17 | 0 |
 | P7 | outline | — |

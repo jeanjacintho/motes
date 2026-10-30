@@ -2,16 +2,16 @@
 
 > Back to [ROADMAP](../ROADMAP.md) · Design refs: DESIGN §11 (decision layer), §5 principle 3
 
-**Goal of the phase:** a library every bot uses to make decisions at the cheapest tier that can make them (rule → classifier → cheap LLM → frontier), with a record and a cost for every call. It is built before the Boss and office bots so they are cheap from day one.
+**Goal of the phase:** a library every bot uses to make decisions at the cheapest tier that can make them (rule → classifier → cheap LLM → frontier), with a record and the usage of every call. With subscriptions, the point is to keep routine decisions off the usage windows the dev bots and the owner need. It is built before the Boss and office bots so they are cheap from day one.
 
-**Gate P3:** run a fixture set of 100 recorded routing decisions (message classification, "notify now or digest", "which bot") through the decider and see, in the cost view, how many were solved per tier, the total cost, and that none reached the frontier tier unless allowed.
+**Gate P3:** run a fixture set of 100 recorded routing decisions (message classification, "notify now or digest", "which bot") through the decider and see, in the cost view, how many were solved per tier, the subscription usage they consumed, and that none reached the frontier tier unless allowed.
 
 ---
 
 ## P3-01 · Core
 
 ### P3-01-01 · Decider interface
-**What this is:** the single entry point: `decider.decide({ kind, schema, input, minTier?, maxTier?, budget? })` returning a typed value plus tier, model, confidence and cost (DESIGN §11).
+**What this is:** the single entry point: `decider.decide({ kind, schema, input, minTier?, maxTier?, budget? })` returning a typed value plus tier, engine, model, confidence and usage (DESIGN §11).
 **Why:** callers ask for a decision; they never pick a model themselves.
 **Steps:**
 1. Types `Tier`, `DecisionRequest<T>`, `DecisionResult<T>` in `packages/decision`.
@@ -24,7 +24,7 @@
 ### P3-01-02 · Decision records
 **What this is:** a row for every decision call.
 **Steps:**
-1. Table `decisions` (`id`, `kind`, `botId?`, `tier`, `model?`, `inputTokens`, `outputTokens`, `costUsd`, `confidence?`, `escalatedFrom` (array), `latencyMs`, `outcome` (the typed value, redacted), `at`).
+1. Table `decisions` (`id`, `kind`, `botId?`, `tier`, `model?`, `engine?`, `inputTokens`, `outputTokens`, `turns`, `confidence?`, `escalatedFrom` (array), `latencyMs`, `outcome` (the typed value, redacted), `at`).
 2. The decider writes one record per call through an injected recorder (so the package has no DB dependency).
 **Done when:**
 - [ ] Test: one call = one record, including undecided calls.
@@ -32,10 +32,10 @@
 
 ### P3-01-03 · Budget-aware decisions
 **Steps:**
-1. Before a paid tier, estimate cost from input size and the model's prices; skip tiers that would exceed `budget.maxCostUsd` or the bot's remaining budget (P2-06-01).
-2. Record skipped tiers as `pass(reason: 'budget')`.
+1. Before a paid tier (one that uses a subscription CLI), check the bot's remaining budget (P2-06-01) and whether the tier's engine is currently limited (P1-10-02).
+2. Skip tiers that cannot run; record them as `pass(reason: 'budget' | 'engine_limited')`.
 **Done when:**
-- [ ] Test: a low budget forces the decision to stay at free tiers or be undecided.
+- [ ] Test: an exhausted budget or a limited engine keeps the decision at free tiers (rules, local model) or leaves it undecided.
 **Deps:** P3-01-02, P2-06-01 · **Touches:** decision · **Size:** S
 
 ---
@@ -66,40 +66,43 @@
 
 ## P3-03 · Model providers
 
-### P3-03-01 · Provider interface and structured output
-**What this is:** a thin abstraction over model APIs that always returns output validated against the request's zod schema.
+### P3-03-01 · Model runner interface and structured output
+**What this is:** the abstraction the paid and local tiers use to ask a model for a typed answer, whatever runs it (a subscription CLI or a local model server).
 **Steps:**
-1. `ModelProvider.complete({ model, system, messages, schema, maxTokens })` → `{ value, usage }`.
-2. Convert the zod schema to JSON Schema for providers that support structured output; otherwise prompt for JSON and parse.
+1. `ModelRunner.complete({ engine, model, system, input, schema, maxTurns })` returning `{ value, usage }`.
+2. Ask for JSON matching the zod schema (converted to JSON Schema; use the CLI's native schema-output option where it has one) and validate the result.
 3. One retry on invalid output, then `pass(reason: 'invalid_output')`.
 **Done when:**
-- [ ] Tests with a fake provider: valid output, invalid then valid, invalid twice.
+- [ ] Tests with a fake runner: valid output, invalid then valid, invalid twice.
 **Deps:** P3-01-01 · **Touches:** decision · **Size:** M
 
-### P3-03-02 · Anthropic provider
+### P3-03-02 · CLI model runner
+**What this is:** running a single decision through one of the owner's CLIs in headless mode, with no tools.
+**Why:** billing is the owner's subscriptions (Q2), so even small decisions go through the CLIs instead of model APIs.
 **Steps:**
-1. Implementation using the official SDK, API key from the secret store (reference only).
-2. Map usage (including cached tokens) and errors (rate limit → `pass(reason: 'rate_limited')`).
+1. Use the engine drivers (P1-08) through the hub's daemon: a scratch directory, every built-in tool disabled, one turn, the requested model (e.g. a small Claude model, a mini Codex model).
+2. Map usage and limit messages; a limited engine returns `pass(reason: 'engine_limited')`.
+3. Keep latency visible: CLI start-up is slow, so the record stores `latencyMs` and the rule and local tiers stay first.
 **Done when:**
-- [ ] Recorded-fixture tests; a live test behind `MOTES_RUN_LIVE_MODEL_TESTS=1`.
-**Deps:** P3-03-01, P2-05-01 · **Touches:** decision · **Size:** S
+- [ ] Fake-engine tests; a live test behind `MOTES_RUN_REAL_AGENT_SMOKE=1`.
+**Deps:** P3-03-01, P1-08-05 · **Touches:** decision, daemon · **Size:** M
 
-### P3-03-03 · OpenAI-compatible provider
-**What this is:** one implementation for OpenRouter, Ollama, LM Studio and any OpenAI-compatible endpoint.
+### P3-03-03 · Local model runner
+**What this is:** decisions on a local model (Ollama, LM Studio) that costs no subscription usage at all.
 **Steps:**
-1. Configurable base URL, key reference (optional for local servers), model list.
-2. Detect local servers (Ollama on 11434, LM Studio on 1234) and offer them in settings.
+1. Direct HTTP to the local server's OpenAI-compatible endpoint (faster than going through a CLI); base URL configurable.
+2. Detect local servers (Ollama on 11434, LM Studio on 1234) and list their models in settings.
 **Done when:**
-- [ ] Fixture tests for OpenRouter and Ollama response shapes.
+- [ ] Fixture tests for Ollama and LM Studio response shapes; a missing server returns `pass(reason: 'unavailable')`.
 **Deps:** P3-03-01 · **Touches:** decision · **Size:** S
 
-### P3-03-04 · Model catalog and prices
-**What this is:** the list of models available per provider with price per token, so costs can be computed and estimated.
+### P3-03-04 · Model catalog per engine
+**What this is:** which models each CLI and local server offers, so tiers can be configured from a list instead of typed by hand.
 **Steps:**
-1. Table `models` (`provider`, `model`, `inputUsdPerMTok`, `outputUsdPerMTok`, `contextWindow`, `updatedAt`), editable in settings, seeded with defaults.
-2. `estimateCost(model, inputTokens, outputTokens)`.
+1. Table `models` (`engine`, `model`, `contextWindow?`, `suggestedTier?`, `available`, `updatedAt`), refreshed from what each CLI or local server reports, editable in settings.
+2. No prices: with subscriptions, usage is tracked in tokens, turns and windows.
 **Done when:**
-- [ ] Test: cost of a recorded call matches the catalog price.
+- [ ] Test: refreshing the catalog from a fixture marks removed models unavailable without deleting them.
 **Deps:** P3-03-01, P0-03-02 · **Touches:** decision, db · **Size:** S
 
 ---
@@ -107,17 +110,18 @@
 ## P3-04 · Paid tiers
 
 ### P3-04-01 · Tier configuration and escalation
-**What this is:** which model serves the `cheap_llm` and `frontier` tiers, and when a tier escalates.
+**What this is:** which engine and model serve each tier, and when a tier escalates.
 **Steps:**
-1. Settings: model per tier (e.g. a small model for `cheap_llm`, a large one for `frontier`); per-kind override.
-2. A model tier handler asks for `{ value, confidence }`; below the kind's threshold it passes with `low_confidence`.
+1. Settings: an ordered list of `{ engine, model }` per tier (e.g. `cheap_llm`: local model, then a small Claude model, then a mini Codex model; `frontier`: a large Claude model, then a large Codex model). Per-kind override.
+2. If the first entry's engine is limited, try the next one in the list.
+3. A model tier asks for `{ value, confidence }`; below the kind's threshold it passes with `low_confidence`.
 **Done when:**
-- [ ] Test: a low-confidence cheap answer escalates to frontier when allowed.
+- [ ] Tests: a limited engine falls through to the next entry; a low-confidence cheap answer escalates to frontier when allowed.
 **Deps:** P3-03-02, P3-03-03, P3-03-04 · **Touches:** decision · **Size:** M
 
-### P3-04-02 · Tier limits from the bot spec
+### P3-04-02 · Tier limits from `bot.yaml`
 **Steps:**
-1. Bot spec gets `decision: { defaultMinTier, maxTier }`; requests inherit them unless they narrow further.
+1. `bot.yaml` gets `decision: { defaultMinTier, maxTier }`; requests inherit them unless they narrow further.
 2. Validation: `minTier ≤ maxTier`.
 **Done when:**
 - [ ] Test: a request with `maxTier: cheap_llm` never reaches frontier.
@@ -129,9 +133,9 @@
 
 ### P3-05-01 · Vendor research and fake classifier
 **What this is:** reading Jev's documentation and pinning down how Motes will call it, before writing the real client.
-**Why:** cost and accuracy claims for decision models come from the vendors themselves; Motes must measure them on its own data.
+**Why:** speed and accuracy claims for decision models come from the vendors themselves; Motes must measure them on its own data.
 **Steps:**
-1. Write `packages/decision/JEV-NOTES.md`: endpoints, auth, input and output formats, limits, prices, how confidence is reported, terms of use.
+1. Write `packages/decision/JEV-NOTES.md`: endpoints, auth, input and output formats, limits, pricing (Jev is the one external account outside the owner's subscriptions), how confidence is reported, terms of use.
 2. Implement `FakeClassifier` with the same interface (typed choice + confidence) for tests.
 **Done when:**
 - [ ] Notes reviewed by the owner; the fake classifier is used in P3-05-02 tests.
@@ -161,16 +165,17 @@
 ### P3-06-01 · Decision eval harness
 **What this is:** a CLI that replays recorded decisions against another configuration and compares.
 **Steps:**
-1. `pnpm motes eval decisions --from <date> --config <file>`: loads decisions (or a fixture file), re-runs them, reports agreement with the original (or with a labeled answer), cost and latency per tier.
+1. `pnpm motes eval decisions --from <date> --config <file>`: loads decisions (or a fixture file), re-runs them, reports agreement with the original (or with a labeled answer), usage and latency per tier.
 2. Labeled fixture format (`input`, `expected`) in `packages/decision/fixtures/`.
 **Done when:**
 - [ ] A report compares two configurations on the bundled fixtures.
 **Deps:** P3-05-03 · **Touches:** decision, scripts · **Size:** M
 
-### P3-06-02 · Cost view `UI · visual TBD`
+### P3-06-02 · Usage view `UI · visual TBD`
 **Steps:**
-1. Page with decisions per day split by tier, cost per bot and per decision kind, and a list of the most expensive kinds.
+1. Page with decisions per day split by tier, usage (tokens, turns) per bot, per decision kind and per engine, and the kinds that use the most subscription usage.
 2. Link from a bot's page to its decisions.
 **Done when:**
 - [ ] Gate P3 passes.
 **Deps:** P3-01-02, P1-10-04 · **Touches:** views, server, core · **Size:** M
+
