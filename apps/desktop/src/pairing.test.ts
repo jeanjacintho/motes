@@ -55,4 +55,24 @@ describe('desktop pairing', () => {
     await expect(service.devices()).rejects.toMatchObject({ status: 401 });
     expect(await service.isPaired()).toBe(false);
   });
+
+  it('clears credentials even if a 401 body is malformed', async () => {
+    let value: string | null = JSON.stringify({ url: 'http://localhost:3000', token: 'secret' });
+    const storage = {
+      get: async () => value,
+      set: async (v: string) => {
+        value = v;
+      },
+      remove: async () => {
+        value = null;
+      },
+    };
+    const service = createPairingService(storage, async () => ({
+      ok: false,
+      status: 401,
+      json: async () => null,
+    }));
+    await expect(service.devices()).rejects.toMatchObject({ status: 401 });
+    expect(value).toBeNull();
+  });
 });
