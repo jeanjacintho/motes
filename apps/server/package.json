@@ -8,12 +8,14 @@
     "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
   },
   "dependencies": {
-    "@motes/domain": "workspace:*",
+    "@motes/bots": "workspace:*",
+    "@motes/channels": "workspace:*",
     "@motes/db": "workspace:*",
+    "@motes/decision": "workspace:*",
+    "@motes/domain": "workspace:*",
     "@motes/protocol": "workspace:*",
     "@motes/security": "workspace:*",
-    "@motes/decision": "workspace:*",
-    "@motes/bots": "workspace:*",
-    "@motes/channels": "workspace:*"
+    "pino": "catalog:",
+    "zod": "catalog:"
   }
 }
