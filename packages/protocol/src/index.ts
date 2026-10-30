@@ -13,6 +13,19 @@ export {
   usageSchema,
 } from './base.js';
 export {
+  type ClientEvent,
+  clientEventSchema,
+  defineEvent,
+  type EventEnvelope,
+  eventEnvelopeSchema,
+  eventRegistry,
+  eventSchema,
+  type KnownEvent,
+  parseClientEvent,
+  parseEvent,
+  type UnknownEvent,
+} from './events.js';
+export {
   type BotId,
   type CardId,
   type EventId,
