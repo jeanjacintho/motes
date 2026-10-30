@@ -1,5 +1,33 @@
 # Protocol
 
+## Base schemas
+
+The package exports shared zod schemas and their TypeScript types:
+
+- `timestampSchema` (`Timestamp`): ISO 8601 UTC strings with a `Z` suffix,
+  including fractional seconds. Offsets (even `+00:00`), local times and invalid
+  calendar dates are rejected; strings are preserved without normalization.
+- `pageRequestSchema` (`PageRequest`): a required integer `limit` from 1 through
+  200, plus an optional nonempty opaque `cursor`. There is no implicit limit.
+- `pageSchema(item)` (`Page<Item>`): validates each entry in `items` against
+  the supplied schema. `nextCursor` is required: a nonempty opaque string for
+  continuation, or `null` when exhausted (including an empty result).
+- `apiErrorSchema` (`ApiError`): a flat envelope with a stable `code`, nonempty
+  `message` and nonempty `requestId`; optional `details` accepts JSON values.
+  `API_ERROR_CODES` is the single list of allowed codes (`ApiErrorCode`).
+- `usageSchema` (`Usage`): required nonnegative safe integers `inputTokens`,
+  `outputTokens`, `cachedTokens`, `turns` and `durationMs`. `estimatedUsd` is an
+  optional finite nonnegative number, including fractional dollars. Omission
+  stays omission; only include an estimate when the CLI reports one. Billing
+  remains the owner's subscriptions. Token counts are independent reported
+  counters; no relationship between cached and input tokens is assumed.
+
+These schemas validate values without coercing strings to numbers. Objects
+strip unknown fields using zod's default behavior; tolerant client parsing is
+introduced separately in P0-02-03.
+
+## Entity IDs
+
 Entity IDs are exported from `@motes/protocol`:
 
 ```ts

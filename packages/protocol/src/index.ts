@@ -1,4 +1,18 @@
 export {
+  API_ERROR_CODES,
+  type ApiError,
+  type ApiErrorCode,
+  apiErrorSchema,
+  type Page,
+  type PageRequest,
+  pageRequestSchema,
+  pageSchema,
+  type Timestamp,
+  timestampSchema,
+  type Usage,
+  usageSchema,
+} from './base.js';
+export {
   type BotId,
   type CardId,
   type EventId,
