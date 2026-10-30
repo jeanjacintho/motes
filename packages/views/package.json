@@ -8,11 +8,16 @@
     "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.tsx"
   },
   "dependencies": {
     "@motes/core": "workspace:*",
     "@motes/ui": "workspace:*",
-    "@motes/protocol": "workspace:*"
+    "@motes/protocol": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@testing-library/react": "catalog:"
   }
 }
