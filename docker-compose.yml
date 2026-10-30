@@ -1,0 +1,21 @@
+name: motes
+
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Run pnpm db:up}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run pnpm db:up}
+      POSTGRES_DB: ${POSTGRES_DB:?Run pnpm db:up}
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+volumes:
+  postgres_data:
