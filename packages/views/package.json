@@ -13,6 +13,11 @@
   "dependencies": {
     "@motes/core": "workspace:*",
     "@motes/ui": "workspace:*",
-    "@motes/protocol": "workspace:*"
+    "@motes/protocol": "workspace:*",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@types/react": "catalog:",
+    "@testing-library/react": "catalog:"
   }
 }
