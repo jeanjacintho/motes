@@ -60,8 +60,43 @@ compilation keeps its existing library restrictions.
 ## Tests
 
 Set `DATABASE_URL` to a development/test Postgres 17 instance whose role can
-create databases, then run `pnpm test --project packages/db` or `pnpm check`.
-The bootstrap tests create and drop uniquely named databases. They never run
-migrations in the configured database. The shared template-based
-`withTestDb()` remains P0-03-03's responsibility; these tests must exercise the
-runner on an initially unmigrated database.
+create databases and connect to the `postgres` maintenance database, then run
+`pnpm test --project packages/db` or `pnpm check`. The configured application
+database is never migrated or written by the helper. CI already supplies this
+role and URL through its Postgres service; no workflow change is required.
+
+The root Vitest global setup creates one randomly named `motes_test_<random>`
+database, migrates it, closes all template connections, and provides its name
+to workers. Each `withTestDb()` clones that template in `beforeAll` and closes
+its pool and drops the clone in `afterAll`, including after assertion failures.
+The global teardown drops the template. Concurrent runs use different names.
+Abrupt process termination cannot execute teardown and may leave test databases.
+
+Register the helper once at file scope and read its properties inside tests or
+subsequent hooks (destructuring `db` before setup runs is an error):
+
+```ts
+import { withTestDb } from '@motes/db/testing';
+import { expect, test } from 'vitest';
+
+const context = withTestDb();
+
+test('uses a migrated, isolated database', async () => {
+  const rows = await context.db.$client`SELECT to_regclass('schema_migrations') AS name`;
+  expect(rows).toEqual([{ name: 'schema_migrations' }]);
+});
+```
+
+`context.fx.insert(table).values(...)` provides the typed Drizzle insert builder.
+The fixtures module is the extension point for future entity helpers; no entity
+fixtures are introduced here. Tests within a file share a database and should
+manage their own rows. The helper is also usable at suite scope.
+
+Custom Vitest configurations must register `@motes/db/test-global-setup` as a
+root `globalSetup` (build the package first). Import testing helpers only from
+the testing subpath; production clients do not load Vitest.
+
+Migration runner bootstrap tests deliberately use the underlying isolated
+database lifecycle without cloning: they must start unmigrated and exercise
+custom migration directories. All other database tests should use
+`withTestDb()`.

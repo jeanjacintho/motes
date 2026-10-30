@@ -1,35 +1,25 @@
-import { randomUUID } from 'node:crypto';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pgTable, text } from 'drizzle-orm/pg-core';
-import postgres from 'postgres';
-import { afterAll, afterEach, beforeEach, expect, test } from 'vitest';
-import { createDb } from './index.js';
+import { afterEach, beforeEach, expect, test } from 'vitest';
+import type { Db } from './index.js';
 import { migrate } from './migrate.js';
+import { createTestDatabase } from './test-database.js';
 
-// P0-03-03 supplies the shared withTestDb helper. Until then, isolate this
-// runner's bootstrap tests in fresh databases, never in the configured database.
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl)
-  throw new Error('Set DATABASE_URL to a test Postgres instance with CREATEDB permission.');
-const admin = postgres(databaseUrl, { onnotice: () => {} });
-let db: ReturnType<typeof createDb>;
+// Migration bootstrap tests deliberately use unmigrated databases, not clones.
+let db: Db;
 let directory: string;
-let database: string;
+let database: Awaited<ReturnType<typeof createTestDatabase>> | undefined;
 
 beforeEach(async () => {
-  database = `motes_test_${randomUUID().replaceAll('-', '')}`;
-  await admin`CREATE DATABASE ${admin(database)}`;
-  const url = new URL(databaseUrl);
-  url.pathname = `/${database}`;
-  db = createDb(url.toString());
+  database = await createTestDatabase();
+  db = database.db;
   directory = await mkdtemp(join(tmpdir(), 'motes-migrations-'));
 });
 
 afterEach(async () => {
-  await db?.$client.end();
-  if (database) await admin`DROP DATABASE IF EXISTS ${admin(database)}`;
+  await database?.close();
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 
@@ -77,6 +67,3 @@ test('concurrent runners apply each file once', async () => {
     { count: 1 },
   ]);
 });
-
-// The admin connection is shared only within this test file.
-afterAll(() => admin.end());
