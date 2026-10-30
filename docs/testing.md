@@ -4,6 +4,7 @@ Use Node 24 and the pinned pnpm version:
 
 ```sh
 pnpm install --frozen-lockfile
+pnpm db:up
 pnpm test
 pnpm test:watch
 pnpm test --project packages/protocol --reporter verbose
@@ -45,3 +46,11 @@ test('reports a failed assertion', () => {
 Run `pnpm test`: the report must include the assertion failure and the command
 must exit nonzero. Remove the probe and rerun `pnpm test`; it must pass.
 The probe is a manual acceptance check, not committed source.
+
+Database tests require `DATABASE_URL` in the process environment, pointing at a
+test Postgres role with CREATEDB permission and access to the `postgres`
+maintenance database. The test runner does not load local configuration files.
+CI uses the existing Postgres 17 service. The root global setup creates one
+migrated template per run; `withTestDb()` from `@motes/db/testing` clones it once
+per test file and removes the clone when the file finishes. See
+[database testing](../packages/db/README.md#tests) for usage and lifecycle details.

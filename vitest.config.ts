@@ -13,6 +13,7 @@ const workspaces = ['apps', 'packages'].flatMap((directory) =>
 
 export default defineConfig({
   test: {
+    globalSetup: ['./packages/db/src/test-global-setup.ts'],
     projects: [
       { test: { name: 'scripts', environment: 'node', include: ['scripts/**/*.test.ts'] } },
       ...workspaces.flatMap<TestProjectInlineConfiguration>((workspace) => {
