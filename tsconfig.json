@@ -1,0 +1,50 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/protocol"
+    },
+    {
+      "path": "packages/db"
+    },
+    {
+      "path": "packages/decision"
+    },
+    {
+      "path": "packages/security"
+    },
+    {
+      "path": "packages/domain"
+    },
+    {
+      "path": "packages/bots"
+    },
+    {
+      "path": "packages/channels"
+    },
+    {
+      "path": "packages/engines"
+    },
+    {
+      "path": "packages/core"
+    },
+    {
+      "path": "packages/ui"
+    },
+    {
+      "path": "packages/views"
+    },
+    {
+      "path": "apps/server"
+    },
+    {
+      "path": "apps/daemon"
+    },
+    {
+      "path": "apps/desktop"
+    },
+    {
+      "path": "apps/web"
+    }
+  ]
+}

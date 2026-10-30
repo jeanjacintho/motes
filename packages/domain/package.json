@@ -1,5 +1,21 @@
 {
   "name": "@motes/domain",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@motes/db": "workspace:*",
+    "@motes/protocol": "workspace:*",
+    "@motes/security": "workspace:*",
+    "@motes/decision": "workspace:*"
+  }
 }

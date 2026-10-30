@@ -6,47 +6,147 @@ settings:
 
 catalogs:
   default:
+    '@types/node':
+      specifier: 24.19.2
+      version: 24.19.2
     turbo:
       specifier: 2.11.10
       version: 2.11.10
+    typescript:
+      specifier: 5.9.3
+      version: 5.9.3
 
 importers:
 
   .:
     devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.2
       turbo:
         specifier: 'catalog:'
         version: 2.11.10
+      typescript:
+        specifier: 'catalog:'
+        version: 5.9.3
 
-  apps/daemon: {}
+  apps/daemon:
+    dependencies:
+      '@motes/engines':
+        specifier: workspace:*
+        version: link:../../packages/engines
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
 
-  apps/desktop: {}
+  apps/desktop:
+    dependencies:
+      '@motes/views':
+        specifier: workspace:*
+        version: link:../../packages/views
 
-  apps/server: {}
+  apps/server:
+    dependencies:
+      '@motes/bots':
+        specifier: workspace:*
+        version: link:../../packages/bots
+      '@motes/channels':
+        specifier: workspace:*
+        version: link:../../packages/channels
+      '@motes/db':
+        specifier: workspace:*
+        version: link:../../packages/db
+      '@motes/decision':
+        specifier: workspace:*
+        version: link:../../packages/decision
+      '@motes/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      '@motes/security':
+        specifier: workspace:*
+        version: link:../../packages/security
 
-  apps/web: {}
+  apps/web:
+    dependencies:
+      '@motes/views':
+        specifier: workspace:*
+        version: link:../../packages/views
 
-  packages/bots: {}
+  packages/bots:
+    dependencies:
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
-  packages/channels: {}
+  packages/channels:
+    dependencies:
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
-  packages/core: {}
+  packages/core:
+    dependencies:
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
-  packages/db: {}
+  packages/db:
+    dependencies:
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
-  packages/decision: {}
+  packages/decision:
+    dependencies:
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
-  packages/domain: {}
+  packages/domain:
+    dependencies:
+      '@motes/db':
+        specifier: workspace:*
+        version: link:../db
+      '@motes/decision':
+        specifier: workspace:*
+        version: link:../decision
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@motes/security':
+        specifier: workspace:*
+        version: link:../security
 
-  packages/engines: {}
+  packages/engines:
+    dependencies:
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
   packages/protocol: {}
 
-  packages/security: {}
+  packages/security:
+    dependencies:
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
 
   packages/ui: {}
 
-  packages/views: {}
+  packages/views:
+    dependencies:
+      '@motes/core':
+        specifier: workspace:*
+        version: link:../core
+      '@motes/protocol':
+        specifier: workspace:*
+        version: link:../protocol
+      '@motes/ui':
+        specifier: workspace:*
+        version: link:../ui
 
 packages:
 
@@ -80,9 +180,20 @@ packages:
     cpu: [arm64]
     os: [win32]
 
+  '@types/node@24.19.2':
+    resolution: {integrity: sha512-93d49wCWJkCyN87MxLpNN6KXPCwFw7bVUg79mGUV1OS40JGWwVCr8n61DXCSqz7CV6/VfPkb7xec7uP2M+QHWQ==}
+
   turbo@2.11.10:
     resolution: {integrity: sha512-3GJYwig8ygEI89oaOZdduJX8/aw6O9eRPYHoIt6T3FZl9hkKjiyIspufJoVgqXihPoJu8M5CSV0DlZvzfohBCw==}
     hasBin: true
+
+  typescript@5.9.3:
+    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+    engines: {node: '>=14.17'}
+    hasBin: true
+
+  undici-types@7.24.6:
+    resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
 snapshots:
 
@@ -104,6 +215,10 @@ snapshots:
   '@turbo/windows-arm64@2.11.10':
     optional: true
 
+  '@types/node@24.19.2':
+    dependencies:
+      undici-types: 7.24.6
+
   turbo@2.11.10:
     optionalDependencies:
       '@turbo/darwin-64': 2.11.10
@@ -112,3 +227,7 @@ snapshots:
       '@turbo/linux-arm64': 2.11.10
       '@turbo/windows-64': 2.11.10
       '@turbo/windows-arm64': 2.11.10
+
+  typescript@5.9.3: {}
+
+  undici-types@7.24.6: {}

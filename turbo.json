@@ -11,9 +11,12 @@
     },
     "typecheck": {
       "dependsOn": [
+        "^build",
         "^typecheck"
       ],
-      "outputs": []
+      "outputs": [
+        ".turbo/typecheck.tsbuildinfo"
+      ]
     },
     "test": {
       "dependsOn": [
@@ -25,5 +28,9 @@
       "dependsOn": [],
       "outputs": []
     }
-  }
+  },
+  "globalDependencies": [
+    "tsconfig.base.json",
+    "tsconfig.json"
+  ]
 }
