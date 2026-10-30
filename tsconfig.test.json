@@ -17,7 +17,8 @@
     "packages/*/src/**/*.test.ts",
     "packages/*/src/**/*.test.tsx",
     "vitest.config.ts",
-    "vitest.setup.dom.ts"
+    "vitest.setup.dom.ts",
+    "scripts/**/*.ts"
   ],
   "exclude": ["node_modules", "**/dist"]
 }

@@ -20,7 +20,8 @@
   "scripts": {
     "build": "turbo run build",
     "typecheck": "turbo run typecheck && tsc -p tsconfig.test.json",
-    "lint": "biome check .",
+    "lint": "pnpm boundaries && biome check .",
+    "boundaries": "node scripts/check-boundaries.ts",
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest"
