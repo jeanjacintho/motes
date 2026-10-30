@@ -10,6 +10,7 @@ async function main() {
   const server = createServer(db, logger);
   let stopping = false;
   server.addHook('onResponse', async () => {
+    // Let Node mark the completed response's socket idle before closing it.
     if (stopping) setImmediate(() => server.server.closeIdleConnections());
   });
   const startup = (async () => {
