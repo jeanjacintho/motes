@@ -6,4 +6,6 @@ export function createDb(url: string) {
 }
 
 export type Db = ReturnType<typeof createDb>;
+export { appendEvent, type DbTransaction, readEventsAfter, type StoredEvent } from './events.js';
 export { migrate } from './migrate.js';
+export { events } from './schema.js';
