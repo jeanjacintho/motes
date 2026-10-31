@@ -58,8 +58,11 @@ describe('desktop live connection', () => {
     expect(urls).toEqual(['ws://localhost:3000/ws']);
     expect(live.snapshot().status).toBe('connecting');
     socket.onopen?.();
-    expect(live.snapshot().status).toBe('connected');
     expect(JSON.parse(socket.sent[0] ?? '{}')).toEqual({ token: 'token' });
+    // Authentication may still be in flight: the socket is open but delivery is not ready.
+    expect(live.snapshot().status).toBe('connecting');
+    socket.onmessage?.({ data: JSON.stringify({ type: 'ready' }) });
+    await vi.waitFor(() => expect(live.snapshot().status).toBe('connected'));
     socket.onmessage?.({ data: JSON.stringify({ seq: '1', event: ping }) });
     await vi.waitFor(() => expect(live.snapshot().eventCount).toBe(1));
 
