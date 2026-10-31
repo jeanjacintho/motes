@@ -53,3 +53,22 @@ export const pairingState = pgTable(
     ),
   ],
 );
+
+export const projects = pgTable(
+  'projects',
+  {
+    id: text().primaryKey(),
+    // Archived projects keep their key reserved.
+    key: text().notNull().unique(),
+    name: text().notNull(),
+    description: text().notNull(),
+    // No foreign key yet: runtimes arrive in a later epic.
+    defaultRuntimeId: text('default_runtime_id'),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+    archivedAt: timestamp('archived_at', { withTimezone: true, precision: 3 }),
+  },
+  (table) => [
+    check('project_key_check', sql`${table.key} ~ '^[A-Z]{2,6}$'`),
+    check('project_name_check', sql`length(trim(${table.name})) > 0`),
+  ],
+);
