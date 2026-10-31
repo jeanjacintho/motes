@@ -30,9 +30,15 @@ pnpm check
 For focused work, use `pnpm boundaries`, `pnpm typecheck`, `pnpm test` or
 `pnpm test:watch`. `pnpm format` formats supported source files.
 
-The current foundation provides workspace tooling; runnable server and desktop
-apps arrive in later P0 cards. The combined app command (`pnpm dev`, P0-06-03)
-is planned and is not available yet.
+With the database running (see below), `pnpm dev` starts the server and the
+desktop app together. The server logs a one-time setup code on first start;
+enter it in the desktop pairing screen. The top bar shows the connection state
+and a counter of received events. With `MOTES_DEV_ROUTES=true` (set by
+`pnpm dev`), `POST /dev/ping` with a device token emits a test event.
+
+`pnpm test:e2e` builds the workspace and runs the Playwright Electron smoke
+test against a throwaway database created on the `DATABASE_URL` server. It is
+not part of `pnpm check`; CI runs it in its own job under xvfb.
 
 ### Local Postgres
 
