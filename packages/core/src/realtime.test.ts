@@ -71,6 +71,32 @@ describe('realtime', () => {
       vi.useRealTimers();
     }
   });
+  it('counts processed events and notifies subscribers', async () => {
+    const socket = new FakeSocket();
+    const realtime = createRealtime({
+      url: 'ws://test',
+      getToken: () => 'token',
+      storage: createMemoryStorageAdapter(),
+      queryClient: createQueryClient(),
+      logger: vi.fn(),
+      socket: () => socket,
+    });
+    const listener = vi.fn();
+    const unsubscribe = realtime.subscribe(listener);
+    expect(realtime.getEventCount()).toBe(0);
+    await realtime.start();
+    socket.onopen?.();
+    expect(realtime.getStatus()).toBe('connected');
+    socket.message({ seq: '1', event });
+    socket.message({ seq: '2', event });
+    await vi.waitFor(() => expect(realtime.getEventCount()).toBe(2));
+    unsubscribe();
+    listener.mockClear();
+    socket.message({ seq: '3', event });
+    await vi.waitFor(() => expect(realtime.getEventCount()).toBe(3));
+    expect(listener).not.toHaveBeenCalled();
+    realtime.stop();
+  });
   it('invalidates all queries and clears the cursor on resync', async () => {
     const storage = createMemoryStorageAdapter();
     await storage.set('realtime.cursor', '5');

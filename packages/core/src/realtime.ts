@@ -39,15 +39,25 @@ export function createRealtime(options: {
   const handlers = new Map<string, Set<Handler>>();
   const listeners = new Set<() => void>();
   let status: Status = 'offline';
+  let eventCount = 0;
   let current: RealtimeSocket | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   let active = false;
   let generation = 0;
   let attempts = 0;
   let queue = Promise.resolve();
+  const notify = () => {
+    for (const listener of listeners) listener();
+  };
   const setStatus = (next: Status) => {
     status = next;
-    for (const listener of listeners) listener();
+    notify();
+  };
+  const subscribe = (listener: () => void) => {
+    listeners.add(listener);
+    return () => {
+      listeners.delete(listener);
+    };
   };
   const schedule = () => {
     if (!active || timer) return;
@@ -117,6 +127,8 @@ export function createRealtime(options: {
             }
             await options.storage.set(cursorKey, message.seq);
             attempts = 0;
+            eventCount++;
+            notify();
           })
           .catch(() => {
             halted = true;
@@ -166,14 +178,21 @@ export function createRealtime(options: {
         await options.queryClient.invalidateQueries({ queryKey: key(event) });
       });
     },
+    subscribe,
+    getStatus: () => status,
+    getEventCount: () => eventCount,
     useConnectionStatus() {
       return useSyncExternalStore(
-        (listener) => {
-          listeners.add(listener);
-          return () => listeners.delete(listener);
-        },
+        subscribe,
         () => status,
         () => 'offline',
+      );
+    },
+    useEventCount() {
+      return useSyncExternalStore(
+        subscribe,
+        () => eventCount,
+        () => 0,
       );
     },
   };
