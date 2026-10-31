@@ -1,4 +1,11 @@
 import { type ChildProcess, spawn } from 'node:child_process';
+import { loadEnvFile } from 'node:process';
+
+try {
+  loadEnvFile();
+} catch (error) {
+  if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) throw error;
+}
 
 const commands = ['dev:server', 'dev:desktop'];
 const children: ChildProcess[] = [];

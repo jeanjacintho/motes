@@ -20,7 +20,7 @@ function run(exits: Record<string, number>) {
     `#!${process.execPath}
 const fs = require('node:fs');
 const name = process.argv[2];
-fs.appendFileSync(process.env.LOG, 'start ' + name + '\\n');
+fs.appendFileSync(process.env.LOG, 'start ' + name + ' ' + process.env.DATABASE_URL + '\\n');
 const exits = JSON.parse(process.env.EXITS);
 if (name in exits) setTimeout(() => process.exit(exits[name]), 300);
 else {
@@ -31,13 +31,17 @@ else {
     { mode: 0o755 },
   );
   const log = join(root, 'log');
+  writeFileSync(join(root, '.env'), 'DATABASE_URL=postgresql://from-env-file\n');
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    PATH: `${root}:${process.env.PATH}`,
+    LOG: log,
+    EXITS: JSON.stringify(exits),
+  };
+  delete env.DATABASE_URL;
   const result = spawnSync(process.execPath, [script], {
-    env: {
-      ...process.env,
-      PATH: `${root}:${process.env.PATH}`,
-      LOG: log,
-      EXITS: JSON.stringify(exits),
-    },
+    cwd: root,
+    env,
     encoding: 'utf8',
     timeout: 10_000,
   });
@@ -47,7 +51,7 @@ else {
 test('stops the server when the desktop exits and returns its exit code', () => {
   const { result, log } = run({ 'dev:desktop': 3 });
   expect(result.status).toBe(3);
-  expect(log).toContain('start dev:server');
+  expect(log).toContain('start dev:server postgresql://from-env-file');
   expect(log).toContain('start dev:desktop');
   expect(log).toContain('stop dev:server');
 });
