@@ -37,6 +37,7 @@ describe('desktop live connection', () => {
     const sockets: FakeSocket[] = [];
     const urls: string[] = [];
     const live = createLiveConnection({
+      diagnostic: () => {},
       session: async () => session,
       socket: (url) => {
         urls.push(url);
@@ -80,6 +81,7 @@ describe('desktop live connection', () => {
     let session = { url: 'http://localhost:3000/', token: 'one' };
     const sockets: FakeSocket[] = [];
     const live = createLiveConnection({
+      diagnostic: () => {},
       session: async () => session,
       socket: () => {
         const socket = new FakeSocket();
@@ -96,6 +98,44 @@ describe('desktop live connection', () => {
     expect(sockets[0]?.closed).toBe(true);
     expect(sockets).toHaveLength(2);
     expect(live.snapshot()).toEqual({ status: 'connecting', eventCount: 0 });
+  });
+
+  it('reports sync failures without leaking credential text', async () => {
+    const diagnostic = vi.fn();
+    const live = createLiveConnection({
+      diagnostic,
+      session: async () => {
+        throw new SyntaxError('Unexpected token in {"token":"secret-token"}');
+      },
+      socket: () => new FakeSocket(),
+    });
+    await expect(live.sync()).resolves.toBeUndefined();
+    expect(diagnostic).toHaveBeenCalledOnce();
+    expect(diagnostic.mock.calls[0]?.[0]).toContain('SyntaxError');
+    expect(JSON.stringify(diagnostic.mock.calls)).not.toContain('secret-token');
+  });
+
+  it('reports incompatible realtime messages by path and code only', async () => {
+    const diagnostic = vi.fn();
+    const sockets: FakeSocket[] = [];
+    const live = createLiveConnection({
+      diagnostic,
+      session: async () => ({ url: 'http://localhost:3000/', token: 'secret-token' }),
+      socket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    await live.sync();
+    sockets[0]?.onmessage?.({
+      data: JSON.stringify({ seq: 'not-a-number', event: 'secret-body' }),
+    });
+    await vi.waitFor(() => expect(diagnostic).toHaveBeenCalled());
+    const text = JSON.stringify(diagnostic.mock.calls);
+    expect(text).toContain('invalid');
+    expect(text).not.toContain('secret-body');
+    expect(text).not.toContain('secret-token');
   });
 
   it('forwards websocket callbacks through the adapter', () => {

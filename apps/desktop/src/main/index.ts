@@ -38,6 +38,7 @@ const pairing = createPairingService(
   fetch,
 );
 const live = createLiveConnection({
+  diagnostic: (message) => console.error(`[live] ${message}`),
   session: () => pairing.session(),
   socket: (url) => adaptWebSocket(new WebSocket(url)),
 });
@@ -67,7 +68,7 @@ function createWindow() {
   const pairingHandler = createPairingHandler(window.webContents, appUrl, pairing);
   ipcMain.handle('pairing:request', async (event, ...args) => {
     const result = await pairingHandler(event, ...args);
-    await live.sync().catch(() => {});
+    await live.sync();
     return result;
   });
   ipcMain.handle(
@@ -88,7 +89,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   createWindow();
-  void live.sync().catch(() => {});
+  void live.sync();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

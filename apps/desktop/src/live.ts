@@ -36,6 +36,8 @@ export function adaptWebSocket(ws: WebSocket): RealtimeSocket {
 
 // Realtime runs in the main process so the device token never reaches the renderer.
 export function createLiveConnection(options: {
+  // Receives sanitized text only: never credentials, frames or payloads.
+  diagnostic: (message: string) => void;
   session: () => Promise<{ url: string; token: string } | null>;
   socket: (url: string) => RealtimeSocket;
 }) {
@@ -62,7 +64,12 @@ export function createLiveConnection(options: {
       storage: createMemoryStorageAdapter(),
       queryClient: createQueryClient(),
       socket: options.socket,
-      logger: () => {},
+      logger: (error) =>
+        options.diagnostic(
+          `Incompatible realtime message: ${error.issues
+            .map((issue) => `${issue.path.join('.') || '(root)'} ${issue.code}`)
+            .join(', ')}`,
+        ),
     });
     const read = () =>
       publish({ status: realtime.getStatus(), eventCount: realtime.getEventCount() });
@@ -80,8 +87,13 @@ export function createLiveConnection(options: {
   return {
     // Align the connection with the stored credential after pairing changes.
     sync(): Promise<void> {
-      const result = queue.then(reconcile);
-      queue = result.catch(() => undefined);
+      const result = queue.then(reconcile).catch((error: unknown) => {
+        // The error name only: messages from JSON parsing can quote the stored credential.
+        options.diagnostic(
+          `Live sync failed: ${error instanceof Error ? error.name : 'unknown error'}`,
+        );
+      });
+      queue = result;
       return result;
     },
     snapshot: () => snapshot,
