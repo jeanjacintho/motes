@@ -3,6 +3,7 @@ packages:
   - packages/*
 
 catalog:
+  keytar: 7.9.0
   electron: 45.2.0
   electron-vite: 6.0.0
   vite: 8.3.5
@@ -35,3 +36,5 @@ catalog:
   zod: 4.6.7
 patchedDependencies:
   drizzle-orm@1.0.0-rc.5: patches/drizzle-orm@1.0.0-rc.5.patch
+allowBuilds:
+  keytar: true

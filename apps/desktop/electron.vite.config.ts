@@ -1,7 +1,12 @@
 import { defineConfig } from 'electron-vite';
 
 export default defineConfig({
-  main: { build: { outDir: 'dist/main' } },
+  main: {
+    build: {
+      outDir: 'dist/main',
+      externalizeDeps: { exclude: ['@motes/core', '@motes/protocol'] },
+    },
+  },
   preload: {
     build: {
       outDir: 'dist/preload',
