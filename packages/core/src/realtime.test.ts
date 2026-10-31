@@ -71,6 +71,69 @@ describe('realtime', () => {
       vi.useRealTimers();
     }
   });
+  it('counts processed events and notifies subscribers', async () => {
+    const socket = new FakeSocket();
+    const realtime = createRealtime({
+      url: 'ws://test',
+      getToken: () => 'token',
+      storage: createMemoryStorageAdapter(),
+      queryClient: createQueryClient(),
+      logger: vi.fn(),
+      socket: () => socket,
+    });
+    const listener = vi.fn();
+    const unsubscribe = realtime.subscribe(listener);
+    expect(realtime.getEventCount()).toBe(0);
+    await realtime.start();
+    socket.onopen?.();
+    socket.message({ type: 'ready' });
+    await vi.waitFor(() => expect(realtime.getStatus()).toBe('connected'));
+    socket.message({ seq: '1', event });
+    socket.message({ seq: '2', event });
+    await vi.waitFor(() => expect(realtime.getEventCount()).toBe(2));
+    unsubscribe();
+    listener.mockClear();
+    socket.message({ seq: '3', event });
+    await vi.waitFor(() => expect(realtime.getEventCount()).toBe(3));
+    expect(listener).not.toHaveBeenCalled();
+    realtime.stop();
+  });
+  it('stays out of connected until the server confirms delivery is ready', async () => {
+    vi.useFakeTimers();
+    try {
+      const sockets: FakeSocket[] = [];
+      const realtime = createRealtime({
+        url: 'ws://test',
+        getToken: () => 'token',
+        storage: createMemoryStorageAdapter(),
+        queryClient: createQueryClient(),
+        logger: vi.fn(),
+        socket: () => {
+          const socket = new FakeSocket();
+          sockets.push(socket);
+          return socket;
+        },
+      });
+      await realtime.start();
+      const first = sockets[0];
+      if (!first) throw new Error('Missing socket');
+      first.onopen?.();
+      expect(first.sent).toHaveLength(1);
+      expect(realtime.getStatus()).toBe('connecting');
+      first.message({ type: 'ready' });
+      await vi.waitFor(() => expect(realtime.getStatus()).toBe('connected'));
+      first.close();
+      expect(realtime.getStatus()).toBe('reconnecting');
+      await vi.advanceTimersByTimeAsync(1000);
+      sockets[1]?.onopen?.();
+      expect(realtime.getStatus()).toBe('reconnecting');
+      sockets[1]?.message({ type: 'ready' });
+      await vi.waitFor(() => expect(realtime.getStatus()).toBe('connected'));
+      realtime.stop();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('invalidates all queries and clears the cursor on resync', async () => {
     const storage = createMemoryStorageAdapter();
     await storage.set('realtime.cursor', '5');

@@ -18,11 +18,13 @@ import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-q
 import { useRef, useState } from 'react';
 import { z } from 'zod';
 import type { PairingRequest, PairingResult } from '../security';
+import { type LiveBridge, useLive } from './live';
 
 type Bridge = (request: PairingRequest) => Promise<PairingResult>;
 const deviceList = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVICE_KINDS) }));
 
-function Session({ bridge }: { bridge: Bridge }) {
+function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
+  const { status: connectionStatus, eventCount } = useLive(live);
   const queryClient = useQueryClient();
   const [paired, setPaired] = useState<boolean | null>(null);
   const generation = useRef(0);
@@ -96,7 +98,8 @@ function Session({ bridge }: { bridge: Bridge }) {
             <AppLink to="/">Início</AppLink> <AppLink to="/devices">Dispositivos</AppLink>
           </>
         }
-        connectionStatus="offline"
+        connectionStatus={connectionStatus}
+        eventCount={eventCount}
       >
         {path === '/devices' ? (
           <DevicesScreen
@@ -116,11 +119,11 @@ function Session({ bridge }: { bridge: Bridge }) {
   );
 }
 
-export function Desktop({ bridge }: { bridge: Bridge }) {
+export function Desktop({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
   const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <Session bridge={bridge} />
+      <Session bridge={bridge} live={live} />
     </QueryClientProvider>
   );
 }

@@ -41,7 +41,11 @@ it('replays missed events in order, streams new events and requires resync past 
     const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`);
     await once(socket, 'open');
     const messages: unknown[] = [];
-    socket.on('message', (data) => messages.push(JSON.parse(data.toString())));
+    socket.on('message', (data) => {
+      const message = JSON.parse(data.toString());
+      // Readiness is covered in websocket.test.ts; these tests follow events only.
+      if (message.type !== 'ready') messages.push(message);
+    });
     socket.send(JSON.stringify({ token, resumeAfter }));
     return { socket, messages };
   };

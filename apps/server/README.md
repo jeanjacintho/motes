@@ -14,7 +14,7 @@ attempts lock pairing for ten minutes. Authentication middleware and device
 management follow in P0-04-05.
 
 WebSocket clients authenticate with `{ "token": "...", "resumeAfter": "<seq>" }`.
-The cursor is a decimal string; event messages contain `{ seq, event }`. If more
+The cursor is a decimal string; event messages contain `{ seq, event }`. After authentication fixes the delivery position, the server sends `{ "type": "ready" }`; events emitted after that message are delivered, so clients should report connected only then. If more
 than `MOTES_REPLAY_LIMIT` events are pending (default 5000), the server sends
 `{ "type": "resync_required" }` and closes the connection so the client can
 refetch. Omitting the cursor starts at the current event head. The authenticated

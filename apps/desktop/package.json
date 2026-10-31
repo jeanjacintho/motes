@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsc -b && electron-vite build",
     "dev": "install-electron && electron-vite dev",
-    "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo"
+    "typecheck": "tsc --noEmit --tsBuildInfoFile .turbo/typecheck.tsbuildinfo",
+    "test:e2e": "install-electron && playwright test"
   },
   "dependencies": {
     "@motes/core": "workspace:*",
@@ -21,11 +22,13 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@playwright/test": "catalog:",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "electron": "catalog:",
     "electron-vite": "catalog:",
+    "postgres": "catalog:",
     "vite": "catalog:"
   }
 }

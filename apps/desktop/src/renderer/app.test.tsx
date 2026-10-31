@@ -2,13 +2,25 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { expect, it, vi } from 'vitest';
 import { Desktop } from './app';
 
+const live = {
+  snapshot: async () => ({ status: 'connected', eventCount: 3 }),
+  subscribe: () => () => {},
+};
+
+it('shows the live connection state and event counter in the shell', async () => {
+  const pairing = vi.fn().mockResolvedValue({ ok: true, value: true });
+  render(<Desktop bridge={pairing} live={live} />);
+  expect(await screen.findByText('Conectado')).toBeTruthy();
+  expect(screen.getByTestId('event-count').textContent).toBe('3');
+});
+
 it('returns to pairing after a 401 and shows an error for a failed devices query', async () => {
   const pairing = vi
     .fn()
     .mockResolvedValueOnce({ ok: true, value: true })
     .mockResolvedValueOnce({ ok: false, unauthorized: false })
     .mockResolvedValueOnce({ ok: false, unauthorized: true });
-  render(<Desktop bridge={pairing} />);
+  render(<Desktop bridge={pairing} live={live} />);
   fireEvent.click(await screen.findByRole('link', { name: 'Dispositivos' }));
   expect(await screen.findByRole('alert')).toBeTruthy();
   fireEvent.click(screen.getByRole('link', { name: 'Início' }));
@@ -59,7 +71,7 @@ it('keeps the new session when an old request returns 401 after re-pairing', asy
     paired = false;
     return Promise.resolve({ ok: false, unauthorized: true });
   });
-  render(<Desktop bridge={pairing} />);
+  render(<Desktop bridge={pairing} live={live} />);
   fireEvent.click(await screen.findByRole('link', { name: 'Dispositivos' }));
   const buttons = await screen.findAllByRole('button', { name: 'Revogar' });
   fireEvent.click(buttons[0] as HTMLElement);

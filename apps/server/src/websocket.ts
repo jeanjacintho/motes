@@ -130,6 +130,8 @@ export function registerWebsocket(server: FastifyInstance, services: Services, r
             position = BigInt(rows[0]?.seq ?? '0');
           } else position = BigInt(parsed.data.resumeAfter);
           if (stopped) return;
+          // Events committed after this point are delivered, so clients may report ready.
+          socket.send(JSON.stringify({ type: 'ready' }));
           pumps.add(pump);
           pump();
         } catch {

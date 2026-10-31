@@ -1,6 +1,6 @@
 import { once } from 'node:events';
 import { withTestDb } from '@motes/db/testing';
-import { createPairingCode } from '@motes/domain';
+import { createPairingCode, emitPing } from '@motes/domain';
 import { expect, it } from 'vitest';
 import WebSocket from 'ws';
 import { createServices } from './composition.js';
@@ -80,3 +80,32 @@ it('closes promptly with responsive and paused authenticated and unauthenticated
     await app.close();
   }
 }, 10000);
+
+it('signals readiness once the delivery position is fixed, so later events are delivered', async () => {
+  const services = createServices(testDb.db);
+  const app = createServer(testDb.db, createLogger('silent'), undefined, services);
+  const code = await createPairingCode(services);
+  const paired = await app.inject({
+    method: 'POST',
+    url: '/pair',
+    payload: { code, name: 'Laptop' },
+  });
+  const token: string = paired.json().token;
+  await app.listen({ port: 0, host: '127.0.0.1' });
+  const address = app.server.address();
+  if (!address || typeof address === 'string') throw new Error('Missing address');
+  const socket = new WebSocket(`ws://127.0.0.1:${address.port}/ws`);
+  const messages: unknown[] = [];
+  socket.on('message', (data) => messages.push(JSON.parse(data.toString())));
+  try {
+    await once(socket, 'open');
+    socket.send(JSON.stringify({ token }));
+    await expect.poll(() => messages[0]).toEqual({ type: 'ready' });
+    await emitPing(services);
+    await expect.poll(() => messages.length).toBe(2);
+    expect(messages[1]).toMatchObject({ event: { type: 'system.ping' } });
+  } finally {
+    socket.terminate();
+    await app.close();
+  }
+}, 50000);

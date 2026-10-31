@@ -54,3 +54,13 @@ CI uses the existing Postgres 17 service. The root global setup creates one
 migrated template per run; `withTestDb()` from `@motes/db/testing` clones it once
 per test file and removes the clone when the file finishes. See
 [database testing](../packages/db/README.md#tests) for usage and lifecycle details.
+
+## End-to-end
+
+`pnpm test:e2e` runs the Playwright (Electron mode) smoke test in
+`apps/desktop/e2e`. It creates a temporary database on the `DATABASE_URL`
+server, starts the server, pairs the built desktop app through its UI, emits
+`system.ping` from a second paired device and asserts the top bar counter
+increments. The run uses an in-memory credential store (unpackaged builds
+only, `MOTES_E2E_MEMORY_STORAGE=1`) instead of the Keychain. On Linux wrap it
+in `xvfb-run`; CI does so and passes `--no-sandbox` through the `CI` variable.
