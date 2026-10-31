@@ -24,7 +24,14 @@ describe('event contracts', () => {
     expect(event).toEqual(ping);
     expectTypeOf(event.id).toEqualTypeOf<EventId>();
     expectTypeOf(event.type).toEqualTypeOf<
-      'system.ping' | 'pairing.changed' | 'device.paired' | 'device.used' | 'device.revoked'
+      | 'system.ping'
+      | 'pairing.changed'
+      | 'device.paired'
+      | 'device.used'
+      | 'device.revoked'
+      | 'project.created'
+      | 'project.renamed'
+      | 'project.archived'
     >();
     expect(eventRegistry['system.ping'].type).toBe('system.ping');
     expect(parseClientEvent(ping, vi.fn())).toEqual(event);
@@ -128,9 +135,16 @@ describe('event contracts', () => {
       expectTypeOf(parsed.originalType).toEqualTypeOf<string>();
     } else if (parsed) {
       expectTypeOf(parsed.type).toEqualTypeOf<
-        'system.ping' | 'pairing.changed' | 'device.paired' | 'device.used' | 'device.revoked'
+        | 'system.ping'
+        | 'pairing.changed'
+        | 'device.paired'
+        | 'device.used'
+        | 'device.revoked'
+        | 'project.created'
+        | 'project.renamed'
+        | 'project.archived'
       >();
-      expectTypeOf(parsed.payload).toEqualTypeOf<Record<string, never>>();
+      expectTypeOf(parsed.payload).toExtend<Record<string, unknown>>();
     }
   });
 });
