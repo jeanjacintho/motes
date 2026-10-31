@@ -178,16 +178,21 @@ const statusLabels: Record<ConnectionStatus, string> = {
 export function AppShell({
   sidebar,
   connectionStatus,
+  eventCount,
   children,
 }: {
   sidebar: ReactNode;
   connectionStatus: ConnectionStatus;
+  eventCount: number;
   children: ReactNode;
 }) {
   return (
     <div style={{ background: 'var(--bg)', color: 'var(--fg)' }}>
       <header>
-        <span role="status">{statusLabels[connectionStatus]}</span>
+        <span role="status">{statusLabels[connectionStatus]}</span>{' '}
+        <span>
+          Eventos recebidos: <span data-testid="event-count">{eventCount}</span>
+        </span>
       </header>
       <div style={{ display: 'flex' }}>
         <aside>{sidebar}</aside>
