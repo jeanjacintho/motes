@@ -14,6 +14,8 @@
   "include": [
     "apps/*/src/**/*.test.ts",
     "apps/*/src/**/*.test.tsx",
+    "apps/*/e2e/**/*.ts",
+    "apps/*/playwright.config.ts",
     "packages/*/src/**/*.test.ts",
     "packages/*/src/**/*.test.tsx",
     "vitest.config.ts",

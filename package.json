@@ -33,6 +33,7 @@
     "format": "biome format --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "pnpm build && pnpm --filter @motes/desktop test:e2e",
     "db:generate": "pnpm --filter @motes/db db:generate",
     "db:migrate": "pnpm --filter @motes/db db:migrate",
     "db:check": "pnpm --filter @motes/db db:check"
