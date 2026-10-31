@@ -52,10 +52,14 @@ export function createPairingHandler(
 }
 
 export function createVersionHandler(sender: Sender, appUrl: string, version: () => string) {
+  return createReadHandler(sender, appUrl, version);
+}
+
+export function createReadHandler<T>(sender: Sender, appUrl: string, read: () => T) {
   return (event: { sender: Sender; senderFrame: Frame | null }, ...args: unknown[]) => {
     assertTrustedSender(event, sender.mainFrame, appUrl);
     if (event.sender !== sender || args.length !== 0) throw new Error('Invalid IPC request');
-    return version();
+    return read();
   };
 }
 

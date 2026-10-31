@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   assertTrustedSender,
   createPairingHandler,
+  createReadHandler,
   createVersionHandler,
   isAllowedNavigation,
 } from './security';
@@ -11,6 +12,7 @@ describe('desktop security', () => {
     const mainFrame = { url: 'http://localhost:5173/' };
     const sender = { mainFrame };
     const service = {
+      session: async () => null,
       isPaired: async () => false,
       pair: async () => {},
       devices: async () => [],
@@ -61,6 +63,19 @@ describe('desktop security', () => {
     expect(isAllowedNavigation('https://example.com/', 'http://localhost:5173/')).toBe(false);
     expect(isAllowedNavigation('http://localhost:5173/other', 'http://localhost:5173/')).toBe(
       false,
+    );
+  });
+
+  it('only serves read requests to the trusted main frame', () => {
+    const mainFrame = { url: 'http://localhost:5173/' };
+    const sender = { mainFrame };
+    const handler = createReadHandler(sender, mainFrame.url, () => 'snapshot');
+    expect(handler({ sender, senderFrame: mainFrame })).toBe('snapshot');
+    expect(() => handler({ sender, senderFrame: { url: mainFrame.url } })).toThrow(
+      'Untrusted IPC sender',
+    );
+    expect(() => handler({ sender, senderFrame: mainFrame }, 'extra')).toThrow(
+      'Invalid IPC request',
     );
   });
 });
