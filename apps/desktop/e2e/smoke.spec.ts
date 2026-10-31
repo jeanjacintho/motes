@@ -109,14 +109,26 @@ test('pairs the desktop app and counts a live event', async () => {
   });
   const { token } = (await paired.json()) as { token: string };
 
-  // The socket reports "connected" when it opens, slightly before the server starts
-  // streaming, so keep pinging until one event lands.
-  await expect(async () => {
-    const response = await fetch(`${baseUrl}/dev/ping`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${token}` },
-    });
-    expect(response.status).toBe(200);
-    await expect(counter).not.toHaveText('0', { timeout: 1000 });
-  }).toPass({ timeout: 20_000 });
+  // Pairing events also count; wait for them to settle, then expect exactly one more.
+  const read = async () => Number(await counter.textContent());
+  let before = -1;
+  await expect
+    .poll(
+      async () => {
+        const value = await read();
+        const settled = value === before;
+        before = value;
+        return settled;
+      },
+      { intervals: [500] },
+    )
+    .toBe(true);
+  // "Conectado" means the server confirmed delivery, so one ping, sent once, must be counted.
+  const response = await fetch(`${baseUrl}/dev/ping`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}` },
+  });
+  expect(response.status).toBe(200);
+  // The authenticated request also records device.used, so assert growth, not an exact delta.
+  await expect.poll(read).toBeGreaterThan(before);
 });
