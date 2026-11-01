@@ -103,3 +103,28 @@ it.each([
     await vi.waitFor(() => expect(status.textContent).toContain(announcement));
   },
 );
+
+it('lets the owner of a controlled dialog decide when it closes', async () => {
+  const user = userEvent.setup();
+  const onOpenChange = vi.fn();
+  const view = render(
+    <Dialog trigger={<Button>Open</Button>} title="Settings" open onOpenChange={onOpenChange}>
+      <p>Content</p>
+    </Dialog>,
+  );
+  expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+  await user.keyboard('{Escape}');
+  expect(onOpenChange).toHaveBeenCalledWith(false);
+  expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+  view.rerender(
+    <Dialog
+      trigger={<Button>Open</Button>}
+      title="Settings"
+      open={false}
+      onOpenChange={onOpenChange}
+    >
+      <p>Content</p>
+    </Dialog>,
+  );
+  expect(screen.queryByRole('dialog')).toBeNull();
+});

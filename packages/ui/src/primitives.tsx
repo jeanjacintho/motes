@@ -33,15 +33,23 @@ function DialogRoot({
   trigger,
   title,
   description,
+  open,
+  onOpenChange,
   children,
 }: {
   trigger: ReactElement;
   title: string;
   description?: string;
+  /** Pass both to control the dialog, for example to keep it open while a request fails. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   children: ReactNode;
 }) {
   return (
-    <RadixDialog.Root>
+    <RadixDialog.Root
+      {...(open === undefined ? {} : { open })}
+      {...(onOpenChange ? { onOpenChange } : {})}
+    >
       <RadixDialog.Trigger asChild>{trigger}</RadixDialog.Trigger>
       <RadixDialog.Portal>
         <RadixDialog.Overlay className="motes-overlay" />

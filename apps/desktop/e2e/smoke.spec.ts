@@ -131,4 +131,27 @@ test('pairs the desktop app and counts a live event', async () => {
   expect(response.status).toBe(200);
   // The authenticated request also records device.used, so assert growth, not an exact delta.
   await expect.poll(read).toBeGreaterThan(before);
+
+  // A project created by the other device must appear in the sidebar without any reload.
+  const created = await fetch(`${baseUrl}/projects`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ key: 'EDE', name: 'Projeto E2E' }),
+  });
+  expect(created.status, await created.clone().text()).toBe(201);
+  const project = (await created.json()) as { id: string };
+  const link = page.getByRole('link', { name: 'EDE · Projeto E2E' });
+  await expect(link).toBeVisible({ timeout: 10_000 });
+
+  // Manage a repository through the settings screen and confirm the server stored it.
+  await link.click();
+  await expect(page.getByRole('heading', { name: 'Projeto E2E' })).toBeVisible();
+  await page.getByLabel('Nome do repositório').fill('api');
+  await page.getByLabel('URL do remoto').fill('git@example.com:owner/api.git');
+  await page.getByRole('button', { name: 'Adicionar repositório' }).click();
+  await expect(page.getByText('git@example.com:owner/api.git')).toBeVisible();
+  const stored = await fetch(`${baseUrl}/projects/${project.id}/repositories`, {
+    headers: { authorization: `Bearer ${token}` },
+  });
+  expect(await stored.json()).toMatchObject([{ name: 'api', isPrimary: true }]);
 });

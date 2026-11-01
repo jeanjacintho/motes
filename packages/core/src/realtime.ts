@@ -33,7 +33,8 @@ export function createRealtime(options: {
   url: string;
   getToken: () => string | null | Promise<string | null>;
   storage: StorageAdapter;
-  queryClient: QueryClient;
+  // Only invalidation is used, so a host may forward it to a client living elsewhere.
+  queryClient: Pick<QueryClient, 'invalidateQueries'>;
   socket: (url: string) => RealtimeSocket;
   logger: ParseLogger;
 }) {
@@ -117,6 +118,9 @@ export function createRealtime(options: {
             if ('type' in message && message.type === 'ready') {
               // Only now are events emitted from here on guaranteed to reach this client.
               if (current === socket) setStatus('connected');
+              // Without a cursor the server starts at the event head, so anything read over
+              // HTTP before this point may have missed an event; refetch to overlap delivery.
+              if (!parsedCursor.success) await options.queryClient.invalidateQueries();
               return;
             }
             if ('type' in message) {

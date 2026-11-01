@@ -13,19 +13,25 @@ import {
   type NavigationAdapter,
   NavigationProvider,
   PairingScreen,
+  ProjectSettings,
+  ProjectsSidebar,
 } from '@motes/views';
 import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { z } from 'zod';
+import type { ApiRequest, ApiResult } from '../api';
 import type { PairingRequest, PairingResult } from '../security';
-import { type LiveBridge, useLive } from './live';
+import { type LiveBridge, useLive, useLiveInvalidations } from './live';
+import { useProjects } from './projects';
 
 type Bridge = (request: PairingRequest) => Promise<PairingResult>;
+type Api = (request: ApiRequest) => Promise<ApiResult>;
 const deviceList = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVICE_KINDS) }));
 
-function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
+function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api: Api }) {
   const { status: connectionStatus, eventCount } = useLive(live);
   const queryClient = useQueryClient();
+  useLiveInvalidations(live, queryClient);
   const [paired, setPaired] = useState<boolean | null>(null);
   const generation = useRef(0);
   const [history, setHistory] = useState(['/']);
@@ -35,9 +41,9 @@ function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
     navigate: (next) => setHistory((previous) => [...previous, next]),
     back: () => setHistory((previous) => (previous.length > 1 ? previous.slice(0, -1) : previous)),
   };
-  async function request(input: PairingRequest) {
+  async function unwrap(invoke: () => Promise<PairingResult | ApiResult>) {
     const started = generation.current;
-    const result = await bridge(input);
+    const result = await invoke();
     if (!result.ok) {
       if (result.unauthorized && started === generation.current) {
         generation.current++;
@@ -45,10 +51,19 @@ function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
         setHistory(['/']);
         queryClient.clear();
       }
-      throw new Error('Request failed');
+      throw Object.assign(new Error('Request failed'), {
+        code: 'code' in result ? result.code : undefined,
+      });
     }
     return result.value;
   }
+  const request = (input: PairingRequest) => unwrap(() => bridge(input));
+  const projectData = useProjects({
+    call: (input) => unwrap(() => api(input)),
+    enabled: paired === true,
+    path,
+    navigate: adapter.navigate,
+  });
   const status = useQuery({
     queryKey: ['pairing-status'],
     queryFn: async () => {
@@ -96,6 +111,12 @@ function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
         sidebar={
           <>
             <AppLink to="/">Início</AppLink> <AppLink to="/devices">Dispositivos</AppLink>
+            <ProjectsSidebar
+              projects={projectData.projects.data ?? []}
+              loading={projectData.projects.isLoading}
+              error={projectData.projects.isError}
+              onCreate={projectData.create}
+            />
           </>
         }
         connectionStatus={connectionStatus}
@@ -111,6 +132,26 @@ function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
               await queryClient.invalidateQueries({ queryKey: ['devices'] });
             }}
           />
+        ) : projectData.projectId !== undefined ? (
+          projectData.project ? (
+            <ProjectSettings
+              key={projectData.project.id}
+              project={projectData.project}
+              repositories={projectData.repositories.data ?? []}
+              loading={projectData.repositories.isLoading}
+              error={projectData.repositories.isError}
+              onRename={projectData.rename}
+              onArchive={projectData.archive}
+              onAddRepository={projectData.addRepository}
+              onUpdateRepository={projectData.updateRepository}
+              onRemoveRepository={projectData.removeRepository}
+              onSetPath={projectData.setPath}
+            />
+          ) : projectData.projects.isLoading ? (
+            <p role="status">Carregando…</p>
+          ) : (
+            <p role="alert">Projeto não encontrado.</p>
+          )
         ) : (
           <HomeScreen />
         )}
@@ -119,11 +160,11 @@ function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
   );
 }
 
-export function Desktop({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
+export function Desktop({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api: Api }) {
   const [queryClient] = useState(createQueryClient);
   return (
     <QueryClientProvider client={queryClient}>
-      <Session bridge={bridge} live={live} />
+      <Session bridge={bridge} live={live} api={api} />
     </QueryClientProvider>
   );
 }

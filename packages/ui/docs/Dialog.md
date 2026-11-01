@@ -10,3 +10,7 @@ trigger. Escape also closes it. Use `description` for supporting text.
   <Dialog.Close asChild><Button onClick={save}>Salvar</Button></Dialog.Close>
 </Dialog>
 ```
+
+Pass `open` and `onOpenChange` to control it, for instance to keep a form open
+while a request fails. Escape and `Dialog.Close` then call `onOpenChange(false)`
+and the owner decides whether to close.

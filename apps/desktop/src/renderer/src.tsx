@@ -4,4 +4,6 @@ import { Desktop } from './app';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Missing root element');
-createRoot(root).render(<Desktop bridge={window.motes.pairing} live={window.motes.live} />);
+createRoot(root).render(
+  <Desktop bridge={window.motes.pairing} live={window.motes.live} api={window.motes.api} />,
+);

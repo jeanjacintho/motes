@@ -22,7 +22,10 @@ export type PairingResult = { ok: true; value: unknown } | { ok: false; unauthor
 export function createPairingHandler(
   sender: Sender,
   appUrl: string,
-  service: ReturnType<typeof createPairingService>,
+  service: Pick<
+    ReturnType<typeof createPairingService>,
+    'isPaired' | 'pair' | 'devices' | 'revoke'
+  >,
 ) {
   return async (
     event: { sender: Sender; senderFrame: Frame | null },

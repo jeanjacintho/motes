@@ -69,6 +69,7 @@ export function createPairingService(storage: Storage, fetch: Fetch) {
   }
   return {
     session: () => synchronized(credential),
+    api: authenticated,
     isPaired: () => synchronized(async () => (await credential()) !== null),
     async pair(url: string, name: string, code: string) {
       const parsed = new URL(url);
