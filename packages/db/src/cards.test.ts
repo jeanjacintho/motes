@@ -1,6 +1,12 @@
 import { newId } from '@motes/protocol';
 import { describe, expect, it } from 'vitest';
-import { getCardById, getCardByRef, insertCard, type NewCard } from './cards.js';
+import {
+  getCardById,
+  getCardByRef,
+  insertCard,
+  type NewCard,
+  repositoryHasCards,
+} from './cards.js';
 import { cards, projects, repositories } from './schema.js';
 import { withTestDb } from './testing.js';
 
@@ -124,5 +130,26 @@ describe('card storage', () => {
     await rejects({ projectId: newId('project') });
     await testDb.db.insert(cards).values(row as never);
     await rejects({});
+  });
+});
+
+describe('repository usage', () => {
+  it('reports whether any card, open or closed, references a repository', async () => {
+    const id = await project('USE');
+    const repositoryId = newId('repository');
+    await testDb.db.insert(repositories).values({
+      id: repositoryId,
+      projectId: id,
+      name: 'api',
+      remoteUrl: 'git@x:o/api.git',
+      defaultBranch: 'main',
+      isPrimary: true,
+      createdAt: now,
+    });
+    expect(await repositoryHasCards(testDb.db, repositoryId)).toBe(false);
+    await insert(newCard(id));
+    expect(await repositoryHasCards(testDb.db, repositoryId)).toBe(false);
+    await insert(newCard(id, { repositoryId, status: 'done' }));
+    expect(await repositoryHasCards(testDb.db, repositoryId)).toBe(true);
   });
 });

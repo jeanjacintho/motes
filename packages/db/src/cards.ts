@@ -105,3 +105,13 @@ export async function getCardByRef(db: Reader, ref: string): Promise<Card | unde
     .where(sql`${projects.key} = ${parsed.key} AND ${cards.number} = ${parsed.number}`);
   return row && toCard(row.card);
 }
+
+/** Any card counts, open or closed: the foreign key keeps the repository row alive for them. */
+export async function repositoryHasCards(db: Reader, repositoryId: string): Promise<boolean> {
+  const [row] = await db
+    .select({ id: cards.id })
+    .from(cards)
+    .where(sql`${cards.repositoryId} = ${repositoryId}`)
+    .limit(1);
+  return row !== undefined;
+}

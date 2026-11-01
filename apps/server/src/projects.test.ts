@@ -1,3 +1,4 @@
+import { insertCard } from '@motes/db';
 import { withTestDb } from '@motes/db/testing';
 import { createPairingCode } from '@motes/domain';
 import { apiErrorSchema, newId } from '@motes/protocol';
@@ -214,6 +215,30 @@ describe('project routes', () => {
     expect(ok.statusCode).toBe(200);
     expect(ok.json()).toMatchObject({ id: second.id, defaultBranch: 'develop', isPrimary: true });
     expect(first.isPrimary).toBe(true);
+    await app.close();
+  });
+
+  it('refuses to remove a repository that cards reference', async () => {
+    const { app, call } = await setup();
+    const project = (await call('POST', '/projects', { key: 'RTD', name: 'Routes D' })).json();
+    const repo = (
+      await call('POST', `/projects/${project.id}/repositories`, repository('api'))
+    ).json();
+    await testDb.db.transaction((tx) =>
+      insertCard(tx, {
+        id: newId('card'),
+        projectId: project.id,
+        title: 'Usa o repositório',
+        repositoryId: repo.id,
+        createdBy: { type: 'owner', id: 'owner' },
+        now: new Date(),
+      }),
+    );
+    const refused = await call('DELETE', `/repositories/${repo.id}`);
+    expect(refused.statusCode).toBe(409);
+    expect(apiErrorSchema.parse(refused.json()).code).toBe('conflict');
+    const kept = (await call('GET', `/projects/${project.id}/repositories`)).json();
+    expect(kept).toMatchObject([{ id: repo.id }]);
     await app.close();
   });
 });
