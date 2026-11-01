@@ -13,6 +13,8 @@ export const CARD_STATUSES = [
   'cancelled',
 ] as const;
 export const CARD_PRIORITIES = ['none', 'low', 'medium', 'high', 'urgent'] as const;
+/** The largest value of the PostgreSQL integer column that stores card numbers. */
+export const MAX_CARD_NUMBER = 2_147_483_647;
 export type CardStatus = (typeof CARD_STATUSES)[number];
 export type CardPriority = (typeof CARD_PRIORITIES)[number];
 
@@ -26,7 +28,7 @@ export const cardSchema = z.object({
   id: idSchema('card'),
   projectId: idSchema('project'),
   /** Per-project sequence, shown as KEY-number. */
-  number: z.number().int().positive(),
+  number: z.number().int().positive().max(MAX_CARD_NUMBER),
   title: z.string().trim().min(1).max(500),
   description: z.string().max(100_000),
   status: z.enum(CARD_STATUSES),
@@ -49,5 +51,7 @@ export function parseCardRef(ref: string): { key: string; number: number } | nul
   const match = /^([A-Z]{2,6})-([1-9][0-9]*)$/.exec(ref);
   const key = projectKeySchema.safeParse(match?.[1]);
   const number = Number(match?.[2]);
-  return key.success && Number.isSafeInteger(number) ? { key: key.data, number } : null;
+  return key.success && Number.isSafeInteger(number) && number <= MAX_CARD_NUMBER
+    ? { key: key.data, number }
+    : null;
 }

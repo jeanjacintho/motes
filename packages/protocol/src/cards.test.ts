@@ -4,6 +4,7 @@ import {
   CARD_STATUSES,
   cardRef,
   cardSchema,
+  MAX_CARD_NUMBER,
   newId,
   parseCardRef,
 } from './index.js';
@@ -52,11 +53,20 @@ describe('card contracts', () => {
     ['priority', 'critical'],
     ['number', 0],
     ['number', 1.5],
+    ['number', 2_147_483_648],
     ['title', '  '],
     ['assignee', { type: 'system', id: 'x' }],
     ['createdBy', { type: 'robot', id: 'x' }],
   ])('rejects %s = %j', (field, value) => {
     expect(cardSchema.safeParse({ ...card, [field]: value }).success).toBe(false);
+  });
+
+  test('limits card numbers to what the database column can store', () => {
+    expect(MAX_CARD_NUMBER).toBe(2_147_483_647);
+    expect(cardSchema.safeParse({ ...card, number: MAX_CARD_NUMBER }).success).toBe(true);
+    expect(parseCardRef('MOT-2147483647')).toEqual({ key: 'MOT', number: 2_147_483_647 });
+    expect(parseCardRef('MOT-2147483648')).toBeNull();
+    expect(parseCardRef('MOT-99999999999999999999')).toBeNull();
   });
 
   test('formats and parses KEY-number references', () => {

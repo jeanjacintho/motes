@@ -23,6 +23,7 @@ export {
   cardCreatorSchema,
   cardRef,
   cardSchema,
+  MAX_CARD_NUMBER,
   parseCardRef,
 } from './cards.js';
 export {

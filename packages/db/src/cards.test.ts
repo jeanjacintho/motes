@@ -90,6 +90,10 @@ describe('card storage', () => {
     expect(await getCardByRef(testDb.db, 'FND-2')).toBeUndefined();
     expect(await getCardByRef(testDb.db, 'NOP-1')).toBeUndefined();
     expect(await getCardByRef(testDb.db, 'fnd-1')).toBeUndefined();
+    // Numbers beyond the integer column cannot exist; they must read as missing, not throw.
+    expect(await getCardByRef(testDb.db, 'FND-2147483647')).toBeUndefined();
+    expect(await getCardByRef(testDb.db, 'FND-2147483648')).toBeUndefined();
+    expect(await getCardByRef(testDb.db, 'NOP-2147483648')).toBeUndefined();
     expect(await getCardById(testDb.db, newId('card'))).toBeUndefined();
   });
 
