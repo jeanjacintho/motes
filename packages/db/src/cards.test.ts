@@ -2,13 +2,14 @@ import { newId } from '@motes/protocol';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import {
+  cardLabelIds,
   getCardById,
   getCardByRef,
   insertCard,
   type NewCard,
   repositoryHasCards,
 } from './cards.js';
-import { cards, projects, repositories } from './schema.js';
+import { cardLabels, cards, labels, projects, repositories } from './schema.js';
 import { withTestDb } from './testing.js';
 
 const testDb = withTestDb();
@@ -178,5 +179,38 @@ describe('soft deleted cards', () => {
     expect(await getCardByRef(testDb.db, 'DEL-1')).toBeUndefined();
     expect(await repositoryHasCards(testDb.db, repositoryId)).toBe(true);
     expect((await insert(newCard(id))).number).toBe(2);
+  });
+});
+
+describe('card labels', () => {
+  it('reads label ids in name order on lookups and keeps names unique per project ignoring case', async () => {
+    const id = await project('LAB');
+    const other = await project('LAC');
+    const card = await insert(newCard(id));
+    const row = (projectId: string, name: string) => ({
+      id: newId('label'),
+      projectId,
+      name,
+      color: '#d73a4a',
+      createdAt: now,
+    });
+    const zeta = row(id, 'zeta');
+    const alpha = row(id, 'Alpha');
+    await testDb.db.insert(labels).values([zeta, alpha]);
+    await testDb.db.insert(cardLabels).values([
+      { cardId: card.id, labelId: zeta.id },
+      { cardId: card.id, labelId: alpha.id },
+    ]);
+    expect(await cardLabelIds(testDb.db, card.id)).toEqual([alpha.id, zeta.id]);
+    expect((await getCardById(testDb.db, card.id))?.labels).toEqual([alpha.id, zeta.id]);
+    expect((await getCardByRef(testDb.db, 'LAB-1'))?.labels).toEqual([alpha.id, zeta.id]);
+    await expect(testDb.db.insert(labels).values(row(id, 'ALPHA'))).rejects.toThrow();
+    await testDb.db.insert(labels).values(row(other, 'alpha'));
+    await expect(
+      testDb.db.insert(labels).values({ ...row(id, 'bad'), color: 'red' }),
+    ).rejects.toThrow();
+    await expect(
+      testDb.db.insert(cardLabels).values({ cardId: card.id, labelId: zeta.id }),
+    ).rejects.toThrow();
   });
 });

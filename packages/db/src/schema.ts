@@ -172,3 +172,35 @@ export const cards = pgTable(
     check('card_creator_check', sql`${table.createdByType} IN ('owner', 'bot', 'system')`),
   ],
 );
+
+export const labels = pgTable(
+  'labels',
+  {
+    id: text().primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    name: text().notNull(),
+    color: text().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+  },
+  (table) => [
+    // "Bug" and "bug" would read as the same label, so names are unique ignoring case.
+    uniqueIndex('labels_project_name_idx').on(table.projectId, sql`lower(${table.name})`),
+    check('label_name_check', sql`length(trim(${table.name})) > 0`),
+    check('label_color_check', sql`${table.color} ~ '^#[0-9a-f]{6}$'`),
+  ],
+);
+
+export const cardLabels = pgTable(
+  'card_labels',
+  {
+    cardId: text('card_id')
+      .notNull()
+      .references(() => cards.id),
+    labelId: text('label_id')
+      .notNull()
+      .references(() => labels.id),
+  },
+  (table) => [primaryKey({ columns: [table.cardId, table.labelId] })],
+);
