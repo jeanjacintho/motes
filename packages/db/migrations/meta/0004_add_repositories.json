@@ -2,9 +2,7 @@
   "version": "9",
   "dialect": "postgres",
   "id": "cf173955-8d66-4add-ba20-a9fac5618843",
-  "prevIds": [
-    "7d714004-9493-42c9-a8cd-458a6f1f6cf7"
-  ],
+  "prevIds": ["7d714004-9493-42c9-a8cd-458a6f1f6cf7"],
   "ddl": [
     {
       "schema": "public",
@@ -549,14 +547,10 @@
       "table": "repositories",
       "name": "repositories_project_id_projects_id_fkey",
       "nameExplicit": false,
-      "columns": [
-        "project_id"
-      ],
+      "columns": ["project_id"],
       "schemaTo": "public",
       "tableTo": "projects",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "entityType": "fks"
@@ -566,14 +560,10 @@
       "table": "repository_paths",
       "name": "repository_paths_repository_id_repositories_id_fkey",
       "nameExplicit": false,
-      "columns": [
-        "repository_id"
-      ],
+      "columns": ["repository_id"],
       "schemaTo": "public",
       "tableTo": "repositories",
-      "columnsTo": [
-        "id"
-      ],
+      "columnsTo": ["id"],
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "entityType": "fks"
@@ -582,10 +572,7 @@
       "schema": "public",
       "table": "repository_paths",
       "name": "repository_paths_pkey",
-      "columns": [
-        "repository_id",
-        "runtime_id"
-      ],
+      "columns": ["repository_id", "runtime_id"],
       "nameExplicit": false,
       "entityType": "pks"
     },
@@ -593,9 +580,7 @@
       "schema": "public",
       "table": "device_tokens",
       "name": "device_tokens_pkey",
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "entityType": "pks"
     },
@@ -603,9 +588,7 @@
       "schema": "public",
       "table": "events",
       "name": "events_pkey",
-      "columns": [
-        "seq"
-      ],
+      "columns": ["seq"],
       "nameExplicit": false,
       "entityType": "pks"
     },
@@ -613,9 +596,7 @@
       "schema": "public",
       "table": "pairing_state",
       "name": "pairing_state_pkey",
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "entityType": "pks"
     },
@@ -623,9 +604,7 @@
       "schema": "public",
       "table": "projects",
       "name": "projects_pkey",
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "entityType": "pks"
     },
@@ -633,9 +612,7 @@
       "schema": "public",
       "table": "repositories",
       "name": "repositories_pkey",
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nameExplicit": false,
       "entityType": "pks"
     },
@@ -644,9 +621,7 @@
       "table": "device_tokens",
       "name": "device_tokens_token_hash_key",
       "nameExplicit": false,
-      "columns": [
-        "token_hash"
-      ],
+      "columns": ["token_hash"],
       "nullsNotDistinct": false,
       "entityType": "uniques"
     },
@@ -655,9 +630,7 @@
       "table": "events",
       "name": "events_id_key",
       "nameExplicit": false,
-      "columns": [
-        "id"
-      ],
+      "columns": ["id"],
       "nullsNotDistinct": false,
       "entityType": "uniques"
     },
@@ -666,9 +639,7 @@
       "table": "projects",
       "name": "projects_key_key",
       "nameExplicit": false,
-      "columns": [
-        "key"
-      ],
+      "columns": ["key"],
       "nullsNotDistinct": false,
       "entityType": "uniques"
     },
