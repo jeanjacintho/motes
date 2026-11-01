@@ -66,7 +66,8 @@ async function neighbour(tx: Tx, card: Row, id: string | undefined, status: Card
 
 /**
  * Moves a card to `toStatus` and places it: `afterId` is the card that ends up directly above it,
- * `beforeId` the one directly below. With neither it goes to the bottom of the column. Changing
+ * `beforeId` the one directly below (given both, they must still be adjacent, or the caller's view
+ * is stale and the move is refused). With neither it goes to the bottom of the column. Changing
  * column is a status change (same rules, `card.status_changed`); staying put only reorders and
  * emits `card.moved`. Only the moved card is written.
  */
@@ -90,8 +91,9 @@ export async function moveCard(
     if (before && after) {
       lower = after.position;
       upper = before.position;
-      if (!(lower < upper))
-        throw new ValidationFailed('The card must go after afterId and before beforeId');
+      // Another move may have put a card between them since the caller looked.
+      if ((await positionAbove(tx, current, input.to, lower)) !== upper)
+        throw new ValidationFailed('afterId and beforeId are not adjacent');
     } else if (before) {
       upper = before.position;
       lower = await positionBelow(tx, current, input.to, upper);

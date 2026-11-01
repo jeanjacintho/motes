@@ -150,6 +150,29 @@ describe('moveCard', () => {
     ).rejects.toBeInstanceOf(ValidationFailed);
   });
 
+  it('refuses a stale pair of neighbours that is no longer adjacent, changing nothing', async () => {
+    const project = await newProject();
+    const [a, b, c, d] = await stack(project.id, ['a', 'b', 'c', 'd']);
+    // d takes the gap between a and b, so a card now sits between a and b for the next caller.
+    await moveCard(services(), d?.id as string, 'backlog', { afterId: a?.id, beforeId: b?.id });
+    expect(await titles(project.id, 'backlog')).toEqual(['a', 'd', 'b', 'c']);
+    const positions = () =>
+      testDb.db
+        .$client`SELECT id, position FROM cards WHERE project_id = ${project.id} ORDER BY id`;
+    const before = await positions();
+    await expect(
+      moveCard(services(), c?.id as string, 'backlog', { afterId: a?.id, beforeId: b?.id }),
+    ).rejects.toBeInstanceOf(ValidationFailed);
+    // A card that already lies somewhere between the bounds is not "directly" there either.
+    await expect(
+      moveCard(services(), d?.id as string, 'backlog', { afterId: a?.id, beforeId: c?.id }),
+    ).rejects.toBeInstanceOf(ValidationFailed);
+    expect(await positions()).toEqual(before);
+    expect(await titles(project.id, 'backlog')).toEqual(['a', 'd', 'b', 'c']);
+    expect(await eventTypes(c?.id as string)).toEqual(['card.created']);
+    expect(await eventTypes(d?.id as string)).toEqual(['card.created', 'card.moved']);
+  });
+
   it('keeps positions unique and ordered over 50 random moves', async () => {
     const project = await newProject();
     const cardsMade = await stack(
