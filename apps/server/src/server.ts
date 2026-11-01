@@ -18,6 +18,7 @@ declare module 'fastify' {
   }
 }
 
+import { registerBotRoutes } from './bots.js';
 import { registerCardRoutes } from './cards.js';
 import { createServices, type Services } from './composition.js';
 import { registerProjectRoutes } from './projects.js';
@@ -64,6 +65,7 @@ export function createServer(
     });
   registerProjectRoutes(server, services);
   registerCardRoutes(server, services);
+  registerBotRoutes(server, services);
   server.get('/devices', async () => deviceListResponseSchema.parse(await listDevices(services)));
   server.delete('/devices/:id', async (request) => {
     const { id } = z.object({ id: z.string().min(1) }).parse(request.params);

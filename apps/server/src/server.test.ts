@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { withTestDb } from '@motes/db/testing';
 import { describe, expect, it } from 'vitest';
 import { createLogger } from './logger.js';
@@ -46,6 +49,7 @@ describe('health', () => {
     );
     const databaseUrl = new URL(process.env.DATABASE_URL ?? '');
     databaseUrl.pathname = `/${testDb.name}`;
+    const skillsDir = mkdtempSync(join(tmpdir(), 'motes-skills-'));
     const child = spawn(
       process.execPath,
       [
@@ -58,6 +62,7 @@ describe('health', () => {
           ...process.env,
           DATABASE_URL: databaseUrl.toString(),
           MOTES_PORT: String(port),
+          MOTES_SKILLS_DIR: skillsDir,
           LOG_LEVEL: 'silent',
         },
         stdio: 'ignore',
@@ -111,6 +116,7 @@ describe('health', () => {
     } finally {
       if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
       await exited;
+      rmSync(skillsDir, { recursive: true, force: true });
     }
   }, 15000);
 });

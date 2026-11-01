@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { createDb, migrate } from '@motes/db';
-import { createPairingCode } from '@motes/domain';
+import { createPairingCode, ensureSkillsDirectory, watchSkills } from '@motes/domain';
 import { createServices } from './composition.js';
 import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
@@ -20,7 +20,8 @@ async function main() {
     }
     return;
   }
-  const server = createServer(db, logger, undefined, undefined, {
+  const services = createServices(db, { skillsDir: config.skillsDir });
+  const server = createServer(db, logger, undefined, services, {
     devRoutes: process.env.MOTES_DEV_ROUTES === 'true',
     replayLimit: config.replayLimit,
   });
@@ -29,9 +30,15 @@ async function main() {
     // Let Node mark the completed response's socket idle before closing it.
     if (stopping) setImmediate(() => server.server.closeIdleConnections());
   });
+  let skills: ReturnType<typeof watchSkills> | undefined;
   const startup = (async () => {
     if (config.migrateOnStart) await migrate(db);
-    const code = await createPairingCode(createServices(db), true);
+    await ensureSkillsDirectory(config.skillsDir);
+    if (!stopping)
+      skills = watchSkills(services, config.skillsDir, {
+        onError: (error) => logger.error({ err: error }, 'Skills sync failed'),
+      });
+    const code = await createPairingCode(services, true);
     if (code) logger.info(`Setup code: ${code} (valid for 10 minutes)`);
     if (!stopping) await server.listen({ port: config.port, host: '0.0.0.0' });
   })();
@@ -45,6 +52,7 @@ async function main() {
     deadline.unref();
     try {
       await startup.catch(() => {});
+      await skills?.stop();
       const draining = server.close();
       server.server.closeIdleConnections();
       await draining;
