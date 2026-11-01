@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
@@ -22,7 +23,8 @@ export class BotFolderInvalid extends Error {
 }
 
 export type Skill = { frontMatter: SkillFrontMatter; body: string };
-export type SkillFolder = { skill: Skill; references: string[] };
+/** `digest` changes whenever SKILL.md, bot.yaml or any reference file changes. */
+export type SkillFolder = { skill: Skill; references: string[]; digest: string };
 export type BotFolder = SkillFolder & { config: BotConfig };
 
 /** A behavior file this large is a mistake, and the loader reads whole files into memory. */
@@ -110,7 +112,10 @@ async function listReferences(dir: string): Promise<string[]> {
   return found.sort();
 }
 
-async function loadSkill(dir: string, issues: FolderIssue[]): Promise<Skill | undefined> {
+async function loadSkill(
+  dir: string,
+  issues: FolderIssue[],
+): Promise<{ skill: Skill; raw: string } | undefined> {
   try {
     const text = await readTextFile(dir, 'SKILL.md');
     if (text === undefined) {
@@ -124,7 +129,7 @@ async function loadSkill(dir: string, issues: FolderIssue[]): Promise<Skill | un
         path: 'name',
         message: `Must equal the folder name "${basename(dir)}", found "${skill.frontMatter.name}"`,
       });
-    return skill;
+    return { skill, raw: text };
   } catch (error) {
     if (error instanceof BotFolderInvalid) issues.push(...error.issues);
     else throw error;
@@ -132,12 +137,31 @@ async function loadSkill(dir: string, issues: FolderIssue[]): Promise<Skill | un
   }
 }
 
+/** Hashes the behavior files and the reference files; files over the read limit count by size. */
+async function digestOf(dir: string, texts: string[], references: string[]): Promise<string> {
+  const hash = createHash('sha256');
+  for (const text of texts) hash.update(`${text.length}:${text}`);
+  for (const reference of references) {
+    const info = await lstat(join(dir, reference));
+    hash.update(`${reference}\0`);
+    hash.update(
+      info.size > MAX_FILE_BYTES ? `size:${info.size}` : await readFile(join(dir, reference)),
+    );
+  }
+  return hash.digest('hex');
+}
+
 /** A shared skill: SKILL.md plus optional references. The name must equal the folder name. */
 export async function loadSkillFolder(path: string): Promise<SkillFolder> {
   const issues: FolderIssue[] = [];
-  const skill = await loadSkill(path, issues);
-  if (issues.length > 0 || !skill) throw new BotFolderInvalid(issues);
-  return { skill, references: await listReferences(path) };
+  const loaded = await loadSkill(path, issues);
+  if (issues.length > 0 || !loaded) throw new BotFolderInvalid(issues);
+  const references = await listReferences(path);
+  return {
+    skill: loaded.skill,
+    references,
+    digest: await digestOf(path, [loaded.raw], references),
+  };
 }
 
 /**
@@ -146,13 +170,15 @@ export async function loadSkillFolder(path: string): Promise<SkillFolder> {
  */
 export async function loadBotFolder(path: string): Promise<BotFolder> {
   const issues: FolderIssue[] = [];
-  const skill = await loadSkill(path, issues);
+  const loaded = await loadSkill(path, issues);
   let config: BotConfig | undefined;
+  let configText = '';
   try {
     const text = await readTextFile(path, 'bot.yaml');
     if (text === undefined)
       issues.push({ file: 'bot.yaml', path: '', message: 'The file is missing' });
     else {
+      configText = text;
       const parsed = botConfigSchema.safeParse(parseYamlDocument('bot.yaml', text));
       if (!parsed.success) issues.push(...zodIssues('bot.yaml', parsed.error));
       else if (parsed.data.slug !== basename(path))
@@ -167,6 +193,12 @@ export async function loadBotFolder(path: string): Promise<BotFolder> {
     if (error instanceof BotFolderInvalid) issues.push(...error.issues);
     else throw error;
   }
-  if (issues.length > 0 || !skill || !config) throw new BotFolderInvalid(issues);
-  return { config, skill, references: await listReferences(path) };
+  if (issues.length > 0 || !loaded || !config) throw new BotFolderInvalid(issues);
+  const references = await listReferences(path);
+  return {
+    config,
+    skill: loaded.skill,
+    references,
+    digest: await digestOf(path, [loaded.raw, configText], references),
+  };
 }
