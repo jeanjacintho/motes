@@ -4,6 +4,7 @@ import {
   bigserial,
   boolean,
   check,
+  index,
   integer,
   jsonb,
   pgTable,
@@ -209,4 +210,27 @@ export const cardLabels = pgTable(
       .references(() => labels.id),
   },
   (table) => [primaryKey({ columns: [table.cardId, table.labelId] })],
+);
+
+export const comments = pgTable(
+  'comments',
+  {
+    id: text().primaryKey(),
+    cardId: text('card_id')
+      .notNull()
+      .references(() => cards.id),
+    authorType: text('author_type').notNull(),
+    authorId: text('author_id').notNull(),
+    body: text().notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+    editedAt: timestamp('edited_at', { withTimezone: true, precision: 3 }),
+    // Soft delete: the row stays so the timeline can still account for it.
+    deletedAt: timestamp('deleted_at', { withTimezone: true, precision: 3 }),
+  },
+  (table) => [
+    index('comments_card_idx').on(table.cardId, table.createdAt, table.id),
+    check('comment_author_check', sql`${table.authorType} IN ('owner', 'bot')`),
+    check('comment_author_id_check', sql`length(trim(${table.authorId})) > 0`),
+    check('comment_body_check', sql`length(trim(${table.body})) > 0`),
+  ],
 );

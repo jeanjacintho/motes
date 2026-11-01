@@ -108,6 +108,13 @@ const cardMoved = defineEvent(
   'card.moved',
   z.strictObject({ projectId: idSchema('project'), status: z.enum(CARD_STATUSES) }),
 );
+const commentPayload = z.strictObject({
+  projectId: idSchema('project'),
+  cardId: idSchema('card'),
+});
+const commentCreated = defineEvent('comment.created', commentPayload);
+const commentUpdated = defineEvent('comment.updated', commentPayload);
+const commentDeleted = defineEvent('comment.deleted', commentPayload);
 const cardDeleted = defineEvent('card.deleted', z.strictObject({ projectId: idSchema('project') }));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
@@ -131,6 +138,9 @@ export const eventRegistry = Object.freeze({
   [labelUpdated.type]: labelUpdated,
   [labelDeleted.type]: labelDeleted,
   [cardMoved.type]: cardMoved,
+  [commentCreated.type]: commentCreated,
+  [commentUpdated.type]: commentUpdated,
+  [commentDeleted.type]: commentDeleted,
   [cardDeleted.type]: cardDeleted,
 });
 

@@ -24,6 +24,7 @@ export { migrate, migrationsUpToDate } from './migrate.js';
 export {
   cardLabels,
   cards,
+  comments,
   deviceTokens,
   events,
   labels,

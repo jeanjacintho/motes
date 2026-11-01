@@ -7,6 +7,7 @@ export {
   getCard,
   updateCard,
 } from './cards.js';
+export { addComment, deleteComment, editComment, listComments } from './comments.js';
 export { authenticate, listDevices, revokeDevice } from './devices.js';
 export { Conflict, Forbidden, NotFound, ValidationFailed } from './errors.js';
 export {
