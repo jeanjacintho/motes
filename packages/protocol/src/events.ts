@@ -120,6 +120,16 @@ const botPayload = z.strictObject({ slug: z.string().min(1) });
 const botCreated = defineEvent('bot.created', botPayload);
 const botUpdated = defineEvent('bot.updated', botPayload);
 const botRemoved = defineEvent('bot.removed', botPayload);
+// One per mentioned bot: this is what queues a run for it. It fires when the mention first
+// appears in a comment, not again when the comment is edited and the mention stays.
+const commentMentioned = defineEvent(
+  'comment.mentioned',
+  z.strictObject({
+    projectId: idSchema('project'),
+    cardId: idSchema('card'),
+    botId: idSchema('bot'),
+  }),
+);
 const cardDeleted = defineEvent('card.deleted', z.strictObject({ projectId: idSchema('project') }));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
@@ -146,6 +156,7 @@ export const eventRegistry = Object.freeze({
   [commentCreated.type]: commentCreated,
   [commentUpdated.type]: commentUpdated,
   [commentDeleted.type]: commentDeleted,
+  [commentMentioned.type]: commentMentioned,
   [botCreated.type]: botCreated,
   [botUpdated.type]: botUpdated,
   [botRemoved.type]: botRemoved,

@@ -43,3 +43,23 @@ describe('comments', () => {
     expect(() => parseEvent({ ...raw, payload: { ...payload, extra: 1 } })).toThrow();
   });
 });
+
+test('comment.mentioned names the bot that was mentioned', () => {
+  const payload = {
+    projectId: newId('project'),
+    cardId: comment.cardId,
+    botId: newId('bot'),
+  };
+  const raw = {
+    id: newId('event'),
+    type: 'comment.mentioned',
+    occurredAt: '2026-10-31T10:00:00.000Z',
+    actor: { kind: 'owner' },
+    subject: { kind: 'comment', id: comment.id },
+    payload,
+  };
+  expect(parseEvent(raw)).toEqual(raw);
+  expect(parseClientEvent(raw, vi.fn())?.type).toBe('comment.mentioned');
+  expect(() => parseEvent({ ...raw, payload: { ...payload, botId: 'dev' } })).toThrow();
+  expect(() => parseEvent({ ...raw, payload: { ...payload, extra: 1 } })).toThrow();
+});
