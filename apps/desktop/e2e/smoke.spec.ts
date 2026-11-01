@@ -1,6 +1,9 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import { type ElectronApplication, _electron as electron, expect, test } from '@playwright/test';
@@ -35,6 +38,8 @@ function databaseUrl(name: string): string {
   return url.href;
 }
 
+const skillsDir = mkdtempSync(join(tmpdir(), 'motes-e2e-skills-'));
+
 test.beforeAll(async () => {
   if (!process.env.DATABASE_URL) throw new Error('Set DATABASE_URL to a local Postgres instance.');
   admin = postgres(databaseUrl('postgres'), { max: 1 });
@@ -43,6 +48,7 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  rmSync(skillsDir, { recursive: true, force: true });
   await app?.close().catch(() => {});
   if (server && server.exitCode === null) {
     const exited = new Promise((resolve) => server?.once('exit', resolve));
@@ -60,6 +66,7 @@ test('pairs the desktop app and counts a live event', async () => {
     ...process.env,
     DATABASE_URL: databaseUrl(databaseName),
     MOTES_PORT: String(port),
+    MOTES_SKILLS_DIR: skillsDir,
     MOTES_DEV_ROUTES: 'true',
     MOTES_REPLAY_LIMIT: '5000',
   };

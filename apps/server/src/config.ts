@@ -2,6 +2,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { z } from 'zod';
 
+const defaultSkillsDir = () => join(homedir(), 'Motes', 'skills');
+
 const configSchema = z.object({
   DATABASE_URL: z.string().min(1),
   MOTES_PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -9,6 +11,7 @@ const configSchema = z.object({
     .string()
     .min(1)
     .default(join(homedir(), 'Library', 'Application Support', 'Motes')),
+  MOTES_SKILLS_DIR: z.string().min(1).default(defaultSkillsDir()),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
   MOTES_REPLAY_LIMIT: z.coerce.number().int().min(1).max(100000).default(5000),
   MOTES_MIGRATE_ON_START: z.enum(['true', 'false']).default('true'),
@@ -25,6 +28,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env) {
     databaseUrl: result.data.DATABASE_URL,
     port: result.data.MOTES_PORT,
     dataDir: result.data.MOTES_DATA_DIR,
+    skillsDir: result.data.MOTES_SKILLS_DIR,
     logLevel: result.data.LOG_LEVEL,
     replayLimit: result.data.MOTES_REPLAY_LIMIT,
     migrateOnStart: result.data.MOTES_MIGRATE_ON_START === 'true',

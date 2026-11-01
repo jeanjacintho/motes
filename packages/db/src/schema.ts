@@ -1,4 +1,4 @@
-import { CARD_PRIORITIES, CARD_STATUSES, type EventEnvelope } from '@motes/protocol';
+import { BOT_KINDS, CARD_PRIORITIES, CARD_STATUSES, type EventEnvelope } from '@motes/protocol';
 import { sql } from 'drizzle-orm';
 import {
   bigint,
@@ -251,4 +251,33 @@ export const cardActivity = pgTable(
     occurredAt: timestamp('occurred_at', { withTimezone: true, precision: 3 }).notNull(),
   },
   (table) => [index('card_activity_card_idx').on(table.cardId, table.seq)],
+);
+
+// An index of the bot folders on disk, which stay the source of truth for behavior. Rows are never
+// deleted: a bot whose folder vanished is marked removed, so ids stay valid for cards and runs.
+export const bots = pgTable(
+  'bots',
+  {
+    id: text().primaryKey(),
+    slug: text().notNull().unique(),
+    displayName: text('display_name').notNull(),
+    kind: text().notNull(),
+    engines: jsonb().$type<string[]>().notNull(),
+    enabled: boolean().notNull(),
+    skillDigest: text('skill_digest').notNull(),
+    // Set while the folder is invalid; the other columns then hold the last valid version.
+    loadError: text('load_error'),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull(),
+    removedAt: timestamp('removed_at', { withTimezone: true, precision: 3 }),
+  },
+  (table) => [
+    check('bot_kind_check', sql`${table.kind} IN (${sqlList(BOT_KINDS)})`),
+    check('bot_slug_check', sql`${table.slug} ~ '^[a-z0-9]+(-[a-z0-9]+)*$'`),
+    check('bot_digest_check', sql`${table.skillDigest} ~ '^[0-9a-f]{64}$'`),
+    check(
+      'bot_engines_check',
+      sql`jsonb_typeof(${table.engines}) = 'array' AND jsonb_array_length(${table.engines}) > 0`,
+    ),
+  ],
 );

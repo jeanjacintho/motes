@@ -21,6 +21,12 @@ describe('server configuration', () => {
     expect(result.stderr.trim().split('\n')).toHaveLength(1);
   }, 30000);
 
+  it('keeps the skills in ~/Motes/skills unless told otherwise', () => {
+    const base = { DATABASE_URL: 'postgres://localhost/motes' };
+    expect(loadConfig(base).skillsDir).toBe(join(homedir(), 'Motes', 'skills'));
+    expect(loadConfig({ ...base, MOTES_SKILLS_DIR: '/srv/skills' }).skillsDir).toBe('/srv/skills');
+  });
+
   it('uses the default data directory and accepts overrides', () => {
     expect(loadConfig({ DATABASE_URL: 'postgres://localhost/motes' }).dataDir).toBe(
       join(homedir(), 'Library', 'Application Support', 'Motes'),

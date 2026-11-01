@@ -48,6 +48,14 @@ export {
   updateRepository,
 } from './repositories.js';
 export {
+  ensureSkillsDirectory,
+  getBot,
+  listBots,
+  type SkillsWatcher,
+  syncBots,
+  watchSkills,
+} from './skills.js';
+export {
   canTransition,
   changeStatus,
   STATUS_TRANSITIONS,

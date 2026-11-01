@@ -8,6 +8,7 @@ export function createDb(url: string) {
 export type Db = ReturnType<typeof createDb>;
 export { eq, sql } from 'drizzle-orm';
 export { insertActivity, listActivity, type NewActivity } from './activity.js';
+export { botExists } from './bots.js';
 export {
   type BoardQuery,
   cardFromRow,
@@ -23,6 +24,7 @@ export {
 export { appendEvent, type DbTransaction, readEventsAfter, type StoredEvent } from './events.js';
 export { migrate, migrationsUpToDate } from './migrate.js';
 export {
+  bots,
   cardActivity,
   cardLabels,
   cards,

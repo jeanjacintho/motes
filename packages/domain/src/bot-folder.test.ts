@@ -215,6 +215,32 @@ describe('loadBotFolder', () => {
   });
 });
 
+describe('digest', () => {
+  const digestOf = async (files: Record<string, string>) =>
+    (await loadBotFolder(await folder(files))).digest;
+  const base = { 'SKILL.md': SKILL, 'bot.yaml': BOT, 'references/faq.md': 'one' };
+
+  it('is stable for identical content and changes with any file', async () => {
+    const original = await digestOf(base);
+    expect(original).toMatch(/^[0-9a-f]{64}$/);
+    expect(await digestOf(base)).toBe(original);
+    expect(await digestOf({ ...base, 'SKILL.md': `${SKILL}\nMore.\n` })).not.toBe(original);
+    expect(await digestOf({ ...base, 'bot.yaml': `${BOT}enabled: false\n` })).not.toBe(original);
+    expect(await digestOf({ ...base, 'references/faq.md': 'two' })).not.toBe(original);
+    expect(await digestOf({ ...base, 'references/other.md': 'one' })).not.toBe(original);
+  });
+});
+
+describe('digest of large references', () => {
+  it('changes when a reference above the read limit changes without changing its length', async () => {
+    const big = (letter: string) => `${letter}${'x'.repeat(300_000)}`;
+    const files = { 'SKILL.md': SKILL, 'bot.yaml': BOT };
+    const one = await loadBotFolder(await folder({ ...files, 'references/manual.md': big('a') }));
+    const two = await loadBotFolder(await folder({ ...files, 'references/manual.md': big('b') }));
+    expect(two.digest).not.toBe(one.digest);
+  });
+});
+
 describe('loadSkillFolder', () => {
   it('loads a shared skill, which has no bot.yaml', async () => {
     const dir = await folder(

@@ -11,6 +11,14 @@ export {
 } from './adapters.js';
 export { ApiError, createApiClient } from './api-client.js';
 export {
+  botKeys,
+  botQueryOptions,
+  botsQueryOptions,
+  registerBotInvalidations,
+  useBot,
+  useBots,
+} from './bots.js';
+export {
   applyMove,
   boardQueryOptions,
   cardKeys,

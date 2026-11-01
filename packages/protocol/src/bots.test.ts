@@ -1,5 +1,14 @@
-import { describe, expect, test } from 'vitest';
-import { botConfigSchema, skillFrontMatterSchema, slugSchema } from './index.js';
+import { describe, expect, test, vi } from 'vitest';
+import {
+  botConfigSchema,
+  botDetailSchema,
+  botSummarySchema,
+  newId,
+  parseClientEvent,
+  parseEvent,
+  skillFrontMatterSchema,
+  slugSchema,
+} from './index.js';
 
 describe('slugs', () => {
   test.each(['dev', 'support-2', 'a'])('accepts %s', (slug) => {
@@ -88,5 +97,57 @@ describe('bot config', () => {
     ['a blank display name', { displayName: ' ' }],
   ])('rejects %s', (_name, patch) => {
     expect(botConfigSchema.safeParse({ ...valid, ...patch }).success).toBe(false);
+  });
+});
+
+describe('bot index', () => {
+  const summary = {
+    id: newId('bot'),
+    slug: 'support',
+    displayName: 'Support',
+    kind: 'office',
+    engines: ['claude'],
+    enabled: true,
+    skillDigest: 'a'.repeat(64),
+  };
+
+  test('a summary has a bot id, a digest and an optional load error', () => {
+    expect(botSummarySchema.parse(summary)).toEqual(summary);
+    expect(botSummarySchema.parse({ ...summary, loadError: 'bot.yaml: kind: bad' }).loadError).toBe(
+      'bot.yaml: kind: bad',
+    );
+    expect(botSummarySchema.safeParse({ ...summary, skillDigest: 'abc' }).success).toBe(false);
+    expect(botSummarySchema.safeParse({ ...summary, id: 'support' }).success).toBe(false);
+  });
+
+  test('a detail carries config and skill, or nulls while the folder is broken', () => {
+    const broken = { ...summary, config: null, skill: null, references: [] };
+    expect(botDetailSchema.parse(broken)).toEqual(broken);
+    const whole = {
+      ...summary,
+      config: botConfigSchema.parse({
+        slug: 'support',
+        displayName: 'Support',
+        kind: 'office',
+        engines: ['claude'],
+      }),
+      skill: { frontMatter: { name: 'support', description: 'Helps.' }, body: '# Support\n' },
+      references: ['references/faq.md'],
+    };
+    expect(botDetailSchema.parse(whole)).toEqual(whole);
+  });
+
+  test.each(['bot.created', 'bot.updated', 'bot.removed'])('registers %s', (type) => {
+    const raw = {
+      id: newId('event'),
+      type,
+      occurredAt: '2026-10-31T10:00:00.000Z',
+      actor: { kind: 'system' },
+      subject: { kind: 'bot', id: summary.id },
+      payload: { slug: 'support' },
+    };
+    expect(parseEvent(raw)).toEqual(raw);
+    expect(parseClientEvent(raw, vi.fn())?.type).toBe(type);
+    expect(() => parseEvent({ ...raw, payload: { slug: 'x', extra: 1 } })).toThrow();
   });
 });
