@@ -5,6 +5,7 @@ import { Desktop } from './app';
 const live = {
   snapshot: async () => ({ status: 'connected', eventCount: 3 }),
   subscribe: () => () => {},
+  subscribeInvalidations: () => () => {},
 };
 
 it('shows the live connection state and event counter in the shell', async () => {

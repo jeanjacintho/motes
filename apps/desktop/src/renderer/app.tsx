@@ -18,7 +18,7 @@ import { QueryClientProvider, useQuery, useQueryClient } from '@tanstack/react-q
 import { useRef, useState } from 'react';
 import { z } from 'zod';
 import type { PairingRequest, PairingResult } from '../security';
-import { type LiveBridge, useLive } from './live';
+import { type LiveBridge, useLive, useLiveInvalidations } from './live';
 
 type Bridge = (request: PairingRequest) => Promise<PairingResult>;
 const deviceList = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVICE_KINDS) }));
@@ -26,6 +26,7 @@ const deviceList = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVI
 function Session({ bridge, live }: { bridge: Bridge; live: LiveBridge }) {
   const { status: connectionStatus, eventCount } = useLive(live);
   const queryClient = useQueryClient();
+  useLiveInvalidations(live, queryClient);
   const [paired, setPaired] = useState<boolean | null>(null);
   const generation = useRef(0);
   const [history, setHistory] = useState(['/']);

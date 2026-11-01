@@ -138,6 +138,53 @@ describe('desktop live connection', () => {
     expect(text).not.toContain('secret-token');
   });
 
+  it('forwards project and repository invalidations, and a global one on resync', async () => {
+    const sockets: FakeSocket[] = [];
+    const live = createLiveConnection({
+      diagnostic: () => {},
+      session: async () => ({ url: 'http://localhost:3000/', token: 'token' }),
+      socket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    const invalidations: unknown[] = [];
+    const stop = live.subscribeInvalidations((key) => invalidations.push(key));
+    await live.sync();
+    const socket = sockets[0];
+    if (!socket) throw new Error('Missing socket');
+    const projectId = 'prj_01ARZ3NDEKTSV4RRFFQ69G5FAV';
+    const envelope = (type: string, payload: object) => ({
+      ...ping,
+      type,
+      subject: { kind: 'project', id: projectId },
+      payload,
+    });
+    socket.onmessage?.({
+      data: JSON.stringify({ seq: '1', event: envelope('project.renamed', { name: 'X' }) }),
+    });
+    socket.onmessage?.({
+      data: JSON.stringify({
+        seq: '2',
+        event: envelope('repository.added', { projectId, name: 'api' }),
+      }),
+    });
+    socket.onmessage?.({ data: JSON.stringify({ type: 'resync_required' }) });
+    await vi.waitFor(() => expect(invalidations).toHaveLength(3));
+    expect(invalidations).toEqual([
+      ['projects'],
+      ['projects', projectId, 'repositories'],
+      undefined,
+    ]);
+    stop();
+    socket.onmessage?.({
+      data: JSON.stringify({ seq: '3', event: envelope('project.archived', {}) }),
+    });
+    await vi.waitFor(() => expect(live.snapshot().eventCount).toBe(3));
+    expect(invalidations).toHaveLength(3);
+  });
+
   it('forwards websocket callbacks through the adapter', () => {
     const ws = {
       onopen: null as (() => void) | null,

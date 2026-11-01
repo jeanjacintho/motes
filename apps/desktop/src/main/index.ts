@@ -78,8 +78,12 @@ function createWindow() {
   const unsubscribe = live.subscribe((snapshot) => {
     if (!window.isDestroyed()) window.webContents.send('live:update', snapshot);
   });
+  const unsubscribeInvalidations = live.subscribeInvalidations((queryKey) => {
+    if (!window.isDestroyed()) window.webContents.send('live:invalidate', queryKey ?? null);
+  });
   window.on('closed', () => {
     unsubscribe();
+    unsubscribeInvalidations();
     ipcMain.removeHandler('app:version');
     ipcMain.removeHandler('pairing:request');
     ipcMain.removeHandler('live:snapshot');

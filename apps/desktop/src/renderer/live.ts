@@ -1,9 +1,11 @@
+import type { QueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import type { LiveSnapshot } from '../live';
 
 export type LiveBridge = {
   snapshot(): Promise<unknown>;
+  subscribeInvalidations(listener: (queryKey: unknown) => void): () => void;
   subscribe(listener: (snapshot: unknown) => void): () => void;
 };
 
@@ -40,4 +42,18 @@ export function useLive(bridge: LiveBridge): LiveSnapshot {
     };
   }, [bridge]);
   return snapshot;
+}
+
+const queryKeySchema = z.array(z.string());
+
+/** The main process forwards realtime invalidations; a missing or malformed key refreshes all. */
+export function useLiveInvalidations(bridge: LiveBridge, queryClient: QueryClient) {
+  useEffect(
+    () =>
+      bridge.subscribeInvalidations((value) => {
+        const key = queryKeySchema.safeParse(value);
+        void queryClient.invalidateQueries(key.success ? { queryKey: key.data } : undefined);
+      }),
+    [bridge, queryClient],
+  );
 }

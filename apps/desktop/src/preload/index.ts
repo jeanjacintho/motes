@@ -8,6 +8,13 @@ contextBridge.exposeInMainWorld('motes', {
     ipcRenderer.invoke('pairing:request', request),
   live: {
     snapshot: (): Promise<LiveSnapshot> => ipcRenderer.invoke('live:snapshot'),
+    subscribeInvalidations: (listener: (queryKey: unknown) => void): (() => void) => {
+      const handler = (_event: unknown, queryKey: unknown) => listener(queryKey);
+      ipcRenderer.on('live:invalidate', handler);
+      return () => {
+        ipcRenderer.removeListener('live:invalidate', handler);
+      };
+    },
     subscribe: (listener: (snapshot: unknown) => void): (() => void) => {
       const handler = (_event: unknown, snapshot: unknown) => listener(snapshot);
       ipcRenderer.on('live:update', handler);

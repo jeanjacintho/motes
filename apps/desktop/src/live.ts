@@ -1,8 +1,8 @@
 import {
   createMemoryStorageAdapter,
-  createQueryClient,
   createRealtime,
   type RealtimeSocket,
+  registerProjectInvalidations,
 } from '@motes/core';
 
 export type LiveSnapshot = {
@@ -45,6 +45,8 @@ export function createLiveConnection(options: {
   let snapshot = offline;
   let queue: Promise<void> = Promise.resolve();
   const listeners = new Set<(snapshot: LiveSnapshot) => void>();
+  // undefined asks the renderer to invalidate every query.
+  const invalidationListeners = new Set<(queryKey: string[] | undefined) => void>();
   function publish(next: LiveSnapshot) {
     if (next.status === snapshot.status && next.eventCount === snapshot.eventCount) return;
     snapshot = next;
@@ -62,7 +64,13 @@ export function createLiveConnection(options: {
       url: websocketUrl(session.url),
       getToken: () => session.token,
       storage: createMemoryStorageAdapter(),
-      queryClient: createQueryClient(),
+      // The Query cache lives in the renderer, so invalidations are forwarded to it.
+      queryClient: {
+        invalidateQueries: async (filters) => {
+          const queryKey = filters?.queryKey?.map(String);
+          for (const listener of invalidationListeners) listener(queryKey);
+        },
+      },
       socket: options.socket,
       logger: (error) =>
         options.diagnostic(
@@ -74,9 +82,11 @@ export function createLiveConnection(options: {
     const read = () =>
       publish({ status: realtime.getStatus(), eventCount: realtime.getEventCount() });
     const unsubscribe = realtime.subscribe(read);
+    const stopInvalidations = registerProjectInvalidations(realtime);
     current = {
       key: key ?? '',
       stop: () => {
+        stopInvalidations();
         unsubscribe();
         realtime.stop();
       },
@@ -97,6 +107,12 @@ export function createLiveConnection(options: {
       return result;
     },
     snapshot: () => snapshot,
+    subscribeInvalidations(listener: (queryKey: string[] | undefined) => void) {
+      invalidationListeners.add(listener);
+      return () => {
+        invalidationListeners.delete(listener);
+      };
+    },
     subscribe(listener: (snapshot: LiveSnapshot) => void) {
       listeners.add(listener);
       return () => {

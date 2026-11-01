@@ -9,6 +9,7 @@ declare global {
       live: {
         snapshot(): Promise<LiveSnapshot>;
         subscribe(listener: (snapshot: unknown) => void): () => void;
+        subscribeInvalidations(listener: (queryKey: unknown) => void): () => void;
       };
     };
   }
