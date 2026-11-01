@@ -9,6 +9,7 @@ export type Db = ReturnType<typeof createDb>;
 export { eq, sql } from 'drizzle-orm';
 export {
   cardFromRow,
+  cardLabelIds,
   getCardById,
   getCardByRef,
   insertCard,
@@ -18,9 +19,11 @@ export {
 export { appendEvent, type DbTransaction, readEventsAfter, type StoredEvent } from './events.js';
 export { migrate, migrationsUpToDate } from './migrate.js';
 export {
+  cardLabels,
   cards,
   deviceTokens,
   events,
+  labels,
   pairingState,
   projectCounters,
   projects,

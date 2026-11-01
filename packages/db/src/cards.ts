@@ -8,7 +8,7 @@ import {
 import { sql } from 'drizzle-orm';
 import type { DbTransaction } from './events.js';
 import type { Db } from './index.js';
-import { cards, projectCounters, projects } from './schema.js';
+import { cardLabels, cards, labels, projectCounters, projects } from './schema.js';
 
 export type NewCard = {
   id: string;
@@ -23,7 +23,7 @@ export type NewCard = {
   now: Date;
 };
 
-export function cardFromRow(row: typeof cards.$inferSelect): Card {
+export function cardFromRow(row: typeof cards.$inferSelect, labelIds: string[] = []): Card {
   return cardSchema.parse({
     id: row.id,
     projectId: row.projectId,
@@ -36,8 +36,7 @@ export function cardFromRow(row: typeof cards.$inferSelect): Card {
       ? { assignee: { type: row.assigneeType, id: row.assigneeId } }
       : {}),
     ...(row.repositoryId ? { repositoryId: row.repositoryId } : {}),
-    // Labels arrive with their own tables; no card carries one yet.
-    labels: [],
+    labels: labelIds,
     createdBy: { type: row.createdByType, id: row.createdById },
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
@@ -89,12 +88,23 @@ export async function insertCard(tx: DbTransaction, input: NewCard): Promise<Car
 
 type Reader = Pick<Db, 'select'>;
 
+/** The card's label ids in label-name order, so the same set always reads the same way. */
+export async function cardLabelIds(db: Reader, cardId: string): Promise<string[]> {
+  const rows = await db
+    .select({ id: labels.id })
+    .from(cardLabels)
+    .innerJoin(labels, sql`${cardLabels.labelId} = ${labels.id}`)
+    .where(sql`${cardLabels.cardId} = ${cardId}`)
+    .orderBy(sql`lower(${labels.name}), ${labels.id}`);
+  return rows.map((row) => row.id);
+}
+
 export async function getCardById(db: Reader, id: string): Promise<Card | undefined> {
   const [row] = await db
     .select()
     .from(cards)
     .where(sql`${cards.id} = ${id} AND ${cards.deletedAt} IS NULL`);
-  return row && cardFromRow(row);
+  return row && cardFromRow(row, await cardLabelIds(db, row.id));
 }
 
 /** Finds a card by its "KEY-number" reference; anything malformed or unknown is undefined. */
@@ -108,7 +118,7 @@ export async function getCardByRef(db: Reader, ref: string): Promise<Card | unde
     .where(
       sql`${projects.key} = ${parsed.key} AND ${cards.number} = ${parsed.number} AND ${cards.deletedAt} IS NULL`,
     );
-  return row && cardFromRow(row.card);
+  return row && cardFromRow(row.card, await cardLabelIds(db, row.card.id));
 }
 
 /** Any card counts, open, closed or deleted: the foreign key keeps the repository row alive for them. */
