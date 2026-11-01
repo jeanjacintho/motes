@@ -20,3 +20,20 @@ than `MOTES_REPLAY_LIMIT` events are pending (default 5000), the server sends
 refetch. Omitting the cursor starts at the current event head. The authenticated
 `POST /dev/ping` route is enabled by `pnpm dev:server` or explicitly with
 `MOTES_DEV_ROUTES=true`; do not enable it in production.
+
+## Project routes
+
+All routes require a device token. Errors use the protocol envelope: `400
+validation_failed`, `404 not_found`, `409 conflict`.
+
+| Route | Result |
+|---|---|
+| `GET /projects?includeArchived=true` | project list (archived hidden by default) |
+| `POST /projects` | `201` with the new project; duplicate key is `409` |
+| `PATCH /projects/:id` `{ name }` | renamed project |
+| `POST /projects/:id/archive` | archived project (repeating it is a no-op) |
+| `GET /projects/:id/repositories` | repositories with their checkout paths |
+| `POST /projects/:id/repositories` | `201` with the new repository; the first one is primary |
+| `PATCH /repositories/:id` | field changes; `isPrimary: true` promotes it (the only primary change) |
+| `DELETE /repositories/:id` | `{ removed: true }`; the oldest remaining repository becomes primary |
+| `PUT /repositories/:id/paths/:runtimeId` `{ localPath }` | the checkout path for that runtime |
