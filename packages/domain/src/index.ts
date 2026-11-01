@@ -14,3 +14,9 @@ export {
   setRepositoryPath,
   updateRepository,
 } from './repositories.js';
+export {
+  canTransition,
+  changeStatus,
+  STATUS_TRANSITIONS,
+  SYSTEM_STATUSES,
+} from './status.js';

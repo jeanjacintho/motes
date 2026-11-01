@@ -64,6 +64,12 @@ export type UpdateCardInput = z.infer<typeof updateCardInputSchema>;
 /** A null assignee clears the assignment. */
 export const assignCardInputSchema = cardAssigneeSchema.nullable();
 
+export const changeStatusInputSchema = z.object({
+  to: z.enum(CARD_STATUSES),
+  reason: z.string().trim().min(1).max(1000).optional(),
+});
+export type ChangeStatusInput = z.infer<typeof changeStatusInputSchema>;
+
 export function cardRef(key: string, number: number): string {
   return `${key}-${number}`;
 }
