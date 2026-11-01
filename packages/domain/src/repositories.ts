@@ -153,17 +153,20 @@ export async function removeRepository(
       throw new Conflict('Repository is used by open cards');
     await tx.delete(repositoryPaths).where(eq(repositoryPaths.repositoryId, id));
     await tx.delete(repositories).where(eq(repositories.id, id));
+    const [next] = target.isPrimary
+      ? await tx
+          .select()
+          .from(repositories)
+          .where(eq(repositories.projectId, target.projectId))
+          .orderBy(sql`${repositories.createdAt}, ${repositories.id}`)
+          .limit(1)
+      : [];
+    if (next)
+      await tx.update(repositories).set({ isPrimary: true }).where(eq(repositories.id, next.id));
+    // Appending takes a transaction-wide lock, so every row change must come before any event:
+    // a writer holding the promoted row and waiting for that lock would otherwise deadlock.
     await repositoryEvent(services, tx, 'repository.removed', target, actor);
-    if (!target.isPrimary) return;
-    const [next] = await tx
-      .select()
-      .from(repositories)
-      .where(eq(repositories.projectId, target.projectId))
-      .orderBy(sql`${repositories.createdAt}, ${repositories.id}`)
-      .limit(1);
-    if (!next) return;
-    await tx.update(repositories).set({ isPrimary: true }).where(eq(repositories.id, next.id));
-    await repositoryEvent(services, tx, 'repository.updated', next, actor);
+    if (next) await repositoryEvent(services, tx, 'repository.updated', next, actor);
   });
 }
 

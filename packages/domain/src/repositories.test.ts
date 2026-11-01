@@ -120,6 +120,56 @@ describe('repositories', () => {
     await expect(removeRepository(services(), first.id)).rejects.toBeInstanceOf(NotFound);
   });
 
+  it.each([
+    [
+      'an update',
+      (id: string, gated: ReturnType<typeof services>) =>
+        updateRepository(gated, id, { name: 'renamed' }),
+    ],
+    [
+      'a path change',
+      (id: string, gated: ReturnType<typeof services>) =>
+        setRepositoryPath(gated, id, newId('runtime'), '/code/web'),
+    ],
+  ])(
+    'removes the primary while %s runs on the repository to be promoted',
+    async (_name, change) => {
+      const project = await newProject();
+      const primary = await addRepository(services(), project.id, input('api'));
+      const secondary = await addRepository(
+        services({ clock: () => new Date('2026-10-31T11:00:00.000Z') }),
+        project.id,
+        input('web'),
+      );
+      // Hold the secondary's row lock until the removal has had time to run into it.
+      let reached: () => void = () => {};
+      const atGate = new Promise<void>((resolve) => {
+        reached = resolve;
+      });
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const gated = services({
+        appendEvent: async (...args: Parameters<typeof appendEvent>) => {
+          reached();
+          await gate;
+          return appendEvent(...args);
+        },
+      });
+      const changing = change(secondary.id, gated);
+      await atGate;
+      const removing = removeRepository(services(), primary.id);
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      release();
+      await Promise.all([changing, removing]);
+      const remaining = await listRepositories(services(), project.id);
+      expect(remaining.map((repo) => repo.id)).toEqual([secondary.id]);
+      expect(remaining[0]?.isPrimary).toBe(true);
+    },
+    20000,
+  );
+
   it('refuses to remove a repository that open cards use', async () => {
     const project = await newProject();
     const repo = await addRepository(services(), project.id, input('api'));
