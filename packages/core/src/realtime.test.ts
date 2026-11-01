@@ -134,6 +134,25 @@ describe('realtime', () => {
       vi.useRealTimers();
     }
   });
+  it('only needs invalidateQueries from its query client', async () => {
+    const invalidateQueries = vi.fn(async () => {});
+    const socket = new FakeSocket();
+    const realtime = createRealtime({
+      url: 'ws://test',
+      getToken: () => 'token',
+      storage: createMemoryStorageAdapter(),
+      queryClient: { invalidateQueries },
+      logger: vi.fn(),
+      socket: () => socket,
+    });
+    realtime.invalidateOn('system.ping', () => ['ping']);
+    await realtime.start();
+    socket.message({ seq: '1', event });
+    await vi.waitFor(() => expect(invalidateQueries).toHaveBeenCalledWith({ queryKey: ['ping'] }));
+    socket.message({ type: 'resync_required' });
+    await vi.waitFor(() => expect(invalidateQueries).toHaveBeenCalledWith());
+    realtime.stop();
+  });
   it('invalidates all queries and clears the cursor on resync', async () => {
     const storage = createMemoryStorageAdapter();
     await storage.set('realtime.cursor', '5');

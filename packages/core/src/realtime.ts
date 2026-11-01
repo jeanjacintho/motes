@@ -33,7 +33,8 @@ export function createRealtime(options: {
   url: string;
   getToken: () => string | null | Promise<string | null>;
   storage: StorageAdapter;
-  queryClient: QueryClient;
+  // Only invalidation is used, so a host may forward it to a client living elsewhere.
+  queryClient: Pick<QueryClient, 'invalidateQueries'>;
   socket: (url: string) => RealtimeSocket;
   logger: ParseLogger;
 }) {
