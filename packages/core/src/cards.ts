@@ -79,8 +79,10 @@ export type MoveVariables = { projectId: string; cardId: string } & MoveCardBody
 
 /**
  * Applies a move to a board the way the server will: the card leaves its column and lands directly
- * below `afterId`, directly above `beforeId`, or at the bottom. A board that does not hold the
- * card (a filtered one) is returned as it is.
+ * below `afterId`, directly above `beforeId`, or at the bottom when no anchor is named. A board
+ * that cannot place the card exactly is returned as it is and left to the refetch: one that does
+ * not hold the card, or one whose filters hide every anchor the move names. (When both anchors are
+ * named they are adjacent, so either one visible is enough.)
  */
 export function applyMove(
   board: Board,
@@ -88,14 +90,18 @@ export function applyMove(
 ): Board {
   const card = board.columns.flatMap((column) => column.cards).find((c) => c.id === move.cardId);
   if (!card) return board;
+  const target = board.columns.find((column) => column.status === move.status);
+  const rest = (target?.cards ?? []).filter((c) => c.id !== move.cardId);
+  const after = rest.findIndex((c) => c.id === move.afterId);
+  const before = rest.findIndex((c) => c.id === move.beforeId);
+  const named = move.afterId !== undefined || move.beforeId !== undefined;
+  if (named && after < 0 && before < 0) return board;
+  const at = after >= 0 ? after + 1 : before >= 0 ? before : rest.length;
   const moved = { ...card, status: move.status };
   return {
     columns: board.columns.map((column) => {
-      const rest = column.cards.filter((c) => c.id !== move.cardId);
-      if (column.status !== move.status) return { ...column, cards: rest };
-      const after = rest.findIndex((c) => c.id === move.afterId);
-      const before = rest.findIndex((c) => c.id === move.beforeId);
-      const at = after >= 0 ? after + 1 : before >= 0 ? before : rest.length;
+      if (column.status !== move.status)
+        return { ...column, cards: column.cards.filter((c) => c.id !== move.cardId) };
       return { ...column, cards: [...rest.slice(0, at), moved, ...rest.slice(at)] };
     }),
   };

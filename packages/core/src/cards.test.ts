@@ -146,6 +146,26 @@ describe('applyMove', () => {
     expect(titles(board, 'backlog')).toEqual(['a', 'b', 'c']);
   });
 
+  it('does not guess when the anchor is hidden by the board filters', () => {
+    // A is hidden from the high-priority board; C moves before A, which puts it first overall.
+    const filtered = boardOf({ backlog: [b, c] });
+    expect(applyMove(filtered, { cardId: c.id, status: 'backlog', beforeId: a.id })).toBe(filtered);
+    expect(applyMove(filtered, { cardId: c.id, status: 'todo', afterId: d.id })).toBe(filtered);
+    // With both anchors they are adjacent, so one visible anchor still places the card exactly.
+    expect(
+      titles(
+        applyMove(filtered, { cardId: c.id, status: 'backlog', afterId: a.id, beforeId: b.id }),
+        'backlog',
+      ),
+    ).toEqual(['c', 'b']);
+    expect(
+      titles(
+        applyMove(filtered, { cardId: b.id, status: 'backlog', afterId: c.id, beforeId: d.id }),
+        'backlog',
+      ),
+    ).toEqual(['c', 'b']);
+  });
+
   it('leaves a board that does not hold the card untouched', () => {
     const filtered = boardOf({ backlog: [a] });
     expect(applyMove(filtered, { cardId: c.id, status: 'todo' })).toBe(filtered);
