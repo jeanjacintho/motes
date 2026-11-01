@@ -15,6 +15,10 @@ export {
 export { canonicalJson } from './canonical-json.js';
 export {
   assignCardInputSchema,
+  type Board,
+  type BoardFilters,
+  boardFiltersSchema,
+  boardSchema,
   CARD_PRIORITIES,
   CARD_STATUSES,
   type Card,

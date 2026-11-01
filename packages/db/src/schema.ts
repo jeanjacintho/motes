@@ -156,11 +156,17 @@ export const cards = pgTable(
     createdById: text('created_by_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull(),
+    // Fractional key ordering the card inside its status column; compare with COLLATE "C".
+    position: text().notNull(),
     // Soft delete: the row keeps its number and repository reference.
     deletedAt: timestamp('deleted_at', { withTimezone: true, precision: 3 }),
   },
   (table) => [
     unique('cards_project_number_key').on(table.projectId, table.number),
+    uniqueIndex('cards_column_position_idx')
+      .on(table.projectId, table.status, table.position)
+      .where(sql`${table.deletedAt} IS NULL`),
+    check('card_position_check', sql`${table.position} ~ '^[0-9A-Za-z]*[1-9A-Za-z]$'`),
     check('card_number_check', sql`${table.number} > 0`),
     check('card_title_check', sql`length(trim(${table.title})) > 0`),
     check('card_status_check', sql`${table.status} IN (${sqlList(CARD_STATUSES)})`),

@@ -17,6 +17,8 @@ export type NewCard = {
   description?: string;
   status?: CardStatus;
   priority?: CardPriority;
+  /** Fractional key; unique among the live cards of the same project and status. */
+  position: string;
   assignee?: { type: 'owner' | 'bot'; id: string };
   repositoryId?: string;
   createdBy: Card['createdBy'];
@@ -73,6 +75,7 @@ export async function insertCard(tx: DbTransaction, input: NewCard): Promise<Car
       description: input.description ?? '',
       status: input.status ?? 'backlog',
       priority: input.priority ?? 'none',
+      position: input.position,
       assigneeType: input.assignee?.type ?? null,
       assigneeId: input.assignee?.id ?? null,
       repositoryId: input.repositoryId ?? null,
@@ -129,4 +132,74 @@ export async function repositoryHasCards(db: Reader, repositoryId: string): Prom
     .where(sql`${cards.repositoryId} = ${repositoryId}`)
     .limit(1);
   return row !== undefined;
+}
+
+export type BoardQuery = {
+  assignee?: { type: 'owner' | 'bot'; id: string } | undefined;
+  labelId?: string | undefined;
+  priority?: CardPriority | undefined;
+  text?: string | undefined;
+};
+
+const escapeLike = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
+
+/**
+ * The project's live cards, top to bottom within each status. Filters combine with AND; the
+ * labels of all returned cards come from a single query.
+ */
+export async function listBoardCards(
+  db: Reader,
+  projectId: string,
+  query: BoardQuery = {},
+): Promise<Card[]> {
+  const conditions = [sql`${cards.projectId} = ${projectId}`, sql`${cards.deletedAt} IS NULL`];
+  if (query.assignee)
+    conditions.push(
+      sql`${cards.assigneeType} = ${query.assignee.type} AND ${cards.assigneeId} = ${query.assignee.id}`,
+    );
+  if (query.priority) conditions.push(sql`${cards.priority} = ${query.priority}`);
+  if (query.text)
+    conditions.push(sql`${cards.title} ILIKE ${`%${escapeLike(query.text)}%`} ESCAPE '\\'`);
+  if (query.labelId)
+    conditions.push(
+      sql`EXISTS (SELECT 1 FROM ${cardLabels} WHERE ${cardLabels.cardId} = ${cards.id} AND ${cardLabels.labelId} = ${query.labelId})`,
+    );
+  const rows = await db
+    .select()
+    .from(cards)
+    .where(sql.join(conditions, sql` AND `))
+    .orderBy(sql`${cards.position} COLLATE "C"`, cards.id);
+  if (rows.length === 0) return [];
+  const links = await db
+    .select({ cardId: cardLabels.cardId, labelId: labels.id })
+    .from(cardLabels)
+    .innerJoin(labels, sql`${cardLabels.labelId} = ${labels.id}`)
+    .where(
+      sql`${cardLabels.cardId} IN (${sql.join(
+        rows.map((row) => sql`${row.id}`),
+        sql`, `,
+      )})`,
+    )
+    .orderBy(sql`lower(${labels.name}), ${labels.id}`);
+  const byCard = new Map<string, string[]>();
+  for (const link of links)
+    byCard.set(link.cardId, [...(byCard.get(link.cardId) ?? []), link.labelId]);
+  return rows.map((row) => cardFromRow(row, byCard.get(row.id) ?? []));
+}
+
+/** The position of the lowest live card of the column, or undefined when it is empty. */
+export async function lastPosition(
+  db: Reader,
+  projectId: string,
+  status: CardStatus,
+): Promise<string | undefined> {
+  const [row] = await db
+    .select({ position: cards.position })
+    .from(cards)
+    .where(
+      sql`${cards.projectId} = ${projectId} AND ${cards.status} = ${status} AND ${cards.deletedAt} IS NULL`,
+    )
+    .orderBy(sql`${cards.position} COLLATE "C" DESC`)
+    .limit(1);
+  return row?.position;
 }

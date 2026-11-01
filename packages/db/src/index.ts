@@ -8,11 +8,14 @@ export function createDb(url: string) {
 export type Db = ReturnType<typeof createDb>;
 export { eq, sql } from 'drizzle-orm';
 export {
+  type BoardQuery,
   cardFromRow,
   cardLabelIds,
   getCardById,
   getCardByRef,
   insertCard,
+  lastPosition,
+  listBoardCards,
   type NewCard,
   repositoryHasCards,
 } from './cards.js';
