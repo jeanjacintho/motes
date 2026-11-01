@@ -19,6 +19,7 @@ declare module 'fastify' {
 }
 
 import { createServices, type Services } from './composition.js';
+import { registerProjectRoutes } from './projects.js';
 import { installErrorHandler, route } from './route.js';
 import { registerWebsocket } from './websocket.js';
 
@@ -60,6 +61,7 @@ export function createServer(
       await emitPing(services);
       return { ok: true };
     });
+  registerProjectRoutes(server, services);
   server.get('/devices', async () => deviceListResponseSchema.parse(await listDevices(services)));
   server.delete('/devices/:id', async (request) => {
     const { id } = z.object({ id: z.string().min(1) }).parse(request.params);

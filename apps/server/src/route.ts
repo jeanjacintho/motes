@@ -61,15 +61,22 @@ export function installErrorHandler(app: FastifyInstance) {
   });
 }
 
-export function route<Body extends z.ZodType, Query extends z.ZodType>(
+export function route<
+  Body extends z.ZodType,
+  Query extends z.ZodType,
+  Params extends z.ZodType = z.ZodUndefined,
+>(
   app: FastifyInstance,
   options: {
     method: HTTPMethods;
     url: string;
+    params?: Params;
     body?: Body;
     query?: Query;
     response: z.ZodType;
+    status?: number;
     handler: (input: {
+      params: z.output<Params>;
       body: z.output<Body>;
       query: z.output<Query>;
     }) => unknown | Promise<unknown>;
@@ -78,12 +85,14 @@ export function route<Body extends z.ZodType, Query extends z.ZodType>(
   app.route({
     method: options.method,
     url: options.url,
-    handler: async (request) => {
+    handler: async (request, reply) => {
+      const params = options.params?.parse(request.params) as z.output<Params>;
       const body = options.body?.parse(request.body) as z.output<Body>;
       const query = options.query?.parse(request.query) as z.output<Query>;
-      const result = await options.handler({ body, query });
+      const result = await options.handler({ params, body, query });
       const parsed = options.response.safeParse(result);
       if (!parsed.success) throw new InvalidOutput('Invalid response');
+      if (options.status) reply.code(options.status);
       return parsed.data;
     },
   });

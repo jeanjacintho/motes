@@ -66,4 +66,27 @@ describe('route contracts', () => {
     expect(apiErrorSchema.parse(response.json()).code).toBe('internal');
     await app.close();
   });
+  it('parses path parameters and applies a configured success status', async () => {
+    const app = Fastify();
+    installErrorHandler(app);
+    route(app, {
+      method: 'POST',
+      url: '/things/:id',
+      params: z.object({ id: z.string().min(3) }),
+      body: z.object({ n: z.number() }),
+      response: z.object({ id: z.string(), n: z.number() }),
+      status: 201,
+      handler: ({ params, body }) => ({ id: params.id, n: body.n }),
+    });
+    const created = await app.inject({ method: 'POST', url: '/things/abc', payload: { n: 1 } });
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toEqual({ id: 'abc', n: 1 });
+    const invalid = await app.inject({ method: 'POST', url: '/things/ab', payload: { n: 1 } });
+    expect(invalid.statusCode).toBe(400);
+    expect(apiErrorSchema.parse(invalid.json())).toMatchObject({
+      code: 'validation_failed',
+      details: [{ path: ['id'] }],
+    });
+    await app.close();
+  });
 });
