@@ -6,6 +6,8 @@ import {
   getCardById,
   getCardByRef,
   insertCard,
+  lastPosition,
+  listBoardCards,
   type NewCard,
   repositoryHasCards,
 } from './cards.js';
@@ -21,8 +23,10 @@ async function project(key: string) {
   return id;
 }
 
+let positions = 0;
 function newCard(projectId: string, overrides: Partial<NewCard> = {}): NewCard {
   return {
+    position: `a${String(++positions).padStart(6, '0')}1`,
     id: newId('card'),
     projectId,
     title: 'Corrigir typo',
@@ -116,6 +120,7 @@ describe('card storage', () => {
       description: '',
       status: 'backlog',
       priority: 'none',
+      position: 'V',
       createdByType: 'owner',
       createdById: 'owner',
       createdAt: now,
@@ -129,6 +134,9 @@ describe('card storage', () => {
     await rejects({ priority: 'critical' });
     await rejects({ number: 0 });
     await rejects({ title: '   ' });
+    await rejects({ position: '' });
+    await rejects({ position: 'a0' });
+    await rejects({ position: 'a b' });
     await rejects({ assigneeType: 'bot' });
     await rejects({ assigneeId: 'x' });
     await rejects({ assigneeType: 'robot', assigneeId: 'x' });
@@ -212,5 +220,97 @@ describe('card labels', () => {
     await expect(
       testDb.db.insert(cardLabels).values({ cardId: card.id, labelId: zeta.id }),
     ).rejects.toThrow();
+  });
+});
+
+describe('column positions', () => {
+  it('keeps positions unique per live card in a column and frees them on soft delete', async () => {
+    const id = await project('POS');
+    const first = await insert(newCard(id, { position: 'V' }));
+    await expect(insert(newCard(id, { position: 'V' }))).rejects.toThrow();
+    await insert(newCard(id, { position: 'V', status: 'todo' }));
+    await testDb.db.update(cards).set({ deletedAt: now }).where(eq(cards.id, first.id));
+    await insert(newCard(id, { position: 'V' }));
+  });
+
+  it('finds the last position of a column in byte order, ignoring deleted cards', async () => {
+    const id = await project('LST');
+    expect(await lastPosition(testDb.db, id, 'backlog')).toBeUndefined();
+    await insert(newCard(id, { position: 'a1' }));
+    await insert(newCard(id, { position: 'B1' }));
+    const last = await insert(newCard(id, { position: 'z1' }));
+    expect(await lastPosition(testDb.db, id, 'backlog')).toBe('z1');
+    await testDb.db.update(cards).set({ deletedAt: now }).where(eq(cards.id, last.id));
+    expect(await lastPosition(testDb.db, id, 'backlog')).toBe('a1');
+  });
+});
+
+describe('board listing', () => {
+  async function seed() {
+    const id = await project(
+      `B${String.fromCharCode(65 + (positions % 26))}${String.fromCharCode(65 + (positions % 7))}`,
+    );
+    const labelRow = (name: string) => ({
+      id: newId('label'),
+      projectId: id,
+      name,
+      color: '#d73a4a',
+      createdAt: now,
+    });
+    const bug = labelRow('bug');
+    const urgent = labelRow('urgent');
+    await testDb.db.insert(labels).values([bug, urgent]);
+    const botId = newId('bot');
+    const a = await insert(
+      newCard(id, { title: 'Corrigir 100% do login', position: 'b1', priority: 'high' }),
+    );
+    const b = await insert(
+      newCard(id, { title: 'Corrigir typo', position: 'a1', assignee: { type: 'bot', id: botId } }),
+    );
+    const c = await insert(
+      newCard(id, { title: 'Novo botão', position: 'c1', priority: 'high', status: 'todo' }),
+    );
+    await testDb.db.insert(cardLabels).values([
+      { cardId: a.id, labelId: bug.id },
+      { cardId: a.id, labelId: urgent.id },
+      { cardId: c.id, labelId: bug.id },
+    ]);
+    return { id, bug, urgent, botId, a, b, c };
+  }
+  const titles = (list: { title: string }[]) => list.map((card) => card.title);
+
+  it('lists live cards ordered by position in byte order, with their labels', async () => {
+    const { id, a, b, bug, urgent } = await seed();
+    const all = await listBoardCards(testDb.db, id);
+    expect(titles(all.filter((card) => card.status === 'backlog'))).toEqual([b.title, a.title]);
+    expect(all.find((card) => card.id === a.id)?.labels).toEqual([bug.id, urgent.id]);
+    expect(all.find((card) => card.id === b.id)?.labels).toEqual([]);
+    await testDb.db.update(cards).set({ deletedAt: now }).where(eq(cards.id, b.id));
+    expect(await listBoardCards(testDb.db, id)).toHaveLength(2);
+    expect(await listBoardCards(testDb.db, newId('project'))).toEqual([]);
+  });
+
+  it('combines filters with AND', async () => {
+    const { id, bug, urgent, botId, a, c } = await seed();
+    const ids = async (query: Parameters<typeof listBoardCards>[2]) =>
+      (await listBoardCards(testDb.db, id, query)).map((card) => card.id).sort();
+    expect(await ids({ priority: 'high' })).toEqual([a.id, c.id].sort());
+    expect(await ids({ labelId: bug.id })).toEqual([a.id, c.id].sort());
+    expect(await ids({ labelId: bug.id, priority: 'high' })).toEqual([a.id, c.id].sort());
+    expect(await ids({ labelId: urgent.id, text: 'login' })).toEqual([a.id]);
+    expect(await ids({ labelId: urgent.id, text: 'typo' })).toEqual([]);
+    expect(await ids({ assignee: { type: 'bot', id: botId } })).toHaveLength(1);
+    expect(await ids({ assignee: { type: 'bot', id: botId }, priority: 'high' })).toEqual([]);
+    expect(await ids({ text: 'CORRIGIR' })).toHaveLength(2);
+  });
+
+  it('treats search text literally, including LIKE wildcards', async () => {
+    const { id, a } = await seed();
+    const found = async (text: string) =>
+      (await listBoardCards(testDb.db, id, { text })).map((card) => card.id);
+    expect(await found('100%')).toEqual([a.id]);
+    expect(await found('%')).toEqual([a.id]);
+    expect(await found('_')).toEqual([]);
+    expect(await found('\\')).toEqual([]);
   });
 });
