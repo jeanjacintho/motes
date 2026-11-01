@@ -46,6 +46,14 @@ export {
   updateCardInputSchema,
 } from './cards.js';
 export {
+  type Comment,
+  type CommentInput,
+  commentAuthorSchema,
+  commentBodySchema,
+  commentInputSchema,
+  commentSchema,
+} from './comments.js';
+export {
   CARD_EDITABLE_FIELDS,
   type ClientEvent,
   clientEventSchema,

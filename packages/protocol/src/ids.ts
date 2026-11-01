@@ -5,6 +5,7 @@ export const ID_PREFIXES = Object.freeze({
   repository: 'repo_',
   card: 'card_',
   label: 'lbl_',
+  comment: 'cmt_',
   bot: 'bot_',
   run: 'run_',
   runtime: 'rt_',
