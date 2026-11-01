@@ -56,6 +56,18 @@ Tags:
 | **P6 · Support and the Mac** | [P6-support-mac.md](roadmap/P6-support-mac.md) | WhatsApp, third-party policy, Support and Triage bots, Latch integration | The canonical scenario (DESIGN §3) runs end to end without the owner |
 | **P7 · Interface and reach** | [P7-interface-reach.md](roadmap/P7-interface-reach.md) | Visual design, web, MacBook Air runtime, notch, mobile, more channels | Defined with the owner at the start of the phase |
 
+## Progress
+
+> Last updated 2026-11-01. A card is done when its PR is merged into `main`; the card files keep their checkboxes unticked on purpose, so this section is the only place that tracks where we stopped.
+
+| Phase | Epic | State |
+|---|---|---|
+| P0 · Foundation | P0-01 to P0-06 | **Done**: every card merged (last: P0-06-03, PR #33). The P0 gate was reached by that card's end-to-end smoke test; the owner's manual gate check is separate. |
+| P1 · Pipeline | P1-01 Projects | **Done**: P1-01-01 to P1-01-04 |
+| P1 · Pipeline | P1-02 Cards | P1-02-01 to P1-02-05 done; **next: P1-02-06 Card routes and client hooks** |
+| P1 · Pipeline | P1-03 to P1-10 | Not started |
+| P2 to P7 | all | Not started |
+
 ```mermaid
 flowchart LR
   P0 --> P1 --> P2 --> P3 --> P4 --> P5 --> P6 --> P7
