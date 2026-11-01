@@ -7,7 +7,6 @@ import {
   listRepositoryPaths,
   removeRepository,
   renameProject,
-  setPrimaryRepository,
   setRepositoryPath,
   updateRepository,
 } from '@motes/domain';
@@ -95,11 +94,7 @@ export function registerProjectRoutes(server: FastifyInstance, services: Service
     params: idParams,
     body: patchRepositoryBodySchema,
     response: repositorySchema,
-    handler: async ({ params, body }) => {
-      const { isPrimary, ...fields } = body;
-      const updated = await updateRepository(services, params.id, fields);
-      return isPrimary ? setPrimaryRepository(services, params.id) : updated;
-    },
+    handler: ({ params, body }) => updateRepository(services, params.id, body),
   });
   route(server, {
     method: 'DELETE',

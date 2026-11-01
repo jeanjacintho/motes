@@ -2,12 +2,12 @@ import { eq, projects, repositories, repositoryPaths, sql } from '@motes/db';
 import {
   type AddRepositoryInput,
   addRepositoryInputSchema,
+  type PatchRepositoryBody,
+  patchRepositoryBodySchema,
   type Repository,
   type RepositoryPath,
   repositoryPathSchema,
   repositorySchema,
-  type UpdateRepositoryInput,
-  updateRepositoryInputSchema,
 } from '@motes/protocol';
 import { Conflict, NotFound } from './errors.js';
 import { type Actor, emit, owner, parseInput, type Services, type Tx } from './shared.js';
@@ -93,46 +93,36 @@ export async function addRepository(
   });
 }
 
+/** Field changes and promotion to primary commit together, with their events. */
 export async function updateRepository(
   services: Services,
   id: string,
-  patch: UpdateRepositoryInput,
+  patch: PatchRepositoryBody,
   actor: Actor = owner,
 ): Promise<Repository> {
-  const data = parseInput('repository', () => updateRepositoryInputSchema.safeParse(patch));
+  const { isPrimary, ...fields } = parseInput('repository', () =>
+    patchRepositoryBodySchema.safeParse(patch),
+  );
   return services.db.transaction(async (tx) => {
-    const current = await findRepository(tx, id, true);
-    const changed = Object.entries(data).some(
+    const current = await lockedRepository(tx, id);
+    const changed = Object.entries(fields).some(
       ([key, value]) => current[key as keyof typeof current] !== value,
     );
-    if (!changed) return toRepository(current);
+    const promote = isPrimary === true && !current.isPrimary;
+    if (!changed && !promote) return toRepository(current);
+    // Every row change comes before any event: appending takes a transaction-wide lock.
+    const [previous] = promote
+      ? await tx
+          .update(repositories)
+          .set({ isPrimary: false })
+          .where(
+            sql`${repositories.projectId} = ${current.projectId} AND ${repositories.isPrimary}`,
+          )
+          .returning()
+      : [];
     const [row] = await tx
       .update(repositories)
-      .set(data)
-      .where(eq(repositories.id, id))
-      .returning();
-    if (!row) throw new Error('Repository update returned no row');
-    await repositoryEvent(services, tx, 'repository.updated', row, actor);
-    return toRepository(row);
-  });
-}
-
-export async function setPrimaryRepository(
-  services: Services,
-  id: string,
-  actor: Actor = owner,
-): Promise<Repository> {
-  return services.db.transaction(async (tx) => {
-    const target = await lockedRepository(tx, id);
-    if (target.isPrimary) return toRepository(target);
-    const [previous] = await tx
-      .update(repositories)
-      .set({ isPrimary: false })
-      .where(sql`${repositories.projectId} = ${target.projectId} AND ${repositories.isPrimary}`)
-      .returning();
-    const [row] = await tx
-      .update(repositories)
-      .set({ isPrimary: true })
+      .set({ ...fields, ...(promote ? { isPrimary: true } : {}) })
       .where(eq(repositories.id, id))
       .returning();
     if (!row) throw new Error('Repository update returned no row');
@@ -140,6 +130,14 @@ export async function setPrimaryRepository(
     await repositoryEvent(services, tx, 'repository.updated', row, actor);
     return toRepository(row);
   });
+}
+
+export function setPrimaryRepository(
+  services: Services,
+  id: string,
+  actor: Actor = owner,
+): Promise<Repository> {
+  return updateRepository(services, id, { isPrimary: true }, actor);
 }
 
 export async function removeRepository(

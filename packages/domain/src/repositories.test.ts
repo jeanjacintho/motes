@@ -97,6 +97,22 @@ describe('repositories', () => {
     expect(await eventTypes(current.id)).toEqual(before);
   });
 
+  it('changes fields and promotes in one update with a single event for the target', async () => {
+    const project = await newProject();
+    const first = await addRepository(services(), project.id, input('api'));
+    const second = await addRepository(services(), project.id, input('web'));
+    const result = await updateRepository(services(), second.id, {
+      defaultBranch: 'develop',
+      isPrimary: true,
+    });
+    expect(result).toMatchObject({ defaultBranch: 'develop', isPrimary: true });
+    expect(await eventTypes(second.id)).toEqual(['repository.added', 'repository.updated']);
+    expect(await eventTypes(first.id)).toEqual(['repository.added', 'repository.updated']);
+    await expect(
+      updateRepository(services(), second.id, { isPrimary: false } as never),
+    ).rejects.toBeInstanceOf(ValidationFailed);
+  });
+
   it('removes a repository with its paths and promotes the oldest remaining one', async () => {
     const project = await newProject();
     const first = await addRepository(services(), project.id, input('api'));
