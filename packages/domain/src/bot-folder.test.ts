@@ -114,6 +114,21 @@ describe('loadBotFolder', () => {
     expect(bot.references).toEqual(['references/examples/refund.md', 'references/faq.md']);
   });
 
+  it('does not follow a references directory that is itself a link', async () => {
+    const outside = await mkdtemp(join(tmpdir(), 'motes-outside-'));
+    await writeFile(join(outside, 'private.txt'), 'secret');
+    const bot = await folder({ 'SKILL.md': SKILL, 'bot.yaml': BOT });
+    await symlink(outside, join(bot, 'references'));
+    expect((await loadBotFolder(bot)).references).toEqual([]);
+    const shared = await folder(
+      { 'SKILL.md': SKILL.replace('name: support', 'name: shared-one') },
+      'shared-one',
+    );
+    await symlink(outside, join(shared, 'references'));
+    expect((await loadSkillFolder(shared)).references).toEqual([]);
+    await rm(outside, { recursive: true, force: true });
+  });
+
   it('works without a references directory', async () => {
     const dir = await folder({ 'SKILL.md': SKILL, 'bot.yaml': BOT });
     expect((await loadBotFolder(dir)).references).toEqual([]);

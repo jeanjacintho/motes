@@ -99,6 +99,13 @@ async function listReferences(dir: string): Promise<string[]> {
       else if (entry.isFile()) found.push(child);
     }
   };
+  // readdir follows links, so the root must be checked here; entries below it come typed.
+  try {
+    if (!(await lstat(join(dir, 'references'))).isDirectory()) return [];
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  }
   await walk('references');
   return found.sort();
 }
