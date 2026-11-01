@@ -1,4 +1,13 @@
-import { cardFromRow, cards, eq, insertCard, projects, repositories, sql } from '@motes/db';
+import {
+  cardFromRow,
+  cardLabelIds,
+  cards,
+  eq,
+  insertCard,
+  projects,
+  repositories,
+  sql,
+} from '@motes/db';
 import {
   assignCardInputSchema,
   CARD_EDITABLE_FIELDS,
@@ -35,6 +44,11 @@ export async function lockCard(tx: Tx, id: string, options: { allowDeleted?: boo
   const [row] = await tx.select().from(cards).where(eq(cards.id, id)).for('update');
   if (!row || (row.deletedAt && !options.allowDeleted)) throw new NotFound('Card not found');
   return row;
+}
+
+/** A card as clients see it, with its labels read inside the same transaction. */
+export async function present(tx: Tx, row: typeof cards.$inferSelect) {
+  return cardFromRow(row, await cardLabelIds(tx, row.id));
 }
 
 async function checkRepository(tx: Tx, projectId: string, repositoryId: string) {
@@ -113,7 +127,7 @@ export async function updateCard(
     const changed = CARD_EDITABLE_FIELDS.filter(
       (field) => patch[field] !== undefined && patch[field] !== current[field],
     );
-    if (changed.length === 0) return cardFromRow(current);
+    if (changed.length === 0) return present(tx, current);
     const [row] = await tx
       .update(cards)
       .set({ ...patch, updatedAt: services.clock() })
@@ -128,7 +142,7 @@ export async function updateCard(
       { projectId: row.projectId, changed },
       actor,
     );
-    return cardFromRow(row);
+    return present(tx, row);
   });
 }
 
@@ -142,7 +156,7 @@ export async function assignCard(
   return services.db.transaction(async (tx) => {
     const current = await lockCard(tx, id);
     if (current.assigneeType === (next?.type ?? null) && current.assigneeId === (next?.id ?? null))
-      return cardFromRow(current);
+      return present(tx, current);
     await checkAssignee(services, tx, next);
     const [row] = await tx
       .update(cards)
@@ -162,7 +176,7 @@ export async function assignCard(
       { projectId: row.projectId, assignee: next },
       actor,
     );
-    return cardFromRow(row);
+    return present(tx, row);
   });
 }
 

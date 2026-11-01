@@ -1,6 +1,14 @@
 export { assignCard, type CardServices, createCard, deleteCard, updateCard } from './cards.js';
 export { authenticate, listDevices, revokeDevice } from './devices.js';
 export { Conflict, Forbidden, NotFound, ValidationFailed } from './errors.js';
+export {
+  attachLabel,
+  createLabel,
+  deleteLabel,
+  detachLabel,
+  listLabels,
+  updateLabel,
+} from './labels.js';
 export { createPairingCode, pairDevice } from './pairing.js';
 export { emitPing } from './ping.js';
 export { archiveProject, createProject, listProjects, renameProject } from './projects.js';

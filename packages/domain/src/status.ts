@@ -1,6 +1,6 @@
-import { cardFromRow, cards, eq } from '@motes/db';
+import { cards, eq } from '@motes/db';
 import { type CardStatus, type ChangeStatusInput, changeStatusInputSchema } from '@motes/protocol';
-import { lockCard } from './cards.js';
+import { lockCard, present } from './cards.js';
 import { Conflict, Forbidden } from './errors.js';
 import { type Actor, emit, owner, parseInput, type Services } from './shared.js';
 
@@ -38,7 +38,7 @@ export async function changeStatus(
   return services.db.transaction(async (tx) => {
     const current = await lockCard(tx, id);
     const from = current.status as CardStatus;
-    if (from === input.to) return cardFromRow(current);
+    if (from === input.to) return present(tx, current);
     if (!canTransition(from, input.to))
       throw new Conflict(`A card cannot move from ${from} to ${input.to}`);
     if (
@@ -62,6 +62,6 @@ export async function changeStatus(
       { projectId: row.projectId, from, to: input.to, reason: input.reason ?? null },
       actor,
     );
-    return cardFromRow(row);
+    return present(tx, row);
   });
 }
