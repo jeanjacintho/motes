@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { app, BrowserWindow, ipcMain } from 'electron';
+import { createApiHandler } from '../api';
 import { adaptWebSocket, createLiveConnection } from '../live';
 import { createPairingService } from '../pairing';
 import {
@@ -71,6 +72,13 @@ function createWindow() {
     await live.sync();
     return result;
   });
+  const apiHandler = createApiHandler(window.webContents, appUrl, pairing);
+  ipcMain.handle('api:request', async (event, ...args) => {
+    const result = await apiHandler(event, ...args);
+    // A 401 clears the stored credential; align the connection with it.
+    if (!result.ok && result.unauthorized) await live.sync();
+    return result;
+  });
   ipcMain.handle(
     'live:snapshot',
     createReadHandler(window.webContents, appUrl, () => live.snapshot()),
@@ -86,6 +94,7 @@ function createWindow() {
     unsubscribeInvalidations();
     ipcMain.removeHandler('app:version');
     ipcMain.removeHandler('pairing:request');
+    ipcMain.removeHandler('api:request');
     ipcMain.removeHandler('live:snapshot');
   });
   void window.loadURL(appUrl);

@@ -12,7 +12,6 @@ describe('desktop security', () => {
     const mainFrame = { url: 'http://localhost:5173/' };
     const sender = { mainFrame };
     const service = {
-      session: async () => null,
       isPaired: async () => false,
       pair: async () => {},
       devices: async () => [],
