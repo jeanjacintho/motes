@@ -8,6 +8,8 @@ export {
   NavigationProvider,
   useNavigation,
 } from './navigation';
+export { ProjectSettings } from './project-settings';
+export { ProjectsSidebar } from './projects';
 
 export function PairingScreen({
   onPair,
