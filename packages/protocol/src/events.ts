@@ -115,6 +115,11 @@ const commentPayload = z.strictObject({
 const commentCreated = defineEvent('comment.created', commentPayload);
 const commentUpdated = defineEvent('comment.updated', commentPayload);
 const commentDeleted = defineEvent('comment.deleted', commentPayload);
+// The bot index follows the folders on disk; subjects are bot ids and payloads carry the slug.
+const botPayload = z.strictObject({ slug: z.string().min(1) });
+const botCreated = defineEvent('bot.created', botPayload);
+const botUpdated = defineEvent('bot.updated', botPayload);
+const botRemoved = defineEvent('bot.removed', botPayload);
 const cardDeleted = defineEvent('card.deleted', z.strictObject({ projectId: idSchema('project') }));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
@@ -141,6 +146,9 @@ export const eventRegistry = Object.freeze({
   [commentCreated.type]: commentCreated,
   [commentUpdated.type]: commentUpdated,
   [commentDeleted.type]: commentDeleted,
+  [botCreated.type]: botCreated,
+  [botUpdated.type]: botUpdated,
+  [botRemoved.type]: botRemoved,
   [cardDeleted.type]: cardDeleted,
 });
 

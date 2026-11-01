@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { idSchema } from './ids.js';
 
 /** Folder names, bot slugs and skill names share one shape: lowercase words joined by hyphens. */
 export const slugSchema = z
@@ -67,3 +68,26 @@ export const botConfigSchema = z.strictObject({
   enabled: z.boolean().default(true),
 });
 export type BotConfig = z.output<typeof botConfigSchema>;
+
+/** A row of the bot index. The behavior itself stays in the folder on disk. */
+export const botSummarySchema = z.object({
+  id: idSchema('bot'),
+  slug: slugSchema,
+  displayName: z.string().min(1),
+  kind: z.enum(BOT_KINDS),
+  engines: z.array(z.enum(ENGINE_NAMES)),
+  enabled: z.boolean(),
+  /** Changes whenever SKILL.md, bot.yaml or a reference file changes. */
+  skillDigest: z.string().regex(/^[0-9a-f]{64}$/),
+  /** Set while the folder on disk is invalid; the fields above are then the last valid version. */
+  loadError: z.string().optional(),
+});
+export type BotSummary = z.infer<typeof botSummarySchema>;
+
+/** The index row plus what is read from disk; config and skill are null while the folder is broken. */
+export const botDetailSchema = botSummarySchema.extend({
+  config: botConfigSchema.nullable(),
+  skill: z.object({ frontMatter: skillFrontMatterSchema, body: z.string() }).nullable(),
+  references: z.array(z.string()),
+});
+export type BotDetail = z.infer<typeof botDetailSchema>;
