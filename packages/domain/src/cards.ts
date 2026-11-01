@@ -3,6 +3,8 @@ import {
   cardLabelIds,
   cards,
   eq,
+  getCardById,
+  getCardByRef,
   insertCard,
   lastPosition,
   projects,
@@ -15,6 +17,7 @@ import {
   type Card,
   type CreateCardInput,
   createCardInputSchema,
+  ID_PREFIXES,
   type UpdateCardInput,
   updateCardInputSchema,
 } from '@motes/protocol';
@@ -203,4 +206,13 @@ export async function deleteCard(
       actor,
     );
   });
+}
+
+/** Looks a card up by its id or its "KEY-number" reference; deleted cards read as missing. */
+export async function getCard(services: Services, ref: string): Promise<Card> {
+  const card = ref.startsWith(ID_PREFIXES.card)
+    ? await getCardById(services.db, ref)
+    : await getCardByRef(services.db, ref);
+  if (!card) throw new NotFound('Card not found');
+  return card;
 }

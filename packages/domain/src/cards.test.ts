@@ -2,7 +2,7 @@ import { appendEvent } from '@motes/db';
 import { withTestDb } from '@motes/db/testing';
 import { newId } from '@motes/protocol';
 import { describe, expect, it } from 'vitest';
-import { assignCard, createCard, deleteCard, updateCard } from './cards.js';
+import { assignCard, createCard, deleteCard, getCard, updateCard } from './cards.js';
 import { NotFound, ValidationFailed } from './errors.js';
 import { createProject } from './projects.js';
 import { addRepository } from './repositories.js';
@@ -268,5 +268,20 @@ describe('concurrency', () => {
       updateCard(services(), card.id, { priority: 'high' }),
     ]);
     expect(await events(card.id)).toHaveLength(2);
+  });
+});
+
+describe('getCard', () => {
+  it('finds a card by id or by KEY-number and treats deleted or unknown ones as missing', async () => {
+    const { project } = await setup(0);
+    const card = await createCard(services(), project.id, { title: 'x' });
+    expect(await getCard(services(), card.id)).toEqual(card);
+    expect(await getCard(services(), `${project.key}-1`)).toEqual(card);
+    await expect(getCard(services(), `${project.key}-2`)).rejects.toBeInstanceOf(NotFound);
+    await expect(getCard(services(), newId('card'))).rejects.toBeInstanceOf(NotFound);
+    await expect(getCard(services(), 'nonsense')).rejects.toBeInstanceOf(NotFound);
+    await deleteCard(services(), card.id);
+    await expect(getCard(services(), card.id)).rejects.toBeInstanceOf(NotFound);
+    await expect(getCard(services(), `${project.key}-1`)).rejects.toBeInstanceOf(NotFound);
   });
 });

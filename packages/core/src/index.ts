@@ -10,6 +10,18 @@ export {
   createMemoryStorageAdapter,
 } from './adapters.js';
 export { ApiError, createApiClient } from './api-client.js';
+export {
+  applyMove,
+  boardQueryOptions,
+  cardKeys,
+  cardQueryOptions,
+  type MoveVariables,
+  moveCardMutationOptions,
+  registerCardInvalidations,
+  useBoard,
+  useCard,
+  useMoveCard,
+} from './cards.js';
 export { projectKeys, registerProjectInvalidations } from './projects.js';
 export { createQueryClient, NetworkError } from './query-client.js';
 export type { RealtimeSocket } from './realtime.js';

@@ -1,7 +1,11 @@
 import { describe, expect, test, vi } from 'vitest';
 import {
+  assignCardBodySchema,
   assignCardInputSchema,
+  boardFiltersFromQuery,
   boardFiltersSchema,
+  boardFiltersToQuery,
+  boardQuerySchema,
   CARD_PRIORITIES,
   CARD_STATUSES,
   cardRef,
@@ -9,6 +13,7 @@ import {
   changeStatusInputSchema,
   createCardInputSchema,
   MAX_CARD_NUMBER,
+  moveCardBodySchema,
   newId,
   parseCardRef,
   parseClientEvent,
@@ -184,4 +189,38 @@ test('board filters are all optional and validated', () => {
   expect(boardFiltersSchema.safeParse({ text: ' ' }).success).toBe(false);
   expect(boardFiltersSchema.safeParse({ labelId: 'bug' }).success).toBe(false);
   expect(boardFiltersSchema.safeParse({ priority: 'critical' }).success).toBe(false);
+});
+
+describe('card route bodies and query', () => {
+  test('a move names a status and optionally its neighbours', () => {
+    const before = newId('card');
+    expect(moveCardBodySchema.parse({ status: 'todo' })).toEqual({ status: 'todo' });
+    expect(moveCardBodySchema.parse({ status: 'todo', beforeId: before, reason: ' x ' })).toEqual({
+      status: 'todo',
+      beforeId: before,
+      reason: 'x',
+    });
+    expect(moveCardBodySchema.safeParse({ status: 'started' }).success).toBe(false);
+    expect(moveCardBodySchema.safeParse({ status: 'todo', beforeId: 'x' }).success).toBe(false);
+  });
+
+  test('an assignment body wraps the principal or null', () => {
+    expect(assignCardBodySchema.parse({ assignee: null })).toEqual({ assignee: null });
+    expect(assignCardBodySchema.safeParse({}).success).toBe(false);
+  });
+
+  test('board filters survive the trip through a query string', () => {
+    const filters = {
+      assignee: { type: 'bot' as const, id: 'bot_a:b' },
+      labelId: newId('label'),
+      priority: 'high' as const,
+      text: 'login',
+    };
+    const query = boardFiltersToQuery(filters);
+    expect(query.assignee).toBe('bot:bot_a:b');
+    expect(boardFiltersFromQuery(boardQuerySchema.parse(query))).toEqual(filters);
+    expect(boardFiltersToQuery({})).toEqual({});
+    expect(boardQuerySchema.safeParse({ assignee: 'robot:x' }).success).toBe(false);
+    expect(boardQuerySchema.safeParse({ assignee: 'bot:' }).success).toBe(false);
+  });
 });

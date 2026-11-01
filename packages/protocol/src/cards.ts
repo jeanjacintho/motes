@@ -86,6 +86,55 @@ export const boardSchema = z.object({
 });
 export type Board = z.infer<typeof boardSchema>;
 
+export const moveCardBodySchema = z.object({
+  status: z.enum(CARD_STATUSES),
+  /** The card that ends up directly below. */
+  beforeId: idSchema('card').optional(),
+  /** The card that ends up directly above. */
+  afterId: idSchema('card').optional(),
+  reason: changeStatusInputSchema.shape.reason,
+});
+export type MoveCardBody = z.infer<typeof moveCardBodySchema>;
+
+export const assignCardBodySchema = z.object({ assignee: assignCardInputSchema });
+export type AssignCardBody = z.infer<typeof assignCardBodySchema>;
+
+/** Board filters as they travel in a query string; the assignee reads "bot:<id>" or "owner:owner". */
+export const boardQuerySchema = z.object({
+  assignee: z
+    .string()
+    .regex(/^(owner|bot):.+$/)
+    .optional(),
+  labelId: boardFiltersSchema.shape.labelId,
+  priority: boardFiltersSchema.shape.priority,
+  text: boardFiltersSchema.shape.text,
+});
+export type BoardQuery = z.infer<typeof boardQuerySchema>;
+
+export function boardFiltersFromQuery(query: BoardQuery): BoardFilters {
+  const { assignee, ...rest } = query;
+  const separator = assignee?.indexOf(':') ?? -1;
+  return {
+    ...rest,
+    ...(assignee
+      ? {
+          assignee: {
+            type: assignee.slice(0, separator) as 'owner' | 'bot',
+            id: assignee.slice(separator + 1),
+          },
+        }
+      : {}),
+  };
+}
+
+export function boardFiltersToQuery(filters: BoardFilters): Record<string, string> {
+  const { assignee, ...rest } = filters;
+  return {
+    ...Object.fromEntries(Object.entries(rest).filter(([, value]) => value !== undefined)),
+    ...(assignee ? { assignee: `${assignee.type}:${assignee.id}` } : {}),
+  } as Record<string, string>;
+}
+
 export function cardRef(key: string, number: number): string {
   return `${key}-${number}`;
 }

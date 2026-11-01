@@ -1,5 +1,12 @@
 export { getBoard, moveCard } from './board.js';
-export { assignCard, type CardServices, createCard, deleteCard, updateCard } from './cards.js';
+export {
+  assignCard,
+  type CardServices,
+  createCard,
+  deleteCard,
+  getCard,
+  updateCard,
+} from './cards.js';
 export { authenticate, listDevices, revokeDevice } from './devices.js';
 export { Conflict, Forbidden, NotFound, ValidationFailed } from './errors.js';
 export {

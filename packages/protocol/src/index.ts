@@ -14,10 +14,16 @@ export {
 } from './base.js';
 export { canonicalJson } from './canonical-json.js';
 export {
+  type AssignCardBody,
+  assignCardBodySchema,
   assignCardInputSchema,
   type Board,
   type BoardFilters,
+  type BoardQuery as BoardQueryParams,
+  boardFiltersFromQuery,
   boardFiltersSchema,
+  boardFiltersToQuery,
+  boardQuerySchema,
   boardSchema,
   CARD_PRIORITIES,
   CARD_STATUSES,
@@ -33,6 +39,8 @@ export {
   changeStatusInputSchema,
   createCardInputSchema,
   MAX_CARD_NUMBER,
+  type MoveCardBody,
+  moveCardBodySchema,
   parseCardRef,
   type UpdateCardInput,
   updateCardInputSchema,

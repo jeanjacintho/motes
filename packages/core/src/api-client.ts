@@ -1,11 +1,19 @@
 import {
   type AddRepositoryInput,
   API_ERROR_CODES,
+  type AssignCardBody,
   apiErrorSchema,
+  type Board,
+  type BoardFilters,
+  boardFiltersToQuery,
+  boardSchema,
+  type CreateCardInput,
   type CreateProjectInput,
+  cardSchema,
   DEVICE_KINDS,
   deviceResponseSchema,
   healthResponseSchema,
+  type MoveCardBody,
   type ParseLogger,
   type PatchRepositoryBody,
   pairResponseSchema,
@@ -17,11 +25,14 @@ import {
   repositorySchema,
   revokeDeviceResponseSchema,
   tolerantEnum,
+  type UpdateCardInput,
 } from '@motes/protocol';
 import { z } from 'zod';
 import { NetworkError } from './query-client.js';
 
 const projectsSchema = z.array(projectSchema);
+// Card calls fall back to null: a card that cannot be read is better absent than invented.
+const maybeCardSchema = cardSchema.nullable();
 const repositoryDetailsSchema = z.array(repositoryDetailSchema);
 type Output<S extends z.ZodType> = z.output<S>;
 
@@ -167,6 +178,33 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
           fallback,
           { localPath },
         ),
+    },
+    cards: {
+      get: (ref: string, fallback: null) =>
+        request(`/cards/${encodeURIComponent(ref)}`, 'GET', maybeCardSchema, fallback),
+      create: (projectId: string, input: CreateCardInput, fallback: null) =>
+        request(
+          `/projects/${encodeURIComponent(projectId)}/cards`,
+          'POST',
+          maybeCardSchema,
+          fallback,
+          input,
+        ),
+      update: (id: string, patch: UpdateCardInput, fallback: null) =>
+        request(`/cards/${encodeURIComponent(id)}`, 'PATCH', maybeCardSchema, fallback, patch),
+      move: (id: string, body: MoveCardBody, fallback: null) =>
+        request(`/cards/${encodeURIComponent(id)}/move`, 'POST', maybeCardSchema, fallback, body),
+      assign: (id: string, body: AssignCardBody, fallback: null) =>
+        request(`/cards/${encodeURIComponent(id)}/assign`, 'POST', maybeCardSchema, fallback, body),
+      board: (projectId: string, filters: BoardFilters, fallback: Board) => {
+        const query = new URLSearchParams(boardFiltersToQuery(filters)).toString();
+        return request(
+          `/projects/${encodeURIComponent(projectId)}/board${query ? `?${query}` : ''}`,
+          'GET',
+          boardSchema,
+          fallback,
+        );
+      },
     },
     devices: {
       list: (fallback: z.output<typeof devicesSchema>) =>
