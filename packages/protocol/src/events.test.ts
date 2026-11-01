@@ -40,6 +40,10 @@ describe('event contracts', () => {
       | 'card.updated'
       | 'card.assigned'
       | 'card.status_changed'
+      | 'card.labels_changed'
+      | 'label.created'
+      | 'label.updated'
+      | 'label.deleted'
       | 'card.deleted'
     >();
     expect(eventRegistry['system.ping'].type).toBe('system.ping');
@@ -164,6 +168,10 @@ describe('event contracts', () => {
         | 'card.updated'
         | 'card.assigned'
         | 'card.status_changed'
+        | 'card.labels_changed'
+        | 'label.created'
+        | 'label.updated'
+        | 'label.deleted'
         | 'card.deleted'
       >();
       expectTypeOf(parsed.payload).toExtend<Record<string, unknown>>();

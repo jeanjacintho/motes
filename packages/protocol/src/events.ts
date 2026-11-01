@@ -86,6 +86,23 @@ const cardStatusChanged = defineEvent(
     reason: z.string().nullable(),
   }),
 );
+// Carries the card's complete label set after the change, in label-name order.
+const cardLabelsChanged = defineEvent(
+  'card.labels_changed',
+  z.strictObject({ projectId: idSchema('project'), labelIds: z.array(idSchema('label')) }),
+);
+const labelCreated = defineEvent(
+  'label.created',
+  z.strictObject({ projectId: idSchema('project') }),
+);
+const labelUpdated = defineEvent(
+  'label.updated',
+  z.strictObject({ projectId: idSchema('project') }),
+);
+const labelDeleted = defineEvent(
+  'label.deleted',
+  z.strictObject({ projectId: idSchema('project') }),
+);
 const cardDeleted = defineEvent('card.deleted', z.strictObject({ projectId: idSchema('project') }));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
@@ -104,6 +121,10 @@ export const eventRegistry = Object.freeze({
   [cardUpdated.type]: cardUpdated,
   [cardAssigned.type]: cardAssigned,
   [cardStatusChanged.type]: cardStatusChanged,
+  [cardLabelsChanged.type]: cardLabelsChanged,
+  [labelCreated.type]: labelCreated,
+  [labelUpdated.type]: labelUpdated,
+  [labelDeleted.type]: labelDeleted,
   [cardDeleted.type]: cardDeleted,
 });
 

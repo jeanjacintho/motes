@@ -62,6 +62,14 @@ export {
   type RunId,
   type RuntimeId,
 } from './ids.js';
+export {
+  type CreateLabelInput,
+  createLabelInputSchema,
+  type Label,
+  labelSchema,
+  type UpdateLabelInput,
+  updateLabelInputSchema,
+} from './labels.js';
 export { pairRequestSchema, pairResponseSchema } from './pairing.js';
 export { type ParseLogger, parseWithFallback, tolerantEnum } from './parsing.js';
 export {
