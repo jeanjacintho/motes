@@ -22,6 +22,7 @@ export {
 export { appendEvent, type DbTransaction, readEventsAfter, type StoredEvent } from './events.js';
 export { migrate, migrationsUpToDate } from './migrate.js';
 export {
+  cardActivity,
   cardLabels,
   cards,
   comments,

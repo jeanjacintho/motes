@@ -1,4 +1,10 @@
 export {
+  ACTIVITY_EVENT_TYPES,
+  type ActivityEntry,
+  type ActivityEventType,
+  activityEntrySchema,
+} from './activity.js';
+export {
   API_ERROR_CODES,
   type ApiError,
   type ApiErrorCode,

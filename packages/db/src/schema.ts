@@ -1,6 +1,7 @@
 import { CARD_PRIORITIES, CARD_STATUSES, type EventEnvelope } from '@motes/protocol';
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   bigserial,
   boolean,
   check,
@@ -233,4 +234,21 @@ export const comments = pgTable(
     check('comment_author_id_check', sql`length(trim(${table.authorId})) > 0`),
     check('comment_body_check', sql`length(trim(${table.body})) > 0`),
   ],
+);
+
+// Written from events by a projector. The primary key is the event id, so replay is idempotent.
+export const cardActivity = pgTable(
+  'card_activity',
+  {
+    id: text().primaryKey(),
+    seq: bigint({ mode: 'bigint' }).notNull(),
+    cardId: text('card_id')
+      .notNull()
+      .references(() => cards.id),
+    type: text().notNull(),
+    actor: jsonb().$type<{ kind: string; id?: string | undefined }>().notNull(),
+    payload: jsonb().$type<Record<string, unknown>>().notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true, precision: 3 }).notNull(),
+  },
+  (table) => [index('card_activity_card_idx').on(table.cardId, table.seq)],
 );
