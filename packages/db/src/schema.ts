@@ -1,4 +1,4 @@
-import type { EventEnvelope } from '@motes/protocol';
+import { CARD_PRIORITIES, CARD_STATUSES, type EventEnvelope } from '@motes/protocol';
 import { sql } from 'drizzle-orm';
 import {
   bigserial,
@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
@@ -118,5 +119,54 @@ export const repositoryPaths = pgTable(
   (table) => [
     primaryKey({ columns: [table.repositoryId, table.runtimeId] }),
     check('repository_path_check', sql`${table.localPath} ~ '^/'`),
+  ],
+);
+
+// Allocating a number upserts this row, which holds its lock until the transaction ends.
+export const projectCounters = pgTable(
+  'project_counters',
+  {
+    projectId: text('project_id')
+      .primaryKey()
+      .references(() => projects.id),
+    lastNumber: integer('last_number').notNull(),
+  },
+  (table) => [check('project_counter_check', sql`${table.lastNumber} >= 0`)],
+);
+
+const sqlList = (values: readonly string[]) =>
+  sql.raw(values.map((value) => `'${value}'`).join(', '));
+
+export const cards = pgTable(
+  'cards',
+  {
+    id: text().primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    number: integer().notNull(),
+    title: text().notNull(),
+    description: text().notNull(),
+    status: text().notNull(),
+    priority: text().notNull(),
+    assigneeType: text('assignee_type'),
+    assigneeId: text('assignee_id'),
+    repositoryId: text('repository_id').references(() => repositories.id),
+    createdByType: text('created_by_type').notNull(),
+    createdById: text('created_by_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull(),
+  },
+  (table) => [
+    unique('cards_project_number_key').on(table.projectId, table.number),
+    check('card_number_check', sql`${table.number} > 0`),
+    check('card_title_check', sql`length(trim(${table.title})) > 0`),
+    check('card_status_check', sql`${table.status} IN (${sqlList(CARD_STATUSES)})`),
+    check('card_priority_check', sql`${table.priority} IN (${sqlList(CARD_PRIORITIES)})`),
+    check(
+      'card_assignee_check',
+      sql`(${table.assigneeType} IS NULL AND ${table.assigneeId} IS NULL) OR (${table.assigneeType} IS NOT NULL AND ${table.assigneeType} IN ('owner', 'bot') AND ${table.assigneeId} IS NOT NULL AND length(trim(${table.assigneeId})) > 0)`,
+    ),
+    check('card_creator_check', sql`${table.createdByType} IN ('owner', 'bot', 'system')`),
   ],
 );

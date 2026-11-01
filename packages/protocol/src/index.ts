@@ -14,6 +14,19 @@ export {
 } from './base.js';
 export { canonicalJson } from './canonical-json.js';
 export {
+  CARD_PRIORITIES,
+  CARD_STATUSES,
+  type Card,
+  type CardPriority,
+  type CardStatus,
+  cardAssigneeSchema,
+  cardCreatorSchema,
+  cardRef,
+  cardSchema,
+  MAX_CARD_NUMBER,
+  parseCardRef,
+} from './cards.js';
+export {
   type ClientEvent,
   clientEventSchema,
   defineEvent,
