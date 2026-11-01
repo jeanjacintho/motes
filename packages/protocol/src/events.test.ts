@@ -32,6 +32,10 @@ describe('event contracts', () => {
       | 'project.created'
       | 'project.renamed'
       | 'project.archived'
+      | 'repository.added'
+      | 'repository.updated'
+      | 'repository.removed'
+      | 'repository.path_set'
     >();
     expect(eventRegistry['system.ping'].type).toBe('system.ping');
     expect(parseClientEvent(ping, vi.fn())).toEqual(event);
@@ -143,6 +147,14 @@ describe('event contracts', () => {
         | 'project.created'
         | 'project.renamed'
         | 'project.archived'
+        | 'repository.added'
+        | 'repository.updated'
+        | 'repository.removed'
+        | 'repository.path_set'
+        | 'repository.added'
+        | 'repository.updated'
+        | 'repository.removed'
+        | 'repository.path_set'
       >();
       expectTypeOf(parsed.payload).toExtend<Record<string, unknown>>();
     }

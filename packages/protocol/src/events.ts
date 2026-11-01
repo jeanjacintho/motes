@@ -40,6 +40,22 @@ const projectCreated = defineEvent(
 );
 const projectRenamed = defineEvent('project.renamed', z.strictObject({ name: z.string().min(1) }));
 const projectArchived = defineEvent('project.archived', z.strictObject({}));
+const repositoryAdded = defineEvent(
+  'repository.added',
+  z.strictObject({ projectId: idSchema('project'), name: z.string().min(1) }),
+);
+const repositoryUpdated = defineEvent(
+  'repository.updated',
+  z.strictObject({ projectId: idSchema('project') }),
+);
+const repositoryRemoved = defineEvent(
+  'repository.removed',
+  z.strictObject({ projectId: idSchema('project') }),
+);
+const repositoryPathSet = defineEvent(
+  'repository.path_set',
+  z.strictObject({ projectId: idSchema('project'), runtimeId: idSchema('runtime') }),
+);
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
   [pairingChanged.type]: pairingChanged,
@@ -49,6 +65,10 @@ export const eventRegistry = Object.freeze({
   [projectCreated.type]: projectCreated,
   [projectRenamed.type]: projectRenamed,
   [projectArchived.type]: projectArchived,
+  [repositoryAdded.type]: repositoryAdded,
+  [repositoryUpdated.type]: repositoryUpdated,
+  [repositoryRemoved.type]: repositoryRemoved,
+  [repositoryPathSet.type]: repositoryPathSet,
 });
 
 const [firstDescriptor, ...otherDescriptors] = Object.values(eventRegistry);

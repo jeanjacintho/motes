@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 export const ID_PREFIXES = Object.freeze({
   project: 'prj_',
+  repository: 'repo_',
   card: 'card_',
   bot: 'bot_',
   run: 'run_',
@@ -27,6 +28,7 @@ export function idSchema<Kind extends IdKind>(kind: Kind): z.ZodType<Id<Kind>, s
 }
 
 export type ProjectId = Id<'project'>;
+export type RepositoryId = Id<'repository'>;
 export type CardId = Id<'card'>;
 export type BotId = Id<'bot'>;
 export type RunId = Id<'run'>;
