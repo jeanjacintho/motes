@@ -6,6 +6,16 @@ export {
 } from './activity.js';
 export { getBoard, moveCard } from './board.js';
 export {
+  type BotFolder,
+  BotFolderInvalid,
+  type FolderIssue,
+  loadBotFolder,
+  loadSkillFolder,
+  parseSkillMarkdown,
+  type Skill,
+  type SkillFolder,
+} from './bot-folder.js';
+export {
   assignCard,
   type CardServices,
   createCard,

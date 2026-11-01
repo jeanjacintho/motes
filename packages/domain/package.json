@@ -17,6 +17,7 @@
     "@motes/db": "workspace:*",
     "@motes/protocol": "workspace:*",
     "@motes/security": "workspace:*",
-    "@motes/decision": "workspace:*"
+    "@motes/decision": "workspace:*",
+    "yaml": "catalog:"
   }
 }

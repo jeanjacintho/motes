@@ -18,6 +18,19 @@ export {
   type Usage,
   usageSchema,
 } from './base.js';
+export {
+  BOT_EFFORTS,
+  BOT_KINDS,
+  type BotConfig,
+  type BotKind,
+  botConfigSchema,
+  ENGINE_NAMES,
+  type EngineName,
+  MODEL_TIERS,
+  type SkillFrontMatter,
+  skillFrontMatterSchema,
+  slugSchema,
+} from './bots.js';
 export { canonicalJson } from './canonical-json.js';
 export {
   type AssignCardBody,
