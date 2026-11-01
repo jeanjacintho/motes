@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import {
   CARD_PRIORITIES,
   CARD_STATUSES,
@@ -7,6 +7,8 @@ import {
   MAX_CARD_NUMBER,
   newId,
   parseCardRef,
+  parseClientEvent,
+  parseEvent,
 } from './index.js';
 
 const card = {
@@ -85,5 +87,41 @@ describe('card contracts', () => {
       'MOT-1-2',
     ])
       expect(parseCardRef(bad), bad).toBeNull();
+  });
+});
+
+describe('card events', () => {
+  const projectId = card.projectId;
+  test.each([
+    ['card.created', { projectId, number: 12 }],
+    ['card.updated', { projectId, changed: ['title', 'priority'] }],
+    ['card.assigned', { projectId, assignee: { type: 'bot', id: 'bot_1' } }],
+    ['card.assigned', { projectId, assignee: null }],
+    ['card.deleted', { projectId }],
+  ])('registers %s', (type, payload) => {
+    const raw = {
+      id: newId('event'),
+      type,
+      occurredAt: '2026-10-31T10:00:00.000Z',
+      actor: { kind: 'owner' },
+      subject: { kind: 'card', id: card.id },
+      payload,
+    };
+    expect(parseEvent(raw)).toEqual(raw);
+    expect(parseClientEvent(raw, vi.fn())?.type).toBe(type);
+    expect(() => parseEvent({ ...raw, payload: { ...payload, extra: 1 } })).toThrow();
+  });
+
+  test('card.updated needs at least one changed field and only editable ones', () => {
+    const raw = (changed: string[]) => ({
+      id: newId('event'),
+      type: 'card.updated',
+      occurredAt: '2026-10-31T10:00:00.000Z',
+      actor: { kind: 'owner' },
+      subject: { kind: 'card', id: card.id },
+      payload: { projectId: card.projectId, changed },
+    });
+    expect(() => parseEvent(raw([]))).toThrow();
+    expect(() => parseEvent(raw(['status']))).toThrow();
   });
 });

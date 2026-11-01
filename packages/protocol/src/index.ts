@@ -27,6 +27,7 @@ export {
   parseCardRef,
 } from './cards.js';
 export {
+  CARD_EDITABLE_FIELDS,
   type ClientEvent,
   clientEventSchema,
   defineEvent,
