@@ -1,7 +1,7 @@
 # Server
 
 Run `pnpm dev:server` from the repository root. Set `DATABASE_URL` to a Postgres
-connection before starting it. `MOTES_PORT` defaults to 3000. The server applies
+connection before starting it. `MOTES_PORT` defaults to 3000. `MOTES_SKILLS_DIR` (default `~/Motes/skills`) holds the bot folders under `bots/` and the shared skills under `shared/`; the server creates it as a git repository on first start and keeps the bot index in step with it while running. The server applies
 pending migrations at startup; set `MOTES_MIGRATE_ON_START=false` to disable
 that behavior. `GET /health` returns version, process uptime in seconds, database
 availability and migration status, with HTTP 503 when either check fails.
@@ -42,4 +42,6 @@ validation_failed`, `404 not_found`, `409 conflict`.
 | `PATCH /cards/:id` | title, description, priority or repository |
 | `POST /cards/:id/move` `{ status, beforeId?, afterId?, reason? }` | status change and/or reorder; `afterId` is the card directly above, `beforeId` directly below and they must be adjacent |
 | `POST /cards/:id/assign` `{ assignee }` | the owner, a bot, or `null` to clear |
+| `GET /bots` | the bot index: slug, name, kind, engines, `enabled`, `skillDigest` and `loadError` while the folder is broken |
+| `GET /bots/:id` | the index row plus the config and `SKILL.md` read from disk (both `null` while the folder is broken) |
 | `GET /projects/:id/board?assignee=&labelId=&priority=&text=` | every status as a column; `assignee` reads `bot:<id>` or `owner:owner` |

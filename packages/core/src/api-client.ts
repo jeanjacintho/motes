@@ -5,8 +5,11 @@ import {
   apiErrorSchema,
   type Board,
   type BoardFilters,
+  type BotDetail,
   boardFiltersToQuery,
   boardSchema,
+  botDetailSchema,
+  botSummarySchema,
   type CreateCardInput,
   type CreateProjectInput,
   cardSchema,
@@ -33,6 +36,8 @@ import { NetworkError } from './query-client.js';
 const projectsSchema = z.array(projectSchema);
 // Card calls fall back to null: a card that cannot be read is better absent than invented.
 const maybeCardSchema = cardSchema.nullable();
+const botsSchema = z.array(botSummarySchema);
+const maybeBotSchema = botDetailSchema.nullable();
 const repositoryDetailsSchema = z.array(repositoryDetailSchema);
 type Output<S extends z.ZodType> = z.output<S>;
 
@@ -205,6 +210,11 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
           fallback,
         );
       },
+    },
+    bots: {
+      list: (fallback: Output<typeof botsSchema>) => request('/bots', 'GET', botsSchema, fallback),
+      get: (id: string, fallback: BotDetail | null) =>
+        request(`/bots/${encodeURIComponent(id)}`, 'GET', maybeBotSchema, fallback),
     },
     devices: {
       list: (fallback: z.output<typeof devicesSchema>) =>
