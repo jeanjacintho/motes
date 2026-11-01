@@ -4,7 +4,11 @@ import type { DbTransaction } from './events.js';
 import type { Db } from './index.js';
 import { cardActivity } from './schema.js';
 
-export type NewActivity = Omit<ActivityEntry, 'occurredAt'> & { seq: bigint; occurredAt: Date };
+export type NewActivity = Omit<ActivityEntry, 'occurredAt' | 'cardId'> & {
+  cardId: string;
+  seq: bigint;
+  occurredAt: Date;
+};
 
 /** Inserting an event that was already projected changes nothing. */
 export async function insertActivity(tx: DbTransaction, input: NewActivity): Promise<void> {

@@ -7,6 +7,7 @@ export function createDb(url: string) {
 
 export type Db = ReturnType<typeof createDb>;
 export { eq, sql } from 'drizzle-orm';
+export { insertActivity, listActivity, type NewActivity } from './activity.js';
 export {
   type BoardQuery,
   cardFromRow,

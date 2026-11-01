@@ -1,3 +1,9 @@
+export {
+  listCardActivity,
+  projectActivity,
+  replayActivity,
+  withActivityProjection,
+} from './activity.js';
 export { getBoard, moveCard } from './board.js';
 export {
   assignCard,
