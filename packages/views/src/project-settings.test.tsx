@@ -94,6 +94,29 @@ describe('project settings', () => {
     );
   });
 
+  it('submits a repository once while the first request is still pending', async () => {
+    let finish: () => void = () => {};
+    const onAddRepository = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    setup({ onAddRepository });
+    fireEvent.change(screen.getByLabelText('Nome do repositório'), { target: { value: 'cli' } });
+    fireEvent.change(screen.getByLabelText('URL do remoto'), {
+      target: { value: 'git@x:o/cli.git' },
+    });
+    const button = screen.getByRole('button', { name: 'Adicionar repositório' });
+    fireEvent.click(button);
+    expect((button as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.click(button);
+    fireEvent.submit(button.closest('form') as HTMLFormElement);
+    expect(onAddRepository).toHaveBeenCalledTimes(1);
+    finish();
+    await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+  });
+
   it('promotes, removes and sets a checkout path for a repository', async () => {
     const { onUpdateRepository, onRemoveRepository, onSetPath } = setup();
     fireEvent.click(screen.getByRole('button', { name: 'Tornar web principal' }));

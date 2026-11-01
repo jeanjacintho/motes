@@ -74,16 +74,20 @@ function AddRepositoryForm({
   const [name, setName] = useState('');
   const [remoteUrl, setRemoteUrl] = useState('');
   const [defaultBranch, setDefaultBranch] = useState('main');
+  // Adding is not idempotent (each call inserts a repository), so one attempt at a time.
+  const [busy, setBusy] = useState(false);
   return (
     <form
       onSubmit={(event) => {
         event.preventDefault();
+        if (busy) return;
+        setBusy(true);
         void run(async () => {
           await onAddRepository({ name, remoteUrl, defaultBranch });
           setName('');
           setRemoteUrl('');
           setDefaultBranch('main');
-        });
+        }).finally(() => setBusy(false));
       }}
     >
       <label htmlFor="repo-name">
@@ -108,7 +112,9 @@ function AddRepositoryForm({
           onChange={(e) => setDefaultBranch(e.target.value)}
         />
       </label>
-      <Button type="submit">Adicionar repositório</Button>
+      <Button type="submit" disabled={busy}>
+        Adicionar repositório
+      </Button>
     </form>
   );
 }
