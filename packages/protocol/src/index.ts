@@ -44,6 +44,16 @@ export {
 export { pairRequestSchema, pairResponseSchema } from './pairing.js';
 export { type ParseLogger, parseWithFallback, tolerantEnum } from './parsing.js';
 export {
+  listProjectsQuerySchema,
+  type PatchRepositoryBody,
+  patchRepositoryBodySchema,
+  type RepositoryDetail,
+  removeRepositoryResponseSchema,
+  renameProjectBodySchema,
+  repositoryDetailSchema,
+  setRepositoryPathBodySchema,
+} from './project-api.js';
+export {
   type CreateProjectInput,
   createProjectInputSchema,
   type Project,
