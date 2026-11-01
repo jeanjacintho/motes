@@ -1,20 +1,13 @@
-import { type appendEvent, type Db, eq, projects, sql } from '@motes/db';
+import { eq, projects, sql } from '@motes/db';
 import {
   type CreateProjectInput,
   createProjectInputSchema,
-  type EventEnvelope,
-  type newId,
   type Project,
   projectSchema,
   renameProjectInputSchema,
 } from '@motes/protocol';
-import { Conflict, NotFound, ValidationFailed } from './errors.js';
-
-type Services = { db: Db; clock: () => Date; newId: typeof newId; appendEvent: typeof appendEvent };
-type Actor = EventEnvelope['actor'];
-type Tx = Parameters<Parameters<Db['transaction']>[0]>[0];
-
-const owner: Actor = { kind: 'owner' };
+import { Conflict, NotFound } from './errors.js';
+import { type Actor, emit, owner, parseInput, type Services, type Tx } from './shared.js';
 
 function toProject(row: typeof projects.$inferSelect): Project {
   return projectSchema.parse({
@@ -28,14 +21,6 @@ function toProject(row: typeof projects.$inferSelect): Project {
   });
 }
 
-function parseInput<Output>(
-  parse: () => { success: true; data: Output } | { success: false; error: { issues: unknown } },
-): Output {
-  const result = parse();
-  if (!result.success) throw new ValidationFailed('Invalid project', result.error.issues);
-  return result.data;
-}
-
 function isUniqueViolation(error: unknown): boolean {
   const cause = error instanceof Error ? error.cause : undefined;
   return [error, cause].some(
@@ -45,24 +30,6 @@ function isUniqueViolation(error: unknown): boolean {
       'code' in candidate &&
       candidate.code === '23505',
   );
-}
-
-function emit(
-  services: Services,
-  tx: Tx,
-  type: 'project.created' | 'project.renamed' | 'project.archived',
-  project: { id: string },
-  payload: Record<string, string>,
-  actor: Actor,
-) {
-  return services.appendEvent(tx, {
-    id: services.newId('event'),
-    type,
-    occurredAt: services.clock().toISOString(),
-    actor,
-    subject: { kind: 'project', id: project.id },
-    payload,
-  });
 }
 
 async function lockProject(tx: Tx, id: string) {
@@ -76,7 +43,7 @@ export async function createProject(
   input: CreateProjectInput,
   actor: Actor = owner,
 ): Promise<Project> {
-  const data = parseInput(() => createProjectInputSchema.safeParse(input));
+  const data = parseInput('project', () => createProjectInputSchema.safeParse(input));
   try {
     return await services.db.transaction(async (tx) => {
       const [row] = await tx
@@ -91,7 +58,14 @@ export async function createProject(
         })
         .returning();
       if (!row) throw new Error('Project insertion returned no row');
-      await emit(services, tx, 'project.created', row, { key: row.key, name: row.name }, actor);
+      await emit(
+        services,
+        tx,
+        'project.created',
+        { kind: 'project', id: row.id },
+        { key: row.key, name: row.name },
+        actor,
+      );
       return toProject(row);
     });
   } catch (error) {
@@ -106,7 +80,7 @@ export async function renameProject(
   name: string,
   actor: Actor = owner,
 ): Promise<Project> {
-  const next = parseInput(() => renameProjectInputSchema.safeParse(name));
+  const next = parseInput('project', () => renameProjectInputSchema.safeParse(name));
   return services.db.transaction(async (tx) => {
     const current = await lockProject(tx, id);
     if (current.name === next) return toProject(current);
@@ -116,7 +90,14 @@ export async function renameProject(
       .where(eq(projects.id, id))
       .returning();
     if (!row) throw new Error('Project update returned no row');
-    await emit(services, tx, 'project.renamed', row, { name: row.name }, actor);
+    await emit(
+      services,
+      tx,
+      'project.renamed',
+      { kind: 'project', id: row.id },
+      { name: row.name },
+      actor,
+    );
     return toProject(row);
   });
 }
@@ -135,7 +116,7 @@ export async function archiveProject(
       .where(eq(projects.id, id))
       .returning();
     if (!row) throw new Error('Project update returned no row');
-    await emit(services, tx, 'project.archived', row, {}, actor);
+    await emit(services, tx, 'project.archived', { kind: 'project', id: row.id }, {}, actor);
     return toProject(row);
   });
 }
