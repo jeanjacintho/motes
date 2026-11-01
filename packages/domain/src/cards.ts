@@ -25,7 +25,7 @@ async function lockProject(tx: Tx, projectId: string) {
 }
 
 /** Project lock first, then the card, so concurrent mutations of one card queue up. */
-async function lockCard(tx: Tx, id: string, options: { allowDeleted?: boolean } = {}) {
+export async function lockCard(tx: Tx, id: string, options: { allowDeleted?: boolean } = {}) {
   const [peek] = await tx
     .select({ projectId: cards.projectId })
     .from(cards)
