@@ -1,14 +1,17 @@
 import { describe, expect, test, vi } from 'vitest';
 import {
+  assignCardInputSchema,
   CARD_PRIORITIES,
   CARD_STATUSES,
   cardRef,
   cardSchema,
+  createCardInputSchema,
   MAX_CARD_NUMBER,
   newId,
   parseCardRef,
   parseClientEvent,
   parseEvent,
+  updateCardInputSchema,
 } from './index.js';
 
 const card = {
@@ -123,5 +126,36 @@ describe('card events', () => {
     });
     expect(() => parseEvent(raw([]))).toThrow();
     expect(() => parseEvent(raw(['status']))).toThrow();
+  });
+});
+
+describe('card inputs', () => {
+  test('creation defaults the description and priority and trims the title', () => {
+    expect(createCardInputSchema.parse({ title: '  Corrigir  ' })).toEqual({
+      title: 'Corrigir',
+      description: '',
+      priority: 'none',
+    });
+    expect(createCardInputSchema.safeParse({ title: ' ' }).success).toBe(false);
+    expect(createCardInputSchema.safeParse({ title: 'x', priority: 'critical' }).success).toBe(
+      false,
+    );
+  });
+
+  test('an update changes only the fields it names and cannot touch status or assignee', () => {
+    expect(updateCardInputSchema.parse({})).toEqual({});
+    expect(updateCardInputSchema.parse({ priority: 'high', status: 'done' })).toEqual({
+      priority: 'high',
+    });
+    expect(updateCardInputSchema.safeParse({ title: '' }).success).toBe(false);
+  });
+
+  test('assignment takes a principal or null', () => {
+    expect(assignCardInputSchema.parse(null)).toBeNull();
+    expect(assignCardInputSchema.parse({ type: 'bot', id: 'bot_1' })).toEqual({
+      type: 'bot',
+      id: 'bot_1',
+    });
+    expect(assignCardInputSchema.safeParse({ type: 'robot', id: 'x' }).success).toBe(false);
   });
 });

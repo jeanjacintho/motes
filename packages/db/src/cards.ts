@@ -23,7 +23,7 @@ export type NewCard = {
   now: Date;
 };
 
-function toCard(row: typeof cards.$inferSelect): Card {
+export function cardFromRow(row: typeof cards.$inferSelect): Card {
   return cardSchema.parse({
     id: row.id,
     projectId: row.projectId,
@@ -84,7 +84,7 @@ export async function insertCard(tx: DbTransaction, input: NewCard): Promise<Car
     })
     .returning();
   if (!row) throw new Error('Card insertion returned no row');
-  return toCard(row);
+  return cardFromRow(row);
 }
 
 type Reader = Pick<Db, 'select'>;
@@ -94,7 +94,7 @@ export async function getCardById(db: Reader, id: string): Promise<Card | undefi
     .select()
     .from(cards)
     .where(sql`${cards.id} = ${id} AND ${cards.deletedAt} IS NULL`);
-  return row && toCard(row);
+  return row && cardFromRow(row);
 }
 
 /** Finds a card by its "KEY-number" reference; anything malformed or unknown is undefined. */
@@ -108,7 +108,7 @@ export async function getCardByRef(db: Reader, ref: string): Promise<Card | unde
     .where(
       sql`${projects.key} = ${parsed.key} AND ${cards.number} = ${parsed.number} AND ${cards.deletedAt} IS NULL`,
     );
-  return row && toCard(row.card);
+  return row && cardFromRow(row.card);
 }
 
 /** Any card counts, open, closed or deleted: the foreign key keeps the repository row alive for them. */
