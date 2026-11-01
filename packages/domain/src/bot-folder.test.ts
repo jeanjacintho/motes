@@ -231,6 +231,16 @@ describe('digest', () => {
   });
 });
 
+describe('digest of large references', () => {
+  it('changes when a reference above the read limit changes without changing its length', async () => {
+    const big = (letter: string) => `${letter}${'x'.repeat(300_000)}`;
+    const files = { 'SKILL.md': SKILL, 'bot.yaml': BOT };
+    const one = await loadBotFolder(await folder({ ...files, 'references/manual.md': big('a') }));
+    const two = await loadBotFolder(await folder({ ...files, 'references/manual.md': big('b') }));
+    expect(two.digest).not.toBe(one.digest);
+  });
+});
+
 describe('loadSkillFolder', () => {
   it('loads a shared skill, which has no bot.yaml', async () => {
     const dir = await folder(

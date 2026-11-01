@@ -233,6 +233,25 @@ describe('syncBots', () => {
   });
 });
 
+describe('large references', () => {
+  it('announces one update when a big reference changes without changing its length', async () => {
+    const root = await freshDir();
+    const name = slug('big');
+    const manual = (letter: string) => `${letter}${'x'.repeat(300_000)}`;
+    const folder = await writeBot(root, name, { 'references/manual.md': manual('a') });
+    await syncBots(services(), root);
+    const created = await find(name);
+    await writeFile(join(folder, 'references', 'manual.md'), manual('b'));
+    await syncBots(services(), root);
+    await syncBots(services(), root);
+    expect((await find(name))?.skillDigest).not.toBe(created?.skillDigest);
+    expect((await botEvents(created?.id as string)).map(([type]) => type)).toEqual([
+      'bot.created',
+      'bot.updated',
+    ]);
+  });
+});
+
 describe('listBots and getBot', () => {
   it('lists live bots by slug and reads config and skill from disk', async () => {
     const root = await freshDir();

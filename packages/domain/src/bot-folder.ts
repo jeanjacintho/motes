@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { createReadStream } from 'node:fs';
 import { lstat, readdir, readFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
@@ -137,16 +138,13 @@ async function loadSkill(
   }
 }
 
-/** Hashes the behavior files and the reference files; files over the read limit count by size. */
+/** Hashes the behavior files and every byte of the reference files, which are streamed. */
 async function digestOf(dir: string, texts: string[], references: string[]): Promise<string> {
   const hash = createHash('sha256');
   for (const text of texts) hash.update(`${text.length}:${text}`);
   for (const reference of references) {
-    const info = await lstat(join(dir, reference));
     hash.update(`${reference}\0`);
-    hash.update(
-      info.size > MAX_FILE_BYTES ? `size:${info.size}` : await readFile(join(dir, reference)),
-    );
+    for await (const chunk of createReadStream(join(dir, reference))) hash.update(chunk);
   }
   return hash.digest('hex');
 }
