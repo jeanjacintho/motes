@@ -5,6 +5,7 @@ import {
   CARD_STATUSES,
   cardRef,
   cardSchema,
+  changeStatusInputSchema,
   createCardInputSchema,
   MAX_CARD_NUMBER,
   newId,
@@ -100,6 +101,8 @@ describe('card events', () => {
     ['card.updated', { projectId, changed: ['title', 'priority'] }],
     ['card.assigned', { projectId, assignee: { type: 'bot', id: 'bot_1' } }],
     ['card.assigned', { projectId, assignee: null }],
+    ['card.status_changed', { projectId, from: 'todo', to: 'in_progress', reason: null }],
+    ['card.status_changed', { projectId, from: 'todo', to: 'blocked', reason: 'Aguardando API' }],
     ['card.deleted', { projectId }],
   ])('registers %s', (type, payload) => {
     const raw = {
@@ -158,4 +161,14 @@ describe('card inputs', () => {
     });
     expect(assignCardInputSchema.safeParse({ type: 'robot', id: 'x' }).success).toBe(false);
   });
+});
+
+test('a status change takes a known status and an optional non-empty reason', () => {
+  expect(changeStatusInputSchema.parse({ to: 'done' })).toEqual({ to: 'done' });
+  expect(changeStatusInputSchema.parse({ to: 'blocked', reason: ' Sem acesso ' })).toEqual({
+    to: 'blocked',
+    reason: 'Sem acesso',
+  });
+  expect(changeStatusInputSchema.safeParse({ to: 'started' }).success).toBe(false);
+  expect(changeStatusInputSchema.safeParse({ to: 'done', reason: ' ' }).success).toBe(false);
 });

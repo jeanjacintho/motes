@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { timestampSchema } from './base.js';
+import { CARD_STATUSES } from './cards.js';
 import { idSchema } from './ids.js';
 import { type ParseLogger, parseWithFallback, tolerantEnum } from './parsing.js';
 
@@ -76,6 +77,15 @@ const cardAssigned = defineEvent(
     assignee: z.strictObject({ type: z.enum(['owner', 'bot']), id: z.string().min(1) }).nullable(),
   }),
 );
+const cardStatusChanged = defineEvent(
+  'card.status_changed',
+  z.strictObject({
+    projectId: idSchema('project'),
+    from: z.enum(CARD_STATUSES),
+    to: z.enum(CARD_STATUSES),
+    reason: z.string().nullable(),
+  }),
+);
 const cardDeleted = defineEvent('card.deleted', z.strictObject({ projectId: idSchema('project') }));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
@@ -93,6 +103,7 @@ export const eventRegistry = Object.freeze({
   [cardCreated.type]: cardCreated,
   [cardUpdated.type]: cardUpdated,
   [cardAssigned.type]: cardAssigned,
+  [cardStatusChanged.type]: cardStatusChanged,
   [cardDeleted.type]: cardDeleted,
 });
 
