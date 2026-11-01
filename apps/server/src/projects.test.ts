@@ -160,4 +160,60 @@ describe('project routes', () => {
     expect(rest).toMatchObject([{ id: first.json().id, isPrimary: true }]);
     await app.close();
   });
+
+  it('applies a combined field change and promotion atomically', async () => {
+    let failNext = 0;
+    const base = createServices(testDb.db);
+    const services = {
+      ...base,
+      appendEvent: (...args: Parameters<typeof base.appendEvent>) => {
+        if (failNext > 0 && --failNext === 0) throw new Error('outbox unavailable');
+        return base.appendEvent(...args);
+      },
+    };
+    const app = createServer(testDb.db, createLogger('silent'), undefined, services);
+    const code = await createPairingCode(services);
+    const paired = await app.inject({ method: 'POST', url: '/pair', payload: { code, name: 'L' } });
+    const headers = { authorization: `Bearer ${paired.json().token}` };
+    const call = (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
+      app.inject({ method, url, headers, ...(payload ? { payload } : {}) });
+    const project = (await call('POST', '/projects', { key: 'RTC', name: 'Routes C' })).json();
+    const first = (
+      await call('POST', `/projects/${project.id}/repositories`, repository('api'))
+    ).json();
+    const second = (
+      await call('POST', `/projects/${project.id}/repositories`, repository('web'))
+    ).json();
+    const countEvents = async () =>
+      (
+        await testDb.db
+          .$client`SELECT count(*)::int AS n FROM events WHERE type LIKE 'repository.%'`
+      )[0]?.n;
+    const before = await countEvents();
+
+    // The second event of the request is the promotion's; a partial commit would keep the branch.
+    failNext = 2;
+    const failed = await call('PATCH', `/repositories/${second.id}`, {
+      defaultBranch: 'develop',
+      isPrimary: true,
+    });
+    expect(failed.statusCode).toBe(500);
+    failNext = 0;
+    const after = (await call('GET', `/projects/${project.id}/repositories`)).json();
+    expect(after.map((item: { defaultBranch: string }) => item.defaultBranch)).toEqual([
+      'main',
+      'main',
+    ]);
+    expect(after.map((item: { isPrimary: boolean }) => item.isPrimary)).toEqual([true, false]);
+    expect(await countEvents()).toBe(before);
+
+    const ok = await call('PATCH', `/repositories/${second.id}`, {
+      defaultBranch: 'develop',
+      isPrimary: true,
+    });
+    expect(ok.statusCode).toBe(200);
+    expect(ok.json()).toMatchObject({ id: second.id, defaultBranch: 'develop', isPrimary: true });
+    expect(first.isPrimary).toBe(true);
+    await app.close();
+  });
 });
