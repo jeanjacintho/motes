@@ -37,6 +37,7 @@ export {
   type MessageId,
   newId,
   type ProjectId,
+  type RepositoryId,
   type RunId,
   type RuntimeId,
 } from './ids.js';
@@ -50,6 +51,17 @@ export {
   projectSchema,
   renameProjectInputSchema,
 } from './projects.js';
+export {
+  type AddRepositoryInput,
+  addRepositoryInputSchema,
+  localPathSchema,
+  type Repository,
+  type RepositoryPath,
+  repositoryPathSchema,
+  repositorySchema,
+  type UpdateRepositoryInput,
+  updateRepositoryInputSchema,
+} from './repositories.js';
 export {
   DEVICE_KINDS,
   deviceListResponseSchema,

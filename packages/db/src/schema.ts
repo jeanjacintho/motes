@@ -1,6 +1,17 @@
 import type { EventEnvelope } from '@motes/protocol';
 import { sql } from 'drizzle-orm';
-import { bigserial, check, integer, jsonb, pgTable, text, timestamp } from 'drizzle-orm/pg-core';
+import {
+  bigserial,
+  boolean,
+  check,
+  integer,
+  jsonb,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 
 export const events = pgTable('events', {
   seq: bigserial({ mode: 'bigint' }).primaryKey(),
@@ -70,5 +81,42 @@ export const projects = pgTable(
   (table) => [
     check('project_key_check', sql`${table.key} ~ '^[A-Z]{2,6}$'`),
     check('project_name_check', sql`length(trim(${table.name})) > 0`),
+  ],
+);
+
+// Dependents are removed by application code in a transaction; there are no cascading deletes.
+export const repositories = pgTable(
+  'repositories',
+  {
+    id: text().primaryKey(),
+    projectId: text('project_id')
+      .notNull()
+      .references(() => projects.id),
+    name: text().notNull(),
+    remoteUrl: text('remote_url').notNull(),
+    defaultBranch: text('default_branch').notNull(),
+    isPrimary: boolean('is_primary').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+  },
+  (table) => [
+    // At most one primary per project; the domain keeps one whenever a repository exists.
+    uniqueIndex('repositories_primary_idx').on(table.projectId).where(sql`${table.isPrimary}`),
+    check('repository_name_check', sql`length(trim(${table.name})) > 0`),
+  ],
+);
+
+export const repositoryPaths = pgTable(
+  'repository_paths',
+  {
+    repositoryId: text('repository_id')
+      .notNull()
+      .references(() => repositories.id),
+    // No foreign key yet: runtimes arrive in a later epic.
+    runtimeId: text('runtime_id').notNull(),
+    localPath: text('local_path').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.repositoryId, table.runtimeId] }),
+    check('repository_path_check', sql`${table.localPath} ~ '^/'`),
   ],
 );
