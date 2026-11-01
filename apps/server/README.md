@@ -37,3 +37,9 @@ validation_failed`, `404 not_found`, `409 conflict`.
 | `PATCH /repositories/:id` | field changes; `isPrimary: true` promotes it (the only primary change) |
 | `DELETE /repositories/:id` | `{ removed: true }`; the oldest remaining repository becomes primary |
 | `PUT /repositories/:id/paths/:runtimeId` `{ localPath }` | the checkout path for that runtime |
+| `POST /projects/:id/cards` | `201` with the new card, at the bottom of backlog on the primary repository by default |
+| `GET /cards/:ref` | a card by id or `KEY-n`; deleted cards are `404` |
+| `PATCH /cards/:id` | title, description, priority or repository |
+| `POST /cards/:id/move` `{ status, beforeId?, afterId?, reason? }` | status change and/or reorder; `afterId` is the card directly above, `beforeId` directly below and they must be adjacent |
+| `POST /cards/:id/assign` `{ assignee }` | the owner, a bot, or `null` to clear |
+| `GET /projects/:id/board?assignee=&labelId=&priority=&text=` | every status as a column; `assignee` reads `bot:<id>` or `owner:owner` |
