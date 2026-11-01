@@ -156,6 +156,8 @@ export const cards = pgTable(
     createdById: text('created_by_id').notNull(),
     createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull(),
+    // Soft delete: the row keeps its number and repository reference.
+    deletedAt: timestamp('deleted_at', { withTimezone: true, precision: 3 }),
   },
   (table) => [
     unique('cards_project_number_key').on(table.projectId, table.number),

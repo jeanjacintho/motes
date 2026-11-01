@@ -1,4 +1,5 @@
 import { newId } from '@motes/protocol';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import {
   getCardById,
@@ -155,5 +156,27 @@ describe('repository usage', () => {
     expect(await repositoryHasCards(testDb.db, repositoryId)).toBe(false);
     await insert(newCard(id, { repositoryId, status: 'done' }));
     expect(await repositoryHasCards(testDb.db, repositoryId)).toBe(true);
+  });
+});
+
+describe('soft deleted cards', () => {
+  it('read as missing, keep their number, and still hold their repository', async () => {
+    const id = await project('DEL');
+    const repositoryId = newId('repository');
+    await testDb.db.insert(repositories).values({
+      id: repositoryId,
+      projectId: id,
+      name: 'api',
+      remoteUrl: 'git@x:o/api.git',
+      defaultBranch: 'main',
+      isPrimary: true,
+      createdAt: now,
+    });
+    const created = await insert(newCard(id, { repositoryId }));
+    await testDb.db.update(cards).set({ deletedAt: now }).where(eq(cards.id, created.id));
+    expect(await getCardById(testDb.db, created.id)).toBeUndefined();
+    expect(await getCardByRef(testDb.db, 'DEL-1')).toBeUndefined();
+    expect(await repositoryHasCards(testDb.db, repositoryId)).toBe(true);
+    expect((await insert(newCard(id))).number).toBe(2);
   });
 });

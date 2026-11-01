@@ -56,6 +56,27 @@ const repositoryPathSet = defineEvent(
   'repository.path_set',
   z.strictObject({ projectId: idSchema('project'), runtimeId: idSchema('runtime') }),
 );
+export const CARD_EDITABLE_FIELDS = ['title', 'description', 'priority', 'repositoryId'] as const;
+const cardCreated = defineEvent(
+  'card.created',
+  z.strictObject({ projectId: idSchema('project'), number: z.number().int().positive() }),
+);
+const cardUpdated = defineEvent(
+  'card.updated',
+  z.strictObject({
+    projectId: idSchema('project'),
+    changed: z.array(z.enum(CARD_EDITABLE_FIELDS)).min(1),
+  }),
+);
+// A null assignee means the card became unassigned.
+const cardAssigned = defineEvent(
+  'card.assigned',
+  z.strictObject({
+    projectId: idSchema('project'),
+    assignee: z.strictObject({ type: z.enum(['owner', 'bot']), id: z.string().min(1) }).nullable(),
+  }),
+);
+const cardDeleted = defineEvent('card.deleted', z.strictObject({ projectId: idSchema('project') }));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
   [pairingChanged.type]: pairingChanged,
@@ -69,6 +90,10 @@ export const eventRegistry = Object.freeze({
   [repositoryUpdated.type]: repositoryUpdated,
   [repositoryRemoved.type]: repositoryRemoved,
   [repositoryPathSet.type]: repositoryPathSet,
+  [cardCreated.type]: cardCreated,
+  [cardUpdated.type]: cardUpdated,
+  [cardAssigned.type]: cardAssigned,
+  [cardDeleted.type]: cardDeleted,
 });
 
 const [firstDescriptor, ...otherDescriptors] = Object.values(eventRegistry);

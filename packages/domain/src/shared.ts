@@ -28,7 +28,7 @@ export function emit(
   tx: Tx,
   type: KnownEvent['type'],
   subject: { kind: string; id: string },
-  payload: Record<string, string>,
+  payload: Record<string, unknown>,
   actor: Actor,
 ) {
   return services.appendEvent(tx, {

@@ -1,12 +1,17 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import {
+  assignCardInputSchema,
   CARD_PRIORITIES,
   CARD_STATUSES,
   cardRef,
   cardSchema,
+  createCardInputSchema,
   MAX_CARD_NUMBER,
   newId,
   parseCardRef,
+  parseClientEvent,
+  parseEvent,
+  updateCardInputSchema,
 } from './index.js';
 
 const card = {
@@ -85,5 +90,72 @@ describe('card contracts', () => {
       'MOT-1-2',
     ])
       expect(parseCardRef(bad), bad).toBeNull();
+  });
+});
+
+describe('card events', () => {
+  const projectId = card.projectId;
+  test.each([
+    ['card.created', { projectId, number: 12 }],
+    ['card.updated', { projectId, changed: ['title', 'priority'] }],
+    ['card.assigned', { projectId, assignee: { type: 'bot', id: 'bot_1' } }],
+    ['card.assigned', { projectId, assignee: null }],
+    ['card.deleted', { projectId }],
+  ])('registers %s', (type, payload) => {
+    const raw = {
+      id: newId('event'),
+      type,
+      occurredAt: '2026-10-31T10:00:00.000Z',
+      actor: { kind: 'owner' },
+      subject: { kind: 'card', id: card.id },
+      payload,
+    };
+    expect(parseEvent(raw)).toEqual(raw);
+    expect(parseClientEvent(raw, vi.fn())?.type).toBe(type);
+    expect(() => parseEvent({ ...raw, payload: { ...payload, extra: 1 } })).toThrow();
+  });
+
+  test('card.updated needs at least one changed field and only editable ones', () => {
+    const raw = (changed: string[]) => ({
+      id: newId('event'),
+      type: 'card.updated',
+      occurredAt: '2026-10-31T10:00:00.000Z',
+      actor: { kind: 'owner' },
+      subject: { kind: 'card', id: card.id },
+      payload: { projectId: card.projectId, changed },
+    });
+    expect(() => parseEvent(raw([]))).toThrow();
+    expect(() => parseEvent(raw(['status']))).toThrow();
+  });
+});
+
+describe('card inputs', () => {
+  test('creation defaults the description and priority and trims the title', () => {
+    expect(createCardInputSchema.parse({ title: '  Corrigir  ' })).toEqual({
+      title: 'Corrigir',
+      description: '',
+      priority: 'none',
+    });
+    expect(createCardInputSchema.safeParse({ title: ' ' }).success).toBe(false);
+    expect(createCardInputSchema.safeParse({ title: 'x', priority: 'critical' }).success).toBe(
+      false,
+    );
+  });
+
+  test('an update changes only the fields it names and cannot touch status or assignee', () => {
+    expect(updateCardInputSchema.parse({})).toEqual({});
+    expect(updateCardInputSchema.parse({ priority: 'high', status: 'done' })).toEqual({
+      priority: 'high',
+    });
+    expect(updateCardInputSchema.safeParse({ title: '' }).success).toBe(false);
+  });
+
+  test('assignment takes a principal or null', () => {
+    expect(assignCardInputSchema.parse(null)).toBeNull();
+    expect(assignCardInputSchema.parse({ type: 'bot', id: 'bot_1' })).toEqual({
+      type: 'bot',
+      id: 'bot_1',
+    });
+    expect(assignCardInputSchema.safeParse({ type: 'robot', id: 'x' }).success).toBe(false);
   });
 });

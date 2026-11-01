@@ -42,6 +42,28 @@ export const cardSchema = z.object({
 });
 export type Card = z.infer<typeof cardSchema>;
 
+export const createCardInputSchema = z.object({
+  title: cardSchema.shape.title,
+  description: cardSchema.shape.description.default(''),
+  priority: cardSchema.shape.priority.default('none'),
+  /** Defaults to the project's primary repository. */
+  repositoryId: idSchema('repository').optional(),
+  assignee: cardAssigneeSchema.optional(),
+});
+export type CreateCardInput = z.input<typeof createCardInputSchema>;
+
+/** Only the fields present are changed; status and assignee have their own operations. */
+export const updateCardInputSchema = z.object({
+  title: cardSchema.shape.title.optional(),
+  description: cardSchema.shape.description.optional(),
+  priority: cardSchema.shape.priority.optional(),
+  repositoryId: idSchema('repository').optional(),
+});
+export type UpdateCardInput = z.infer<typeof updateCardInputSchema>;
+
+/** A null assignee clears the assignment. */
+export const assignCardInputSchema = cardAssigneeSchema.nullable();
+
 export function cardRef(key: string, number: number): string {
   return `${key}-${number}`;
 }

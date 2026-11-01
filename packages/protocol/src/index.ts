@@ -14,19 +14,25 @@ export {
 } from './base.js';
 export { canonicalJson } from './canonical-json.js';
 export {
+  assignCardInputSchema,
   CARD_PRIORITIES,
   CARD_STATUSES,
   type Card,
   type CardPriority,
   type CardStatus,
+  type CreateCardInput,
   cardAssigneeSchema,
   cardCreatorSchema,
   cardRef,
   cardSchema,
+  createCardInputSchema,
   MAX_CARD_NUMBER,
   parseCardRef,
+  type UpdateCardInput,
+  updateCardInputSchema,
 } from './cards.js';
 export {
+  CARD_EDITABLE_FIELDS,
   type ClientEvent,
   clientEventSchema,
   defineEvent,
