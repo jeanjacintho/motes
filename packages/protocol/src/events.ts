@@ -103,6 +103,11 @@ const labelDeleted = defineEvent(
   'label.deleted',
   z.strictObject({ projectId: idSchema('project') }),
 );
+// A reorder inside one column; moves to another column are card.status_changed.
+const cardMoved = defineEvent(
+  'card.moved',
+  z.strictObject({ projectId: idSchema('project'), status: z.enum(CARD_STATUSES) }),
+);
 const cardDeleted = defineEvent('card.deleted', z.strictObject({ projectId: idSchema('project') }));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
@@ -125,6 +130,7 @@ export const eventRegistry = Object.freeze({
   [labelCreated.type]: labelCreated,
   [labelUpdated.type]: labelUpdated,
   [labelDeleted.type]: labelDeleted,
+  [cardMoved.type]: cardMoved,
   [cardDeleted.type]: cardDeleted,
 });
 

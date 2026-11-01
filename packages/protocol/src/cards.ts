@@ -70,6 +70,22 @@ export const changeStatusInputSchema = z.object({
 });
 export type ChangeStatusInput = z.infer<typeof changeStatusInputSchema>;
 
+export const boardFiltersSchema = z.object({
+  assignee: cardAssigneeSchema.optional(),
+  /** Cards carrying this label. */
+  labelId: idSchema('label').optional(),
+  priority: z.enum(CARD_PRIORITIES).optional(),
+  /** Case-insensitive match on the title. */
+  text: z.string().trim().min(1).max(200).optional(),
+});
+export type BoardFilters = z.infer<typeof boardFiltersSchema>;
+
+/** One column per status, always all of them, each ordered top to bottom. */
+export const boardSchema = z.object({
+  columns: z.array(z.object({ status: z.enum(CARD_STATUSES), cards: z.array(cardSchema) })),
+});
+export type Board = z.infer<typeof boardSchema>;
+
 export function cardRef(key: string, number: number): string {
   return `${key}-${number}`;
 }

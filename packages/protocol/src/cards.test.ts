@@ -1,6 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import {
   assignCardInputSchema,
+  boardFiltersSchema,
   CARD_PRIORITIES,
   CARD_STATUSES,
   cardRef,
@@ -103,6 +104,7 @@ describe('card events', () => {
     ['card.assigned', { projectId, assignee: null }],
     ['card.status_changed', { projectId, from: 'todo', to: 'in_progress', reason: null }],
     ['card.status_changed', { projectId, from: 'todo', to: 'blocked', reason: 'Aguardando API' }],
+    ['card.moved', { projectId, status: 'todo' }],
     ['card.deleted', { projectId }],
   ])('registers %s', (type, payload) => {
     const raw = {
@@ -171,4 +173,15 @@ test('a status change takes a known status and an optional non-empty reason', ()
   });
   expect(changeStatusInputSchema.safeParse({ to: 'started' }).success).toBe(false);
   expect(changeStatusInputSchema.safeParse({ to: 'done', reason: ' ' }).success).toBe(false);
+});
+
+test('board filters are all optional and validated', () => {
+  expect(boardFiltersSchema.parse({})).toEqual({});
+  expect(boardFiltersSchema.parse({ text: ' bug ', priority: 'high' })).toEqual({
+    text: 'bug',
+    priority: 'high',
+  });
+  expect(boardFiltersSchema.safeParse({ text: ' ' }).success).toBe(false);
+  expect(boardFiltersSchema.safeParse({ labelId: 'bug' }).success).toBe(false);
+  expect(boardFiltersSchema.safeParse({ priority: 'critical' }).success).toBe(false);
 });
