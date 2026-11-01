@@ -90,7 +90,10 @@ export async function insertCard(tx: DbTransaction, input: NewCard): Promise<Car
 type Reader = Pick<Db, 'select'>;
 
 export async function getCardById(db: Reader, id: string): Promise<Card | undefined> {
-  const [row] = await db.select().from(cards).where(sql`${cards.id} = ${id}`);
+  const [row] = await db
+    .select()
+    .from(cards)
+    .where(sql`${cards.id} = ${id} AND ${cards.deletedAt} IS NULL`);
   return row && toCard(row);
 }
 
@@ -102,11 +105,13 @@ export async function getCardByRef(db: Reader, ref: string): Promise<Card | unde
     .select({ card: cards })
     .from(cards)
     .innerJoin(projects, sql`${cards.projectId} = ${projects.id}`)
-    .where(sql`${projects.key} = ${parsed.key} AND ${cards.number} = ${parsed.number}`);
+    .where(
+      sql`${projects.key} = ${parsed.key} AND ${cards.number} = ${parsed.number} AND ${cards.deletedAt} IS NULL`,
+    );
   return row && toCard(row.card);
 }
 
-/** Any card counts, open or closed: the foreign key keeps the repository row alive for them. */
+/** Any card counts, open, closed or deleted: the foreign key keeps the repository row alive for them. */
 export async function repositoryHasCards(db: Reader, repositoryId: string): Promise<boolean> {
   const [row] = await db
     .select({ id: cards.id })
