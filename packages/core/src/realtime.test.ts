@@ -153,6 +153,32 @@ describe('realtime', () => {
     await vi.waitFor(() => expect(invalidateQueries).toHaveBeenCalledWith());
     realtime.stop();
   });
+  it('refreshes everything when ready on a fresh start, but not when resuming', async () => {
+    async function connect(cursor?: string) {
+      const storage = createMemoryStorageAdapter();
+      if (cursor) await storage.set('realtime.cursor', cursor);
+      const invalidateQueries = vi.fn(async () => {});
+      const socket = new FakeSocket();
+      const realtime = createRealtime({
+        url: 'ws://test',
+        getToken: () => 'token',
+        storage,
+        queryClient: { invalidateQueries },
+        logger: vi.fn(),
+        socket: () => socket,
+      });
+      await realtime.start();
+      socket.onopen?.();
+      socket.message({ type: 'ready' });
+      await vi.waitFor(() => expect(realtime.getStatus()).toBe('connected'));
+      realtime.stop();
+      return invalidateQueries;
+    }
+    // Without a cursor the server starts at the event head, so data read earlier may be stale.
+    expect(await connect()).toHaveBeenCalledWith();
+    // With a cursor the server replays what was missed, so nothing needs refetching.
+    expect(await connect('7')).not.toHaveBeenCalled();
+  });
   it('invalidates all queries and clears the cursor on resync', async () => {
     const storage = createMemoryStorageAdapter();
     await storage.set('realtime.cursor', '5');

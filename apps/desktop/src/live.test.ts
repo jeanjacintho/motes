@@ -185,6 +185,26 @@ describe('desktop live connection', () => {
     expect(invalidations).toHaveLength(3);
   });
 
+  it('asks the renderer to refresh everything once a fresh connection is ready', async () => {
+    const sockets: FakeSocket[] = [];
+    const live = createLiveConnection({
+      diagnostic: () => {},
+      session: async () => ({ url: 'http://localhost:3000/', token: 'token' }),
+      socket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    const invalidations: unknown[] = [];
+    live.subscribeInvalidations((key) => invalidations.push(key));
+    await live.sync();
+    sockets[0]?.onopen?.();
+    expect(invalidations).toEqual([]);
+    sockets[0]?.onmessage?.({ data: JSON.stringify({ type: 'ready' }) });
+    await vi.waitFor(() => expect(invalidations).toEqual([undefined]));
+  });
+
   it('forwards websocket callbacks through the adapter', () => {
     const ws = {
       onopen: null as (() => void) | null,
