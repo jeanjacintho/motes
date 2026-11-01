@@ -43,6 +43,14 @@ export {
 export { pairRequestSchema, pairResponseSchema } from './pairing.js';
 export { type ParseLogger, parseWithFallback, tolerantEnum } from './parsing.js';
 export {
+  type CreateProjectInput,
+  createProjectInputSchema,
+  type Project,
+  projectKeySchema,
+  projectSchema,
+  renameProjectInputSchema,
+} from './projects.js';
+export {
   DEVICE_KINDS,
   deviceListResponseSchema,
   deviceResponseSchema,

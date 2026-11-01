@@ -34,12 +34,21 @@ const pairingChanged = defineEvent('pairing.changed', z.strictObject({}));
 const devicePaired = defineEvent('device.paired', z.strictObject({}));
 const deviceUsed = defineEvent('device.used', z.strictObject({}));
 const deviceRevoked = defineEvent('device.revoked', z.strictObject({}));
+const projectCreated = defineEvent(
+  'project.created',
+  z.strictObject({ key: z.string().min(1), name: z.string().min(1) }),
+);
+const projectRenamed = defineEvent('project.renamed', z.strictObject({ name: z.string().min(1) }));
+const projectArchived = defineEvent('project.archived', z.strictObject({}));
 export const eventRegistry = Object.freeze({
   [systemPing.type]: systemPing,
   [pairingChanged.type]: pairingChanged,
   [devicePaired.type]: devicePaired,
   [deviceUsed.type]: deviceUsed,
   [deviceRevoked.type]: deviceRevoked,
+  [projectCreated.type]: projectCreated,
+  [projectRenamed.type]: projectRenamed,
+  [projectArchived.type]: projectArchived,
 });
 
 const [firstDescriptor, ...otherDescriptors] = Object.values(eventRegistry);
