@@ -197,16 +197,28 @@ describe('deleting a label', () => {
     await createLabel(services(), project.id, { name: 'bug', color: red });
   });
 
-  it('survives an attach racing a delete without orphans', async () => {
+  it('lets a delete win against a racing attach and leaves no trace of the label', async () => {
     const project = await newProject();
     const bug = await createLabel(services(), project.id, { name: 'bug', color: red });
     const card = await createCard(services(), project.id, { title: 'x' });
-    await Promise.allSettled([
+    const [attached, deleted] = await Promise.allSettled([
       attachLabel(services(), card.id, bug.id),
       deleteLabel(services(), bug.id),
     ]);
-    const orphans = await testDb.db.$client`
-      SELECT 1 FROM card_labels WHERE label_id NOT IN (SELECT id FROM labels)`;
-    expect(orphans).toHaveLength(0);
+    // The delete always completes; the attach either ran first or finds the label gone.
+    expect(deleted.status).toBe('fulfilled');
+    if (attached.status === 'rejected') expect(attached.reason).toBeInstanceOf(NotFound);
+    expect(await testDb.db.$client`SELECT 1 FROM labels WHERE id = ${bug.id}`).toHaveLength(0);
+    expect(
+      await testDb.db.$client`SELECT 1 FROM card_labels WHERE card_id = ${card.id}`,
+    ).toHaveLength(0);
+    // When the attach won, the delete announced the card's emptied label set; when it lost, the
+    // card never saw the label.
+    const types = (await events(card.id)).map((event) => event.type);
+    expect(types).toEqual(
+      attached.status === 'fulfilled'
+        ? ['card.created', 'card.labels_changed', 'card.labels_changed']
+        : ['card.created'],
+    );
   });
 });
