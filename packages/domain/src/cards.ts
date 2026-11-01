@@ -4,6 +4,7 @@ import {
   cards,
   eq,
   insertCard,
+  lastPosition,
   projects,
   repositories,
   sql,
@@ -18,6 +19,7 @@ import {
   updateCardInputSchema,
 } from '@motes/protocol';
 import { NotFound, ValidationFailed } from './errors.js';
+import { positionBetween } from './position.js';
 import { type Actor, emit, owner, parseInput, type Services, type Tx } from './shared.js';
 
 /** `botExists` is supplied at composition time; bots live in a module this one does not know. */
@@ -97,6 +99,7 @@ export async function createCard(
       title: data.title,
       description: data.description,
       priority: data.priority,
+      position: positionBetween(await lastPosition(tx, projectId, 'backlog'), undefined),
       ...(data.assignee ? { assignee: data.assignee } : {}),
       ...(repositoryId ? { repositoryId } : {}),
       createdBy: creator(actor),

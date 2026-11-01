@@ -229,6 +229,7 @@ describe('project routes', () => {
         id: newId('card'),
         projectId: project.id,
         title: 'Usa o repositório',
+        position: 'V',
         repositoryId: repo.id,
         createdBy: { type: 'owner', id: 'owner' },
         now: new Date(),

@@ -135,10 +135,10 @@ export async function repositoryHasCards(db: Reader, repositoryId: string): Prom
 }
 
 export type BoardQuery = {
-  assignee?: { type: 'owner' | 'bot'; id: string };
-  labelId?: string;
-  priority?: CardPriority;
-  text?: string;
+  assignee?: { type: 'owner' | 'bot'; id: string } | undefined;
+  labelId?: string | undefined;
+  priority?: CardPriority | undefined;
+  text?: string | undefined;
 };
 
 const escapeLike = (text: string) => text.replace(/[\\%_]/g, (char) => `\\${char}`);
