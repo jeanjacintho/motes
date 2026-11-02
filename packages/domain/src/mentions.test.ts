@@ -13,11 +13,7 @@ describe('parseMentions', () => {
     ['indented code nested in a list item', '- example:\n\n      @dev', []],
     ['indented code nested in a numbered item', '1. example:\n\n       @dev', []],
     ['a mention split by a code span', '@de`example`v', ['de']],
-    [
-      'a mention under a nested item, deep enough to look like code',
-      '- parent\n    - child\n\n      @dev',
-      [],
-    ],
+    ['a paragraph aligned with a nested item', '- parent\n    - child\n\n      @dev', ['dev']],
     ['indented code under a nested list item', '- parent\n    - child\n\n          @dev', []],
     [
       'indented code after returning to the parent item',
@@ -25,9 +21,9 @@ describe('parseMentions', () => {
       [],
     ],
     [
-      'indented code after a lazy continuation',
+      'a paragraph after a lazy continuation',
       '- parent\n    - child\n    continuation\n\n      @dev',
-      [],
+      ['dev'],
     ],
     ['a sibling item after a nested one', '- a\n    - b\n- c @dev', ['dev']],
     [
@@ -36,6 +32,7 @@ describe('parseMentions', () => {
       [],
     ],
     ['a continuation indented only two columns', '- item\n\n  continua com @dev', ['dev']],
+    ['a paragraph indented four columns in an item', '- item\n\n    please @dev', ['dev']],
     ['the mention on the item line itself', '- item @dev\n\n      codigo', ['dev']],
     ['emphasis around it', '**@dev** e *@qa*', ['dev', 'qa']],
     ['windows line endings', 'a\r\n@dev\r\nb', ['dev']],
@@ -84,8 +81,10 @@ describe('parseMentions', () => {
   });
 
   it('ignores quoted lines, nested quotes included', () => {
-    expect(parseMentions('> @dev disse\n@qa responde')).toEqual(['qa']);
-    expect(parseMentions('> > @dev\n>@ops\n  > @x\n@qa')).toEqual(['qa']);
+    expect(parseMentions('> @dev disse\n\n@qa responde')).toEqual(['qa']);
+    expect(parseMentions('> > @dev\n>@ops\n  > @x\n\n@qa')).toEqual(['qa']);
+    // A line after a quote with no blank line still belongs to the quote, as it renders.
+    expect(parseMentions('> @dev disse\n@qa responde')).toEqual([]);
   });
 
   it('finds nothing in empty or mention-free text', () => {
