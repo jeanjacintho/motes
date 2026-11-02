@@ -1,5 +1,5 @@
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-const LIST_ITEM = /^ {0,3}(?:[-*+]|\d{1,9}[.)])\s/;
+const LIST_ITEM = /^( {0,3}(?:[-*+]|\d{1,9}[.)]))(\s+)/;
 const QUOTE = /^ {0,3}>/;
 
 // Not a mention when glued to a word, an email, a path or an escape; the name ends where a
@@ -8,12 +8,23 @@ const MENTION =
   /(?<![A-Za-z0-9_@\\./+-])@([a-z0-9]+(?:-[a-z0-9]+)*)(?![A-Za-z0-9_@]|\.[A-Za-z0-9])/g;
 const MAX_SLUG_LENGTH = 64;
 
+function indentWidth(line: string): number {
+  let width = 0;
+  for (const char of line) {
+    if (char === ' ') width++;
+    else if (char === '\t') width += 4 - (width % 4);
+    else break;
+  }
+  return width;
+}
+
 /** Drops fenced and indented code blocks and quoted lines, keeping everything else line by line. */
 function stripBlocks(markdown: string): string {
   let fence: { char: string; length: number } | undefined;
   let previousBlank = true;
   let inIndentedCode = false;
-  let inList = false;
+  // Column where the open list item's content starts; indented code inside it is four further in.
+  let listContent: number | undefined;
   const kept: string[] = [];
   for (const line of markdown.replace(/\r\n?/g, '\n').split('\n')) {
     if (fence) {
@@ -35,8 +46,13 @@ function stripBlocks(markdown: string): string {
       continue;
     }
     const indented = /^(?: {4}|\t)/.test(line);
-    // Indented code cannot interrupt a paragraph, and inside a list it is just continuation.
-    if (indented && !inList && (previousBlank || inIndentedCode)) {
+    // Indented code cannot interrupt a paragraph, and inside a list it is code only when it sits
+    // four columns past the item's content.
+    if (
+      indented &&
+      (previousBlank || inIndentedCode) &&
+      indentWidth(line) >= (listContent ?? 0) + 4
+    ) {
       inIndentedCode = true;
       previousBlank = false;
       continue;
@@ -44,8 +60,9 @@ function stripBlocks(markdown: string): string {
     inIndentedCode = false;
     previousBlank = false;
     if (QUOTE.test(line)) continue;
-    if (LIST_ITEM.test(line)) inList = true;
-    else if (!indented) inList = false;
+    const item = LIST_ITEM.exec(line);
+    if (item) listContent = (item[1] ?? '').length + Math.min((item[2] ?? '').length, 4);
+    else if (!indented) listContent = undefined;
     kept.push(line);
   }
   return kept.join('\n');
@@ -70,7 +87,11 @@ function stripCodeSpans(text: string): string {
     if (close < 0) {
       result += run;
       index = end;
-    } else index = close + run.length;
+    } else {
+      // A space keeps the text on either side of the span from fusing into one token.
+      result += ' ';
+      index = close + run.length;
+    }
   }
   return result;
 }
