@@ -47,8 +47,10 @@ function stripBlocks(markdown: string): string {
     }
     const indented = /^(?: {4}|\t)/.test(line);
     const width = indentWidth(line);
-    // A line indented less than an item's content has left that item.
-    while (openItems.length > 0 && (openItems.at(-1) ?? 0) > width) openItems.pop();
+    // A line indented less than an item's content has left that item, unless it only continues
+    // the paragraph above lazily.
+    const lazy = !previousBlank && width > 0 && !LIST_ITEM.test(line);
+    while (!lazy && openItems.length > 0 && (openItems.at(-1) ?? 0) > width) openItems.pop();
     const content = openItems.at(-1) ?? 0;
     // Indented code cannot interrupt a paragraph, and inside a list it is code only when it sits
     // four columns past the item's content.

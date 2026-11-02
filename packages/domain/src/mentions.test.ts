@@ -20,6 +20,11 @@ describe('parseMentions', () => {
       '- parent\n    - child\n\n    parent paragraph\n\n      @dev',
       [],
     ],
+    [
+      'text after a lazy continuation of a child paragraph',
+      '- parent\n    - child\n    continuation\n\n      @dev',
+      ['dev'],
+    ],
     ['a sibling item after a nested one', '- a\n    - b\n- c @dev', ['dev']],
     ['an indented list continuation', '- item\n\n    continua com @dev', ['dev']],
     ['emphasis around it', '**@dev** e *@qa*', ['dev', 'qa']],
