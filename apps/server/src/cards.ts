@@ -1,12 +1,28 @@
-import { assignCard, createCard, getBoard, getCard, moveCard, updateCard } from '@motes/domain';
+import {
+  addComment,
+  assignCard,
+  createCard,
+  deleteComment,
+  editComment,
+  getBoard,
+  getCard,
+  getTimeline,
+  moveCard,
+  updateCard,
+} from '@motes/domain';
 import {
   assignCardBodySchema,
   boardFiltersFromQuery,
   boardQuerySchema,
   boardSchema,
   cardSchema,
+  commentInputSchema,
+  commentSchema,
   createCardInputSchema,
+  deleteCommentResponseSchema,
   moveCardBodySchema,
+  timelinePageSchema,
+  timelineQuerySchema,
   updateCardInputSchema,
 } from '@motes/protocol';
 import type { FastifyInstance } from 'fastify';
@@ -74,5 +90,40 @@ export function registerCardRoutes(server: FastifyInstance, services: Services) 
     query: boardQuerySchema,
     response: boardSchema,
     handler: ({ params, query }) => getBoard(services, params.id, boardFiltersFromQuery(query)),
+  });
+  route(server, {
+    method: 'GET',
+    url: '/cards/:id/timeline',
+    params: idParams,
+    query: timelineQuerySchema,
+    response: timelinePageSchema,
+    handler: ({ params, query }) => getTimeline(services, params.id, query),
+  });
+  route(server, {
+    method: 'POST',
+    url: '/cards/:id/comments',
+    params: idParams,
+    body: commentInputSchema,
+    response: commentSchema,
+    status: 201,
+    handler: ({ params, body }) => addComment(services, params.id, body.body),
+  });
+  route(server, {
+    method: 'PATCH',
+    url: '/comments/:id',
+    params: idParams,
+    body: commentInputSchema,
+    response: commentSchema,
+    handler: ({ params, body }) => editComment(services, params.id, body.body),
+  });
+  route(server, {
+    method: 'DELETE',
+    url: '/comments/:id',
+    params: idParams,
+    response: deleteCommentResponseSchema,
+    handler: async ({ params }) => {
+      await deleteComment(services, params.id);
+      return { deleted: true };
+    },
   });
 }
