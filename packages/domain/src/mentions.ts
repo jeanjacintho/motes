@@ -1,5 +1,4 @@
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-const LIST_ITEM = /^( *(?:[-*+]|\d{1,9}[.)]))(\s+)/;
 const QUOTE = /^ {0,3}>/;
 
 // Not a mention when glued to a word, an email, a path or an escape; the name ends where a
@@ -8,23 +7,11 @@ const MENTION =
   /(?<![A-Za-z0-9_@\\./+-])@([a-z0-9]+(?:-[a-z0-9]+)*)(?![A-Za-z0-9_@]|\.[A-Za-z0-9])/g;
 const MAX_SLUG_LENGTH = 64;
 
-function indentWidth(line: string): number {
-  let width = 0;
-  for (const char of line) {
-    if (char === ' ') width++;
-    else if (char === '\t') width += 4 - (width % 4);
-    else break;
-  }
-  return width;
-}
-
 /** Drops fenced and indented code blocks and quoted lines, keeping everything else line by line. */
 function stripBlocks(markdown: string): string {
   let fence: { char: string; length: number } | undefined;
   let previousBlank = true;
   let inIndentedCode = false;
-  // Content columns of the open list items, outermost first; code inside one is four further in.
-  const openItems: number[] = [];
   const kept: string[] = [];
   for (const line of markdown.replace(/\r\n?/g, '\n').split('\n')) {
     if (fence) {
@@ -45,16 +32,9 @@ function stripBlocks(markdown: string): string {
       kept.push('');
       continue;
     }
-    const indented = /^(?: {4}|\t)/.test(line);
-    const width = indentWidth(line);
-    // A line indented less than an item's content has left that item, unless it only continues
-    // the paragraph above lazily.
-    const lazy = !previousBlank && width > 0 && !LIST_ITEM.test(line);
-    while (!lazy && openItems.length > 0 && (openItems.at(-1) ?? 0) > width) openItems.pop();
-    const content = openItems.at(-1) ?? 0;
-    // Indented code cannot interrupt a paragraph, and inside a list it is code only when it sits
-    // four columns past the item's content.
-    if (indented && (previousBlank || inIndentedCode) && width >= content + 4) {
+    // Indented code cannot interrupt a paragraph. List nesting is deliberately not modelled: a
+    // line indented four columns after a blank line is code, even inside a list item.
+    if (/^(?: {4}|\t)/.test(line) && (previousBlank || inIndentedCode)) {
       inIndentedCode = true;
       previousBlank = false;
       continue;
@@ -62,9 +42,6 @@ function stripBlocks(markdown: string): string {
     inIndentedCode = false;
     previousBlank = false;
     if (QUOTE.test(line)) continue;
-    // A marker nested in an open item may sit deeper than three spaces, but not as deep as code.
-    const item = width < content + 4 ? LIST_ITEM.exec(line) : null;
-    if (item) openItems.push((item[1] ?? '').length + Math.min((item[2] ?? '').length, 4));
     kept.push(line);
   }
   return kept.join('\n');
