@@ -26,3 +26,5 @@ export type Comment = z.infer<typeof commentSchema>;
 
 export const commentInputSchema = z.object({ body: commentBodySchema });
 export type CommentInput = z.infer<typeof commentInputSchema>;
+
+export const deleteCommentResponseSchema = z.object({ deleted: z.literal(true) });

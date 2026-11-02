@@ -7,7 +7,13 @@ export function createDb(url: string) {
 
 export type Db = ReturnType<typeof createDb>;
 export { eq, sql } from 'drizzle-orm';
-export { insertActivity, listActivity, type NewActivity } from './activity.js';
+export {
+  insertActivity,
+  listActivity,
+  listActivityAfter,
+  type NewActivity,
+  type TimelinePosition,
+} from './activity.js';
 export { botExists } from './bots.js';
 export {
   type BoardQuery,

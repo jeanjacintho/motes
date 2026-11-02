@@ -75,6 +75,7 @@ export {
   commentBodySchema,
   commentInputSchema,
   commentSchema,
+  deleteCommentResponseSchema,
 } from './comments.js';
 export {
   CARD_EDITABLE_FIELDS,
@@ -151,3 +152,13 @@ export {
   healthResponseSchema,
   revokeDeviceResponseSchema,
 } from './responses.js';
+export {
+  TIMELINE_DEFAULT_LIMIT,
+  TIMELINE_MAX_LIMIT,
+  type TimelineItem,
+  type TimelinePage,
+  type TimelineQuery,
+  timelineItemSchema,
+  timelinePageSchema,
+  timelineQuerySchema,
+} from './timeline.js';
