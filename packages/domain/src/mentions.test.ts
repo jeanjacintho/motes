@@ -35,6 +35,7 @@ describe('parseMentions', () => {
     ['a paragraph indented four columns in an item', '- item\n\n    please @dev', ['dev']],
     ['the mention on the item line itself', '- item @dev\n\n      codigo', ['dev']],
     ['emphasis around it', '**@dev** e *@qa*', ['dev', 'qa']],
+    ['underscore emphasis around it', 'chama _@dev_ agora', ['dev']],
     ['windows line endings', 'a\r\n@dev\r\nb', ['dev']],
   ])('finds %s', (_name, text, expected) => {
     expect(parseMentions(text)).toEqual(expected);
