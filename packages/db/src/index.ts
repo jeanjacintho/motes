@@ -28,6 +28,7 @@ export {
   cardActivity,
   cardLabels,
   cards,
+  commentMentions,
   comments,
   deviceTokens,
   events,

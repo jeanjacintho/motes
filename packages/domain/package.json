@@ -18,6 +18,7 @@
     "@motes/protocol": "workspace:*",
     "@motes/security": "workspace:*",
     "@motes/decision": "workspace:*",
+    "mdast-util-from-markdown": "catalog:",
     "yaml": "catalog:"
   }
 }

@@ -1,7 +1,8 @@
-import { cards, comments, eq, sql } from '@motes/db';
+import { bots, cards, commentMentions, comments, eq, sql } from '@motes/db';
 import { type Comment, commentInputSchema, commentSchema } from '@motes/protocol';
 import { type CardServices, lockCard } from './cards.js';
 import { Forbidden, NotFound } from './errors.js';
+import { parseMentions } from './mentions.js';
 import { type Actor, emit, owner, parseInput, type Tx } from './shared.js';
 
 type Author = Comment['author'];
@@ -27,6 +28,27 @@ function authorOf(actor: Actor): Author {
 const sameAuthor = (row: { authorType: string; authorId: string }, author: Author) =>
   row.authorType === author.type && row.authorId === author.id;
 
+/**
+ * The live bots a body mentions, in order of appearance. Unknown and removed slugs are ignored,
+ * and so is a bot mentioning itself, which would only wake it to read its own comment.
+ */
+async function mentionedBots(tx: Tx, body: string, author: Author): Promise<string[]> {
+  const slugs = parseMentions(body);
+  if (slugs.length === 0) return [];
+  const rows = await tx
+    .select({ id: bots.id, slug: bots.slug })
+    .from(bots)
+    .where(
+      sql`${bots.slug} IN (${sql.join(
+        slugs.map((slug) => sql`${slug}`),
+        sql`, `,
+      )}) AND ${bots.removedAt} IS NULL`,
+    );
+  return slugs
+    .map((slug) => rows.find((row) => row.slug === slug)?.id)
+    .filter((id): id is string => id !== undefined && !(author.type === 'bot' && id === author.id));
+}
+
 // Card lock first (which takes the project's), then the comment, which may have vanished meanwhile.
 async function lockComment(tx: Tx, id: string) {
   const [peek] = await tx
@@ -38,6 +60,26 @@ async function lockComment(tx: Tx, id: string) {
   const [row] = await tx.select().from(comments).where(eq(comments.id, id)).for('update');
   if (!row) throw new NotFound('Comment not found');
   return { row, card };
+}
+
+async function announceMentions(
+  services: CardServices,
+  tx: Tx,
+  commentId: string,
+  projectId: string,
+  cardId: string,
+  botIds: string[],
+  actor: Actor,
+) {
+  for (const botId of botIds)
+    await emit(
+      services,
+      tx,
+      'comment.mentioned',
+      { kind: 'comment', id: commentId },
+      { projectId, cardId, botId },
+      actor,
+    );
 }
 
 export async function addComment(
@@ -64,6 +106,11 @@ export async function addComment(
       })
       .returning();
     if (!row) throw new Error('Comment insertion returned no row');
+    const mentioned = await mentionedBots(tx, input.body, author);
+    if (mentioned.length > 0)
+      await tx
+        .insert(commentMentions)
+        .values(mentioned.map((botId) => ({ commentId: row.id, botId, createdAt: row.createdAt })));
     await emit(
       services,
       tx,
@@ -72,6 +119,7 @@ export async function addComment(
       { projectId: card.projectId, cardId },
       actor,
     );
+    await announceMentions(services, tx, row.id, card.projectId, cardId, mentioned, actor);
     return toComment(row);
   });
 }
@@ -96,6 +144,28 @@ export async function editComment(
       .where(eq(comments.id, id))
       .returning();
     if (!row) throw new Error('Comment update returned no row');
+    // The stored mentions follow the body. Only a bot that was not mentioned before is announced,
+    // so editing a typo does not wake a bot again.
+    const next = await mentionedBots(tx, input.body, author);
+    const before = (
+      await tx
+        .select({ botId: commentMentions.botId })
+        .from(commentMentions)
+        .where(eq(commentMentions.commentId, id))
+    ).map((mention) => mention.botId);
+    const added = next.filter((botId) => !before.includes(botId));
+    const dropped = before.filter((botId) => !next.includes(botId));
+    if (dropped.length > 0)
+      await tx.delete(commentMentions).where(
+        sql`${commentMentions.commentId} = ${id} AND ${commentMentions.botId} IN (${sql.join(
+          dropped.map((botId) => sql`${botId}`),
+          sql`, `,
+        )})`,
+      );
+    if (added.length > 0)
+      await tx
+        .insert(commentMentions)
+        .values(added.map((botId) => ({ commentId: id, botId, createdAt: services.clock() })));
     await emit(
       services,
       tx,
@@ -104,6 +174,7 @@ export async function editComment(
       { projectId: card.projectId, cardId: current.cardId },
       actor,
     );
+    await announceMentions(services, tx, id, card.projectId, current.cardId, added, actor);
     return toComment(row);
   });
 }

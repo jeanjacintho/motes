@@ -281,3 +281,19 @@ export const bots = pgTable(
     ),
   ],
 );
+
+// The bots a comment mentions right now. The rows follow the body: a mention removed by an edit
+// loses its row, so a later mention of the same bot counts as new.
+export const commentMentions = pgTable(
+  'comment_mentions',
+  {
+    commentId: text('comment_id')
+      .notNull()
+      .references(() => comments.id),
+    botId: text('bot_id')
+      .notNull()
+      .references(() => bots.id),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.commentId, table.botId] })],
+);
