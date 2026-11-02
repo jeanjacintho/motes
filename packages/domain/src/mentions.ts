@@ -1,5 +1,5 @@
 const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})(.*)$/;
-const LIST_ITEM = /^( {0,3}(?:[-*+]|\d{1,9}[.)]))(\s+)/;
+const LIST_ITEM = /^( *(?:[-*+]|\d{1,9}[.)]))(\s+)/;
 const QUOTE = /^ {0,3}>/;
 
 // Not a mention when glued to a word, an email, a path or an escape; the name ends where a
@@ -60,7 +60,8 @@ function stripBlocks(markdown: string): string {
     inIndentedCode = false;
     previousBlank = false;
     if (QUOTE.test(line)) continue;
-    const item = LIST_ITEM.exec(line);
+    // A marker nested in an open item may sit deeper than three spaces, but not as deep as code.
+    const item = indentWidth(line) < (listContent ?? 0) + 4 ? LIST_ITEM.exec(line) : null;
     if (item) listContent = (item[1] ?? '').length + Math.min((item[2] ?? '').length, 4);
     else if (!indented) listContent = undefined;
     kept.push(line);

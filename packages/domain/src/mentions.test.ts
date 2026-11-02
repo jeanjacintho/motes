@@ -13,6 +13,8 @@ describe('parseMentions', () => {
     ['indented code nested in a list item', '- example:\n\n      @dev', []],
     ['indented code nested in a numbered item', '1. example:\n\n       @dev', []],
     ['a mention split by a code span', '@de`example`v', ['de']],
+    ['text under a nested list item', '- parent\n    - child\n\n      @dev', ['dev']],
+    ['indented code under a nested list item', '- parent\n    - child\n\n          @dev', []],
     ['an indented list continuation', '- item\n\n    continua com @dev', ['dev']],
     ['emphasis around it', '**@dev** e *@qa*', ['dev', 'qa']],
     ['windows line endings', 'a\r\n@dev\r\nb', ['dev']],
