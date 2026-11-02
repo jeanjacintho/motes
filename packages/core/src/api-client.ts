@@ -10,10 +10,13 @@ import {
   boardSchema,
   botDetailSchema,
   botSummarySchema,
+  type CommentInput,
   type CreateCardInput,
   type CreateProjectInput,
   cardSchema,
+  commentSchema,
   DEVICE_KINDS,
+  deleteCommentResponseSchema,
   deviceResponseSchema,
   healthResponseSchema,
   type MoveCardBody,
@@ -27,6 +30,8 @@ import {
   repositoryPathSchema,
   repositorySchema,
   revokeDeviceResponseSchema,
+  type TimelinePage,
+  timelineItemSchema,
   tolerantEnum,
   type UpdateCardInput,
 } from '@motes/protocol';
@@ -36,6 +41,17 @@ import { NetworkError } from './query-client.js';
 const projectsSchema = z.array(projectSchema);
 // Card calls fall back to null: a card that cannot be read is better absent than invented.
 const maybeCardSchema = cardSchema.nullable();
+const maybeCommentSchema = commentSchema.nullable();
+// A timeline line of a kind this client does not know is skipped, not a reason to lose the page.
+const clientTimelinePageSchema = z.object({
+  items: z.array(z.unknown()).transform((items) =>
+    items.flatMap((item) => {
+      const parsed = timelineItemSchema.safeParse(item);
+      return parsed.success ? [parsed.data] : [];
+    }),
+  ),
+  nextCursor: z.string().min(1).nullable(),
+});
 const botsSchema = z.array(botSummarySchema);
 const maybeBotSchema = botDetailSchema.nullable();
 const repositoryDetailsSchema = z.array(repositoryDetailSchema);
@@ -210,6 +226,47 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
           fallback,
         );
       },
+    },
+    comments: {
+      timeline: (
+        cardId: string,
+        page: { cursor?: string | undefined; limit?: number | undefined },
+        fallback: TimelinePage,
+      ) => {
+        const query = new URLSearchParams();
+        if (page.cursor) query.set('cursor', page.cursor);
+        if (page.limit) query.set('limit', String(page.limit));
+        const suffix = query.size > 0 ? `?${query}` : '';
+        return request(
+          `/cards/${encodeURIComponent(cardId)}/timeline${suffix}`,
+          'GET',
+          clientTimelinePageSchema,
+          fallback,
+        );
+      },
+      add: (cardId: string, input: CommentInput, fallback: null) =>
+        request(
+          `/cards/${encodeURIComponent(cardId)}/comments`,
+          'POST',
+          maybeCommentSchema,
+          fallback,
+          input,
+        ),
+      edit: (id: string, input: CommentInput, fallback: null) =>
+        request(
+          `/comments/${encodeURIComponent(id)}`,
+          'PATCH',
+          maybeCommentSchema,
+          fallback,
+          input,
+        ),
+      remove: (id: string, fallback: z.output<typeof deleteCommentResponseSchema>) =>
+        request(
+          `/comments/${encodeURIComponent(id)}`,
+          'DELETE',
+          deleteCommentResponseSchema,
+          fallback,
+        ),
     },
     bots: {
       list: (fallback: Output<typeof botsSchema>) => request('/bots', 'GET', botsSchema, fallback),
