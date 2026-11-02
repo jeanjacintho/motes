@@ -23,8 +23,8 @@ function stripBlocks(markdown: string): string {
   let fence: { char: string; length: number } | undefined;
   let previousBlank = true;
   let inIndentedCode = false;
-  // Column where the open list item's content starts; indented code inside it is four further in.
-  let listContent: number | undefined;
+  // Content columns of the open list items, outermost first; code inside one is four further in.
+  const openItems: number[] = [];
   const kept: string[] = [];
   for (const line of markdown.replace(/\r\n?/g, '\n').split('\n')) {
     if (fence) {
@@ -46,13 +46,13 @@ function stripBlocks(markdown: string): string {
       continue;
     }
     const indented = /^(?: {4}|\t)/.test(line);
+    const width = indentWidth(line);
+    // A line indented less than an item's content has left that item.
+    while (openItems.length > 0 && (openItems.at(-1) ?? 0) > width) openItems.pop();
+    const content = openItems.at(-1) ?? 0;
     // Indented code cannot interrupt a paragraph, and inside a list it is code only when it sits
     // four columns past the item's content.
-    if (
-      indented &&
-      (previousBlank || inIndentedCode) &&
-      indentWidth(line) >= (listContent ?? 0) + 4
-    ) {
+    if (indented && (previousBlank || inIndentedCode) && width >= content + 4) {
       inIndentedCode = true;
       previousBlank = false;
       continue;
@@ -61,9 +61,8 @@ function stripBlocks(markdown: string): string {
     previousBlank = false;
     if (QUOTE.test(line)) continue;
     // A marker nested in an open item may sit deeper than three spaces, but not as deep as code.
-    const item = indentWidth(line) < (listContent ?? 0) + 4 ? LIST_ITEM.exec(line) : null;
-    if (item) listContent = (item[1] ?? '').length + Math.min((item[2] ?? '').length, 4);
-    else if (!indented) listContent = undefined;
+    const item = width < content + 4 ? LIST_ITEM.exec(line) : null;
+    if (item) openItems.push((item[1] ?? '').length + Math.min((item[2] ?? '').length, 4));
     kept.push(line);
   }
   return kept.join('\n');

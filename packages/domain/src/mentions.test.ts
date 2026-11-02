@@ -15,6 +15,12 @@ describe('parseMentions', () => {
     ['a mention split by a code span', '@de`example`v', ['de']],
     ['text under a nested list item', '- parent\n    - child\n\n      @dev', ['dev']],
     ['indented code under a nested list item', '- parent\n    - child\n\n          @dev', []],
+    [
+      'indented code after returning to the parent item',
+      '- parent\n    - child\n\n    parent paragraph\n\n      @dev',
+      [],
+    ],
+    ['a sibling item after a nested one', '- a\n    - b\n- c @dev', ['dev']],
     ['an indented list continuation', '- item\n\n    continua com @dev', ['dev']],
     ['emphasis around it', '**@dev** e *@qa*', ['dev', 'qa']],
     ['windows line endings', 'a\r\n@dev\r\nb', ['dev']],
