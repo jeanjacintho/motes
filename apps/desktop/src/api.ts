@@ -1,7 +1,9 @@
 import { ApiError, type createApiClient } from '@motes/core';
 import {
   addRepositoryInputSchema,
+  boardFiltersSchema,
   createProjectInputSchema,
+  moveCardBodySchema,
   newId,
   patchRepositoryBodySchema,
   projectSchema,
@@ -40,6 +42,13 @@ const requestSchema = z.discriminatedUnion('action', [
     runtimeId: id,
     localPath: z.string().max(4096),
   }),
+  z.strictObject({
+    action: z.literal('cards.board'),
+    projectId: id,
+    filters: boardFiltersSchema.optional(),
+  }),
+  z.strictObject({ action: z.literal('cards.move'), id, body: moveCardBodySchema }),
+  z.strictObject({ action: z.literal('bots.list') }),
 ]);
 export type ApiRequest = z.input<typeof requestSchema>;
 export type ApiResult =
@@ -90,6 +99,12 @@ function dispatch(request: z.output<typeof requestSchema>, client: Client): Prom
       return client.repositories.remove(request.id, { removed: false });
     case 'repositories.setPath':
       return client.repositories.setPath(request.id, request.runtimeId, request.localPath, path);
+    case 'cards.board':
+      return client.cards.board(request.projectId, request.filters ?? {}, { columns: [] });
+    case 'cards.move':
+      return client.cards.move(request.id, request.body, null);
+    case 'bots.list':
+      return client.bots.list([]);
   }
 }
 

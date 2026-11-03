@@ -161,4 +161,35 @@ test('pairs the desktop app and counts a live event', async () => {
     headers: { authorization: `Bearer ${token}` },
   });
   expect(await stored.json()).toMatchObject([{ name: 'api', isPrimary: true }]);
+
+  // Cards created by the other device show up on the board live, and a keyboard move made in the
+  // app reaches the server.
+  for (const title of ['Primeiro card', 'Segundo card']) {
+    const card = await fetch(`${baseUrl}/projects/${project.id}/cards`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ title }),
+    });
+    expect(card.status, await card.clone().text()).toBe(201);
+  }
+  await expect(page.getByRole('article', { name: 'EDE-2 Segundo card' })).toBeVisible({
+    timeout: 10_000,
+  });
+  await page.getByRole('button', { name: 'Mover EDE-1' }).focus();
+  // Pauses as a person would make: dnd-kit measures the drop targets after pick-up.
+  await page.keyboard.press('Space');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(200);
+  await page.keyboard.press('Space');
+  const backlog = async () => {
+    const response = await fetch(`${baseUrl}/projects/${project.id}/board`, {
+      headers: { authorization: `Bearer ${token}` },
+    });
+    const board = (await response.json()) as {
+      columns: { status: string; cards: { title: string }[] }[];
+    };
+    return board.columns.find((column) => column.status === 'backlog')?.cards.map((c) => c.title);
+  };
+  await expect.poll(backlog, { timeout: 10_000 }).toEqual(['Segundo card', 'Primeiro card']);
 });

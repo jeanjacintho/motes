@@ -185,6 +185,49 @@ describe('desktop live connection', () => {
     expect(invalidations).toHaveLength(3);
   });
 
+  it('forwards board and bot invalidations so a move in one window shows in another', async () => {
+    const sockets: FakeSocket[] = [];
+    const live = createLiveConnection({
+      diagnostic: () => {},
+      session: async () => ({ url: 'http://localhost:3000/', token: 'token' }),
+      socket: () => {
+        const socket = new FakeSocket();
+        sockets.push(socket);
+        return socket;
+      },
+    });
+    const invalidations: unknown[] = [];
+    live.subscribeInvalidations((key) => invalidations.push(key));
+    await live.sync();
+    const socket = sockets[0];
+    if (!socket) throw new Error('Missing socket');
+    const projectId = 'prj_01ARZ3NDEKTSV4RRFFQ69G5FAV';
+    socket.onmessage?.({
+      data: JSON.stringify({
+        seq: '1',
+        event: {
+          ...ping,
+          type: 'card.moved',
+          subject: { kind: 'card', id: 'card_01ARZ3NDEKTSV4RRFFQ69G5FAV' },
+          payload: { projectId, status: 'todo' },
+        },
+      }),
+    });
+    socket.onmessage?.({
+      data: JSON.stringify({
+        seq: '2',
+        event: {
+          ...ping,
+          type: 'bot.created',
+          subject: { kind: 'bot', id: 'bot_01ARZ3NDEKTSV4RRFFQ69G5FAV' },
+          payload: { slug: 'dev' },
+        },
+      }),
+    });
+    await vi.waitFor(() => expect(invalidations).toHaveLength(3));
+    expect(invalidations).toEqual([['projects', projectId, 'board'], ['cards'], ['bots']]);
+  });
+
   it('asks the renderer to refresh everything once a fresh connection is ready', async () => {
     const sockets: FakeSocket[] = [];
     const live = createLiveConnection({

@@ -29,6 +29,11 @@ function setup() {
       remove: record('repositories.remove'),
       setPath: record('repositories.setPath'),
     },
+    cards: {
+      board: record('cards.board', { columns: [] }),
+      move: record('cards.move'),
+    },
+    bots: { list: record('bots.list', []) },
   };
   const service: ApiService = { api: (operation) => operation(client as never) };
   return { calls, handler: createApiHandler(sender, mainFrame.url, service), service };
@@ -40,6 +45,8 @@ describe('desktop API bridge', () => {
     const projectId = newId('project');
     const repositoryId = newId('repository');
     const runtimeId = newId('runtime');
+    const cardId = newId('card');
+    const otherCardId = newId('card');
     const requests = [
       { action: 'projects.list', includeArchived: true },
       { action: 'projects.create', input: { key: 'MOT', name: 'Motes' } },
@@ -54,12 +61,20 @@ describe('desktop API bridge', () => {
       { action: 'repositories.update', id: repositoryId, patch: { isPrimary: true } },
       { action: 'repositories.remove', id: repositoryId },
       { action: 'repositories.setPath', id: repositoryId, runtimeId, localPath: '/code' },
+      { action: 'cards.board', projectId, filters: { priority: 'high' } },
+      { action: 'cards.board', projectId },
+      { action: 'cards.move', id: cardId, body: { status: 'todo', afterId: otherCardId } },
+      { action: 'bots.list' },
     ];
     for (const request of requests)
       expect(await handler(event, request), request.action).toMatchObject({ ok: true });
     expect(calls.map(([name]) => name)).toEqual(requests.map((request) => request.action));
     expect(calls[0]?.[1]).toEqual([{ includeArchived: true }]);
     expect(calls[8]?.[1]).toEqual([repositoryId, runtimeId, '/code']);
+    expect(calls[9]?.[1]).toEqual([projectId, { priority: 'high' }]);
+    expect(calls[10]?.[1]).toEqual([projectId, {}]);
+    expect(calls[11]?.[1]).toEqual([cardId, { status: 'todo', afterId: otherCardId }]);
+    expect(calls[12]?.[1]).toEqual([]);
   });
 
   it('rejects an untrusted sender, extra arguments and malformed requests', async () => {
