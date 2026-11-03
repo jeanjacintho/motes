@@ -13,6 +13,7 @@ import {
   type NavigationAdapter,
   NavigationProvider,
   PairingScreen,
+  ProjectBoard,
   ProjectSettings,
   ProjectsSidebar,
 } from '@motes/views';
@@ -21,6 +22,7 @@ import { useRef, useState } from 'react';
 import { z } from 'zod';
 import type { ApiRequest, ApiResult } from '../api';
 import type { PairingRequest, PairingResult } from '../security';
+import { createBoardClient } from './board';
 import { type LiveBridge, useLive, useLiveInvalidations } from './live';
 import { useProjects } from './projects';
 
@@ -58,6 +60,7 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
     return result.value;
   }
   const request = (input: PairingRequest) => unwrap(() => bridge(input));
+  const boardClient = createBoardClient((input) => unwrap(() => api(input)));
   const projectData = useProjects({
     call: (input) => unwrap(() => api(input)),
     enabled: paired === true,
@@ -134,19 +137,27 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
           />
         ) : projectData.projectId !== undefined ? (
           projectData.project ? (
-            <ProjectSettings
-              key={projectData.project.id}
-              project={projectData.project}
-              repositories={projectData.repositories.data ?? []}
-              loading={projectData.repositories.isLoading}
-              error={projectData.repositories.isError}
-              onRename={projectData.rename}
-              onArchive={projectData.archive}
-              onAddRepository={projectData.addRepository}
-              onUpdateRepository={projectData.updateRepository}
-              onRemoveRepository={projectData.removeRepository}
-              onSetPath={projectData.setPath}
-            />
+            <>
+              <ProjectBoard
+                key={`board-${projectData.project.id}`}
+                client={boardClient}
+                projectId={projectData.project.id}
+                projectKey={projectData.project.key}
+              />
+              <ProjectSettings
+                key={projectData.project.id}
+                project={projectData.project}
+                repositories={projectData.repositories.data ?? []}
+                loading={projectData.repositories.isLoading}
+                error={projectData.repositories.isError}
+                onRename={projectData.rename}
+                onArchive={projectData.archive}
+                onAddRepository={projectData.addRepository}
+                onUpdateRepository={projectData.updateRepository}
+                onRemoveRepository={projectData.removeRepository}
+                onSetPath={projectData.setPath}
+              />
+            </>
           ) : projectData.projects.isLoading ? (
             <p role="status">Carregando…</p>
           ) : (

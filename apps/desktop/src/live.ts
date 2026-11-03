@@ -2,6 +2,8 @@ import {
   createMemoryStorageAdapter,
   createRealtime,
   type RealtimeSocket,
+  registerBotInvalidations,
+  registerCardInvalidations,
   registerProjectInvalidations,
 } from '@motes/core';
 
@@ -82,7 +84,14 @@ export function createLiveConnection(options: {
     const read = () =>
       publish({ status: realtime.getStatus(), eventCount: realtime.getEventCount() });
     const unsubscribe = realtime.subscribe(read);
-    const stopInvalidations = registerProjectInvalidations(realtime);
+    const stops = [
+      registerProjectInvalidations(realtime),
+      registerCardInvalidations(realtime),
+      registerBotInvalidations(realtime),
+    ];
+    const stopInvalidations = () => {
+      for (const stop of stops) stop();
+    };
     current = {
       key: key ?? '',
       stop: () => {

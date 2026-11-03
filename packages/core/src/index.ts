@@ -11,6 +11,7 @@ export {
 } from './adapters.js';
 export { ApiError, createApiClient } from './api-client.js';
 export {
+  type BotsClient,
   botKeys,
   botQueryOptions,
   botsQueryOptions,
@@ -21,6 +22,7 @@ export {
 export {
   applyMove,
   boardQueryOptions,
+  type CardsClient,
   cardKeys,
   cardQueryOptions,
   type MoveVariables,

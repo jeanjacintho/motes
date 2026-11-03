@@ -9,7 +9,9 @@ import {
 import type { createApiClient } from './api-client.js';
 import type { createRealtime } from './realtime.js';
 
-type CardsClient = Pick<ReturnType<typeof createApiClient>, 'cards'>;
+type Cards = ReturnType<typeof createApiClient>['cards'];
+/** Each hook asks only for the calls it makes, so an app can back them with its own transport. */
+export type CardsClient<Calls extends keyof Cards = keyof Cards> = { cards: Pick<Cards, Calls> };
 
 const emptyBoard: Board = { columns: [] };
 
@@ -53,7 +55,7 @@ export function registerCardInvalidations(
 }
 
 export const boardQueryOptions = (
-  client: CardsClient,
+  client: CardsClient<'board'>,
   projectId: string,
   filters: BoardFilters = {},
 ) => ({
@@ -61,17 +63,21 @@ export const boardQueryOptions = (
   queryFn: () => client.cards.board(projectId, filters, emptyBoard),
 });
 
-export const cardQueryOptions = (client: CardsClient, ref: string) => ({
+export const cardQueryOptions = (client: CardsClient<'get'>, ref: string) => ({
   queryKey: cardKeys.card(ref),
   queryFn: () => client.cards.get(ref, null),
 });
 
-export function useBoard(client: CardsClient, projectId: string, filters: BoardFilters = {}) {
+export function useBoard(
+  client: CardsClient<'board'>,
+  projectId: string,
+  filters: BoardFilters = {},
+) {
   return useQuery(boardQueryOptions(client, projectId, filters));
 }
 
 /** Resolves to null when the server answers with something that is not a card. */
-export function useCard(client: CardsClient, ref: string) {
+export function useCard(client: CardsClient<'get'>, ref: string) {
   return useQuery(cardQueryOptions(client, ref));
 }
 
@@ -111,7 +117,7 @@ export function applyMove(
  * Optimistic move: every cached board of the project shows the move at once; a failure puts the
  * snapshots back, and success or failure ends with a refetch so the server has the last word.
  */
-export function moveCardMutationOptions(client: CardsClient, queryClient: QueryClient) {
+export function moveCardMutationOptions(client: CardsClient<'move'>, queryClient: QueryClient) {
   return {
     mutationFn: ({ projectId: _projectId, cardId, ...body }: MoveVariables) =>
       client.cards.move(cardId, body, null),
@@ -136,7 +142,7 @@ export function moveCardMutationOptions(client: CardsClient, queryClient: QueryC
   };
 }
 
-export function useMoveCard(client: CardsClient) {
+export function useMoveCard(client: CardsClient<'move'>) {
   const queryClient = useQueryClient();
   return useMutation(moveCardMutationOptions(client, queryClient));
 }

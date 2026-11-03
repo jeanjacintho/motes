@@ -1,4 +1,21 @@
-import { type createApiClient, useBoard, useBots } from '@motes/core';
+import {
+  closestCorners,
+  DndContext,
+  type DragEndEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { type BotsClient, type CardsClient, useBoard, useBots, useMoveCard } from '@motes/core';
 import {
   type Board,
   type BotSummary,
@@ -8,7 +25,17 @@ import {
   cardRef,
   type Label,
 } from '@motes/protocol';
-import { Badge } from '@motes/ui';
+import { Badge, Toast } from '@motes/ui';
+import { type JSX as ReactJSX, type ReactNode, useState } from 'react';
+import { type DropTarget, type PlannedMove, planMove } from './board-move';
+
+// dnd-kit's declarations still name the global JSX namespace, which React 19's types dropped.
+declare global {
+  namespace JSX {
+    type Element = ReactJSX.Element;
+    type IntrinsicElements = ReactJSX.IntrinsicElements;
+  }
+}
 
 const statusLabels: Record<CardStatus, string> = {
   backlog: 'Backlog',
@@ -62,11 +89,13 @@ function CardTile({
   projectKey,
   labels,
   bots,
+  handle,
 }: {
   card: Card;
   projectKey: string;
   labels: Map<string, Label>;
   bots: BotSummary[];
+  handle?: ReactNode;
 }) {
   const ref = cardRef(projectKey, card.number);
   // Labels deleted or not loaded yet are left out rather than shown as raw ids; the card's order stays.
@@ -74,7 +103,7 @@ function CardTile({
   return (
     <article aria-label={`${ref} ${card.title}`}>
       <header>
-        <span>{ref}</span> <Assignee assignee={card.assignee} bots={bots} />
+        {handle} <span>{ref}</span> <Assignee assignee={card.assignee} bots={bots} />
       </header>
       <p style={truncate} title={card.title}>
         {card.title}
@@ -95,7 +124,81 @@ function CardTile({
   );
 }
 
-/** The board of one project: one column per status, in the order the server sends them. */
+const dropColumn = (status: CardStatus) => `column:${status}`;
+
+function targetOf(id: string): DropTarget {
+  return id.startsWith('column:')
+    ? { kind: 'column', status: id.slice('column:'.length) as CardStatus }
+    : { kind: 'card', id };
+}
+
+function SortableTile({
+  card,
+  projectKey,
+  labels,
+  bots,
+}: {
+  card: Card;
+  projectKey: string;
+  labels: Map<string, Label>;
+  bots: BotSummary[];
+}) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition } =
+    useSortable({ id: card.id });
+  return (
+    <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}>
+      <CardTile
+        card={card}
+        projectKey={projectKey}
+        labels={labels}
+        bots={bots}
+        handle={
+          <button
+            type="button"
+            ref={setActivatorNodeRef}
+            {...attributes}
+            {...listeners}
+            aria-label={`Mover ${cardRef(projectKey, card.number)}`}
+          >
+            ⠿
+          </button>
+        }
+      />
+    </li>
+  );
+}
+
+function Column({
+  status,
+  cards,
+  children,
+}: {
+  status: CardStatus;
+  cards: Card[];
+  children: ReactNode;
+}) {
+  const { setNodeRef } = useDroppable({ id: dropColumn(status) });
+  const title = statusLabels[status];
+  return (
+    <section ref={setNodeRef} aria-label={title} style={{ minWidth: 0, flex: 1 }}>
+      <h2>
+        {title} <span>{cards.length}</span>
+      </h2>
+      <SortableContext items={cards.map((card) => card.id)} strategy={verticalListSortingStrategy}>
+        {cards.length === 0 ? <p>Nenhum card</p> : <ol>{children}</ol>}
+      </SortableContext>
+    </section>
+  );
+}
+
+const instructions =
+  'Para mover um card, pressione espaço ou enter. Use as setas para escolher o lugar e pressione ' +
+  'espaço ou enter de novo para soltar, ou escape para cancelar.';
+
+/**
+ * The board of one project: one column per status, in the order the server sends them. With
+ * `onMove`, each card has a handle that drags with the pointer or moves with the keyboard.
+ */
 export function BoardScreen({
   projectKey,
   board,
@@ -103,6 +206,7 @@ export function BoardScreen({
   error,
   labels = [],
   bots = [],
+  onMove,
 }: {
   projectKey: string;
   board: Board | undefined;
@@ -110,71 +214,122 @@ export function BoardScreen({
   error: boolean;
   labels?: Label[];
   bots?: BotSummary[];
+  onMove?: (move: PlannedMove) => void;
 }) {
+  const sensors = useSensors(
+    // A small distance keeps a click on the handle from starting a drag.
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
   if (loading && !board) return <p role="status">Carregando board…</p>;
   if (error && !board) return <p role="alert">Não foi possível carregar o board.</p>;
   const columns = board?.columns ?? [];
   const labelsById = new Map(labels.map((label) => [label.id, label]));
   const empty = columns.every((column) => column.cards.length === 0);
+  const refOf = (id: string | number) => {
+    const card = columns.flatMap((column) => column.cards).find((c) => c.id === id);
+    return card ? cardRef(projectKey, card.number) : 'o card';
+  };
+  const placeOf = (id: string | number) => {
+    const target = targetOf(String(id));
+    return target.kind === 'column' ? statusLabels[target.status] : refOf(target.id);
+  };
+  function drop(event: DragEndEvent) {
+    if (!board || !onMove || !event.over) return;
+    const move = planMove(board, String(event.active.id), targetOf(String(event.over.id)));
+    if (move) onMove(move);
+  }
+  const content = (
+    <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
+      {columns.map((column) => (
+        <Column key={column.status} status={column.status} cards={column.cards}>
+          {column.cards.map((card) =>
+            onMove ? (
+              <SortableTile
+                key={card.id}
+                card={card}
+                projectKey={projectKey}
+                labels={labelsById}
+                bots={bots}
+              />
+            ) : (
+              <li key={card.id}>
+                <CardTile card={card} projectKey={projectKey} labels={labelsById} bots={bots} />
+              </li>
+            ),
+          )}
+        </Column>
+      ))}
+    </div>
+  );
   return (
     <section aria-label="Board">
       {empty && <p>Nenhum card ainda.</p>}
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-        {columns.map((column) => {
-          const title = statusLabels[column.status];
-          return (
-            <section key={column.status} aria-label={title} style={{ minWidth: 0, flex: 1 }}>
-              <h2>
-                {title} <span>{column.cards.length}</span>
-              </h2>
-              {column.cards.length === 0 ? (
-                <p>Nenhum card</p>
-              ) : (
-                <ol>
-                  {column.cards.map((card) => (
-                    <li key={card.id}>
-                      <CardTile
-                        card={card}
-                        projectKey={projectKey}
-                        labels={labelsById}
-                        bots={bots}
-                      />
-                    </li>
-                  ))}
-                </ol>
-              )}
-            </section>
-          );
-        })}
-      </div>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragEnd={drop}
+        accessibility={{
+          screenReaderInstructions: { draggable: instructions },
+          announcements: {
+            onDragStart: ({ active }) => `${refOf(active.id)} pego.`,
+            onDragOver: ({ active, over }) =>
+              over ? `${refOf(active.id)} sobre ${placeOf(over.id)}.` : undefined,
+            onDragEnd: ({ active, over }) =>
+              over
+                ? `${refOf(active.id)} solto em ${placeOf(over.id)}.`
+                : `${refOf(active.id)} solto.`,
+            onDragCancel: ({ active }) => `Movimento de ${refOf(active.id)} cancelado.`,
+          },
+        }}
+      >
+        {content}
+      </DndContext>
     </section>
   );
 }
 
-type BoardClient = Pick<ReturnType<typeof createApiClient>, 'cards' | 'bots'>;
+/** The calls ProjectBoard makes; an app can serve them over its own transport. */
+export type ProjectBoardClient = CardsClient<'board' | 'move'> & BotsClient<'list'>;
 
-/** BoardScreen fed by the board and bot queries; realtime invalidations keep both current. */
+/**
+ * BoardScreen fed by the board and bot queries; realtime invalidations keep both current. A move
+ * shows at once and is undone, with a notice, when the server refuses it.
+ */
 export function ProjectBoard({
   client,
   projectId,
   projectKey,
   labels,
 }: {
-  client: BoardClient;
+  client: ProjectBoardClient;
   projectId: string;
   projectKey: string;
   labels?: Label[];
 }) {
   const board = useBoard(client, projectId);
   const bots = useBots(client);
+  const move = useMoveCard(client);
+  const [failed, setFailed] = useState(false);
   return (
-    <BoardScreen
-      projectKey={projectKey}
-      board={board.data}
-      loading={board.isLoading}
-      error={board.isError}
-      bots={bots.data ?? []}
-      {...(labels ? { labels } : {})}
-    />
+    <Toast.Provider>
+      <BoardScreen
+        projectKey={projectKey}
+        board={board.data}
+        loading={board.isLoading}
+        error={board.isError}
+        bots={bots.data ?? []}
+        {...(labels ? { labels } : {})}
+        onMove={(planned) => {
+          setFailed(false);
+          move.mutate({ projectId, ...planned }, { onError: () => setFailed(true) });
+        }}
+      />
+      <Toast.Root open={failed} onOpenChange={setFailed}>
+        <Toast.Title>Não foi possível mover o card.</Toast.Title>
+        <Toast.Description>Ele voltou para onde estava.</Toast.Description>
+      </Toast.Root>
+      <Toast.Viewport />
+    </Toast.Provider>
   );
 }
