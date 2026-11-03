@@ -2,7 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import type { createApiClient } from './api-client.js';
 import type { createRealtime } from './realtime.js';
 
-type BotsClient = Pick<ReturnType<typeof createApiClient>, 'bots'>;
+type Bots = ReturnType<typeof createApiClient>['bots'];
+/** Each hook asks only for the calls it makes, so an app can back them with its own transport. */
+export type BotsClient<Calls extends keyof Bots = keyof Bots> = { bots: Pick<Bots, Calls> };
 
 export const botKeys = {
   all: ['bots'] as const,
@@ -22,21 +24,21 @@ export function registerBotInvalidations(
   };
 }
 
-export const botsQueryOptions = (client: BotsClient) => ({
+export const botsQueryOptions = (client: BotsClient<'list'>) => ({
   queryKey: botKeys.all,
   queryFn: () => client.bots.list([]),
 });
 
-export const botQueryOptions = (client: BotsClient, id: string) => ({
+export const botQueryOptions = (client: BotsClient<'get'>, id: string) => ({
   queryKey: botKeys.bot(id),
   queryFn: () => client.bots.get(id, null),
 });
 
-export function useBots(client: BotsClient) {
+export function useBots(client: BotsClient<'list'>) {
   return useQuery(botsQueryOptions(client));
 }
 
 /** Resolves to null when the server answers with something that is not a bot. */
-export function useBot(client: BotsClient, id: string) {
+export function useBot(client: BotsClient<'get'>, id: string) {
   return useQuery(botQueryOptions(client, id));
 }
