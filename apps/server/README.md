@@ -45,3 +45,7 @@ validation_failed`, `404 not_found`, `409 conflict`.
 | `GET /bots` | the bot index: slug, name, kind, engines, `enabled`, `skillDigest` and `loadError` while the folder is broken |
 | `GET /bots/:id` | the index row plus the config and `SKILL.md` read from disk (both `null` while the folder is broken) |
 | `GET /projects/:id/board?assignee=&labelId=&priority=&text=` | every status as a column; `assignee` reads `bot:<id>` or `owner:owner` |
+| `GET /cards/:id/timeline?cursor=&limit=` | comments and activity merged, oldest first; `limit` 1 to 100 (default 50), `nextCursor` is `null` on the last page; a deleted card keeps its history |
+| `POST /cards/:id/comments` | `{ body }` markdown; 201 with the comment; `@slug` of a live bot is announced (`comment.mentioned`) |
+| `PATCH /comments/:id` | `{ body }`; only the author edits |
+| `DELETE /comments/:id` | soft delete by the author or the owner; answers `{ deleted: true }`, also when repeated |

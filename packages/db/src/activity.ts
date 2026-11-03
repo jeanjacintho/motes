@@ -46,3 +46,36 @@ export async function listActivity(db: Reader, cardId: string): Promise<Activity
     }),
   );
 }
+
+/** Where a page of the merged timeline starts after: the last item of the previous page. */
+export type TimelinePosition = { at: Date; id: string };
+
+/** Up to `limit` lines strictly after `after`, ordered by time and id (the timeline's order). */
+export async function listActivityAfter(
+  db: Reader,
+  cardId: string,
+  after: TimelinePosition | undefined,
+  limit: number,
+): Promise<ActivityEntry[]> {
+  const rows = await db
+    .select()
+    .from(cardActivity)
+    .where(
+      after
+        ? sql`${cardActivity.cardId} = ${cardId}
+            AND (${cardActivity.occurredAt}, ${cardActivity.id} COLLATE "C") > (${after.at}, ${after.id})`
+        : sql`${cardActivity.cardId} = ${cardId}`,
+    )
+    .orderBy(cardActivity.occurredAt, sql`${cardActivity.id} COLLATE "C"`)
+    .limit(limit);
+  return rows.map((row) =>
+    activityEntrySchema.parse({
+      id: row.id,
+      cardId: row.cardId,
+      type: row.type,
+      actor: row.actor,
+      payload: row.payload,
+      occurredAt: row.occurredAt.toISOString(),
+    }),
+  );
+}

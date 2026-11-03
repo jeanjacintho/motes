@@ -34,3 +34,10 @@ export { projectKeys, registerProjectInvalidations } from './projects.js';
 export { createQueryClient, NetworkError } from './query-client.js';
 export type { RealtimeSocket } from './realtime.js';
 export { createRealtime } from './realtime.js';
+export {
+  registerTimelineInvalidations,
+  timelineKeys,
+  timelineQueryOptions,
+  useCommentMutations,
+  useTimeline,
+} from './timeline.js';

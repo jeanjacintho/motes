@@ -1,4 +1,4 @@
-import { bots, cards, commentMentions, comments, eq, sql } from '@motes/db';
+import { bots, cards, commentMentions, comments, eq, sql, type TimelinePosition } from '@motes/db';
 import { type Comment, commentInputSchema, commentSchema } from '@motes/protocol';
 import { type CardServices, lockCard } from './cards.js';
 import { Forbidden, NotFound } from './errors.js';
@@ -214,5 +214,26 @@ export async function listComments(services: CardServices, cardId: string): Prom
     .from(comments)
     .where(sql`${comments.cardId} = ${cardId} AND ${comments.deletedAt} IS NULL`)
     .orderBy(comments.createdAt, comments.id);
+  return rows.map(toComment);
+}
+
+/** Up to `limit` live comments strictly after `after`, ordered by time and id (timeline order). */
+export async function listCommentsAfter(
+  services: CardServices,
+  cardId: string,
+  after: TimelinePosition | undefined,
+  limit: number,
+): Promise<Comment[]> {
+  const rows = await services.db
+    .select()
+    .from(comments)
+    .where(
+      after
+        ? sql`${comments.cardId} = ${cardId} AND ${comments.deletedAt} IS NULL
+            AND (${comments.createdAt}, ${comments.id} COLLATE "C") > (${after.at}, ${after.id})`
+        : sql`${comments.cardId} = ${cardId} AND ${comments.deletedAt} IS NULL`,
+    )
+    .orderBy(comments.createdAt, sql`${comments.id} COLLATE "C"`)
+    .limit(limit);
   return rows.map(toComment);
 }

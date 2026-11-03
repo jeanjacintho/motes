@@ -1,6 +1,6 @@
 import { withTestDb } from '@motes/db/testing';
 import { createPairingCode } from '@motes/domain';
-import { apiErrorSchema, boardSchema, newId } from '@motes/protocol';
+import { apiErrorSchema, boardSchema, newId, timelinePageSchema } from '@motes/protocol';
 import { describe, expect, it } from 'vitest';
 import { createServices } from './composition.js';
 import { createLogger } from './logger.js';
@@ -18,7 +18,7 @@ async function setup() {
     payload: { code, name: 'Laptop' },
   });
   const headers = { authorization: `Bearer ${paired.json().token}` };
-  const call = (method: 'GET' | 'POST' | 'PATCH', url: string, payload?: object) =>
+  const call = (method: 'GET' | 'POST' | 'PATCH' | 'DELETE', url: string, payload?: object) =>
     app.inject({ method, url, headers, ...(payload ? { payload } : {}) });
   return { app, call };
 }
@@ -42,6 +42,10 @@ describe('card routes', () => {
       ['POST', `/cards/${newId('card')}/move`],
       ['POST', `/cards/${newId('card')}/assign`],
       ['GET', `/projects/${newId('project')}/board`],
+      ['GET', `/cards/${newId('card')}/timeline`],
+      ['POST', `/cards/${newId('card')}/comments`],
+      ['PATCH', `/comments/${newId('comment')}`],
+      ['DELETE', `/comments/${newId('comment')}`],
     ] as const)
       expect((await app.inject({ method, url })).statusCode, `${method} ${url}`).toBe(401);
     await app.close();
@@ -181,5 +185,88 @@ describe('card routes', () => {
     );
     expect((await call('GET', `/projects/${newId('project')}/board`)).statusCode).toBe(404);
     await app.close();
+  });
+
+  describe('timeline', () => {
+    const pause = () => new Promise((resolve) => setTimeout(resolve, 5));
+
+    it('comments, edits and deletes through the routes and lists it all in order', async () => {
+      const { app, call } = await setup();
+      const project = await newProject(call);
+      const card = (await call('POST', `/projects/${project.id}/cards`, { title: 'Um' })).json();
+      await pause();
+      const first = await call('POST', `/cards/${card.id}/comments`, { body: 'primeiro' });
+      expect(first.statusCode).toBe(201);
+      expect(first.json()).toMatchObject({ cardId: card.id, author: { type: 'owner' } });
+      await pause();
+      await call('PATCH', `/cards/${card.id}`, { title: 'Dois' });
+      await pause();
+      const second = (await call('POST', `/cards/${card.id}/comments`, { body: 'segundo' })).json();
+      const edited = await call('PATCH', `/comments/${second.id}`, { body: 'segundo, editado' });
+      expect(edited.json()).toMatchObject({
+        body: 'segundo, editado',
+        editedAt: expect.any(String),
+      });
+      await pause();
+      const third = (await call('POST', `/cards/${card.id}/comments`, { body: 'terceiro' })).json();
+      expect((await call('DELETE', `/comments/${third.id}`)).json()).toEqual({ deleted: true });
+
+      const page = timelinePageSchema.parse(
+        (await call('GET', `/cards/${card.id}/timeline`)).json(),
+      );
+      expect(
+        page.items.map((item) => (item.kind === 'comment' ? item.comment.body : item.entry.type)),
+      ).toEqual(['card.created', 'primeiro', 'card.updated', 'segundo, editado']);
+      expect(page.nextCursor).toBeNull();
+      await app.close();
+    });
+
+    it('pages with a cursor and validates the query', async () => {
+      const { app, call } = await setup();
+      const project = await newProject(call);
+      const card = (await call('POST', `/projects/${project.id}/cards`, { title: 'Um' })).json();
+      for (const body of ['a', 'b', 'c']) {
+        await pause();
+        await call('POST', `/cards/${card.id}/comments`, { body });
+      }
+      const first = timelinePageSchema.parse(
+        (await call('GET', `/cards/${card.id}/timeline?limit=3`)).json(),
+      );
+      expect(first.items).toHaveLength(3);
+      expect(first.nextCursor).not.toBeNull();
+      const second = timelinePageSchema.parse(
+        (
+          await call(
+            'GET',
+            `/cards/${card.id}/timeline?limit=3&cursor=${encodeURIComponent(first.nextCursor ?? '')}`,
+          )
+        ).json(),
+      );
+      expect(second.items.map((item) => item.kind)).toEqual(['comment']);
+      expect(second.nextCursor).toBeNull();
+      for (const query of ['limit=0', 'limit=101', 'limit=x', 'cursor=garbage'])
+        expect(errorCode(await call('GET', `/cards/${card.id}/timeline?${query}`)), query).toBe(
+          'validation_failed',
+        );
+      expect((await call('GET', `/cards/${newId('card')}/timeline`)).statusCode).toBe(404);
+      await app.close();
+    });
+
+    it('rejects blank comments and unknown ids', async () => {
+      const { app, call } = await setup();
+      const project = await newProject(call);
+      const card = (await call('POST', `/projects/${project.id}/cards`, { title: 'Um' })).json();
+      expect(errorCode(await call('POST', `/cards/${card.id}/comments`, { body: '   ' }))).toBe(
+        'validation_failed',
+      );
+      expect(
+        (await call('POST', `/cards/${newId('card')}/comments`, { body: 'x' })).statusCode,
+      ).toBe(404);
+      expect((await call('PATCH', `/comments/${newId('comment')}`, { body: 'x' })).statusCode).toBe(
+        404,
+      );
+      expect((await call('DELETE', `/comments/${newId('comment')}`)).statusCode).toBe(404);
+      await app.close();
+    });
   });
 });

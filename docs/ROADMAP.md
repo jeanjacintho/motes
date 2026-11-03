@@ -58,14 +58,14 @@ Tags:
 
 ## Progress
 
-> Last updated 2026-11-06. A card is done when its PR is merged into `main`; the card files keep their checkboxes unticked on purpose, so this section is the only place that tracks where we stopped.
+> Last updated 2026-11-07. A card is done when its PR is merged into `main`; the card files keep their checkboxes unticked on purpose, so this section is the only place that tracks where we stopped.
 
 | Phase | Epic | State |
 |---|---|---|
 | P0 · Foundation | P0-01 to P0-06 | **Done**: every card merged (last: P0-06-03, PR #33). The P0 gate was reached by that card's end-to-end smoke test; the owner's manual gate check is separate. |
 | P1 · Pipeline | P1-01 Projects | **Done**: P1-01-01 to P1-01-04 |
 | P1 · Pipeline | P1-02 Cards | **Done**: P1-02-01 to P1-02-06 |
-| P1 · Pipeline | P1-03 Timeline | P1-03-01 and P1-03-02 done; P1-03-03 Mentions in review; **next: P1-03-04 Timeline route** |
+| P1 · Pipeline | P1-03 Timeline | P1-03-01 to P1-03-03 done; P1-03-04 Timeline route in review; **next: P1-04-01 Board columns** |
 | P1 · Pipeline | P1-05 Bots | P1-05-01 and P1-05-02 done; P1-05-03 onward not started |
 | P1 · Pipeline | P1-04, P1-06 to P1-10 | Not started (P1-04-01 is unblocked) |
 | P2 to P7 | all | Not started |

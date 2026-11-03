@@ -61,3 +61,4 @@ export {
   STATUS_TRANSITIONS,
   SYSTEM_STATUSES,
 } from './status.js';
+export { getTimeline } from './timeline.js';
