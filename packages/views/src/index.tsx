@@ -2,7 +2,7 @@ import type { createRealtime } from '@motes/core';
 import { Button, Input } from '@motes/ui';
 import { type ReactNode, useState } from 'react';
 
-export { BoardScreen, ProjectBoard } from './board';
+export { BoardScreen, ProjectBoard, type ProjectBoardClient } from './board';
 export {
   AppLink,
   type NavigationAdapter,

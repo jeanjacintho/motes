@@ -11,6 +11,9 @@
     ".": "./src/index.tsx"
   },
   "dependencies": {
+    "@dnd-kit/core": "catalog:",
+    "@dnd-kit/sortable": "catalog:",
+    "@dnd-kit/utilities": "catalog:",
     "@motes/core": "workspace:*",
     "@motes/ui": "workspace:*",
     "@motes/protocol": "workspace:*",

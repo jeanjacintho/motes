@@ -8,7 +8,7 @@ import {
   newId,
 } from '@motes/protocol';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { BoardScreen, ProjectBoard } from './index';
 
@@ -192,5 +192,148 @@ describe('ProjectBoard', () => {
     expect(within(tile).getByRole('list', { name: 'Etiquetas' }).textContent).toBe('bug');
     await waitFor(() => expect(queryClient.getQueryState(['bots'])?.status).toBe('error'));
     expect(within(tile).getByRole('img', { name: 'Responsável: Bot' })).toBeTruthy();
+  });
+});
+
+// jsdom lays nothing out; give columns side by side and tiles stacked so dnd-kit can measure.
+function layOut() {
+  return vi.spyOn(Element.prototype, 'getBoundingClientRect').mockImplementation(function (
+    this: Element,
+  ) {
+    const rect = (left: number, top: number, width: number, height: number) =>
+      ({
+        left,
+        top,
+        width,
+        height,
+        right: left + width,
+        bottom: top + height,
+        x: left,
+        y: top,
+      }) as DOMRect;
+    const sections = [...document.querySelectorAll('section[aria-label] section[aria-label]')];
+    const columnOf = (element: Element) =>
+      sections.indexOf(element.closest('section[aria-label] section[aria-label]') as Element);
+    if (sections.includes(this)) return rect(columnOf(this) * 300, 0, 280, 1000);
+    if (this.tagName === 'LI') {
+      const row = [...(this.parentElement?.children ?? [])].indexOf(this);
+      return rect(columnOf(this) * 300, 50 + row * 100, 280, 90);
+    }
+    if (this.tagName === 'BUTTON' && this.closest('li')) {
+      const item = this.closest('li') as Element;
+      const row = [...(item.parentElement?.children ?? [])].indexOf(item);
+      return rect(columnOf(this) * 300, 50 + row * 100, 20, 20);
+    }
+    return rect(0, 0, 0, 0);
+  });
+}
+
+async function keyboardMove(handleName: string, keys: string[]) {
+  const handle = screen.getByRole('button', { name: handleName });
+  handle.focus();
+  fireEvent.keyDown(handle, { code: 'Space', key: ' ' });
+  // dnd-kit measures the droppables after the drag starts.
+  await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+  for (const key of keys) {
+    fireEvent.keyDown(document, { code: key, key });
+    await act(async () => {});
+  }
+  fireEvent.keyDown(document, { code: 'Space', key: ' ' });
+  await act(async () => {});
+}
+
+describe('moving cards', () => {
+  it('gives each card a labelled handle only when moves are possible', () => {
+    const { rerender } = render(
+      <BoardScreen projectKey="MOT" board={fixture} loading={false} error={false} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Mover MOT-1' })).toBeNull();
+    rerender(
+      <BoardScreen
+        projectKey="MOT"
+        board={fixture}
+        loading={false}
+        error={false}
+        onMove={vi.fn()}
+      />,
+    );
+    const handle = screen.getByRole('button', { name: 'Mover MOT-1' });
+    expect(handle.getAttribute('aria-roledescription')).toBe('sortable');
+    expect(
+      document.getElementById(handle.getAttribute('aria-describedby') ?? '')?.textContent,
+    ).toMatch(/pressione espaço ou enter/);
+  });
+
+  it('moves a card down its column with the keyboard', async () => {
+    const spy = layOut();
+    const onMove = vi.fn();
+    render(
+      <BoardScreen
+        projectKey="MOT"
+        board={fixture}
+        loading={false}
+        error={false}
+        onMove={onMove}
+      />,
+    );
+    await keyboardMove('Mover MOT-1', ['ArrowDown']);
+    const [first, second] = fixture.columns[0]?.cards ?? [];
+    expect(onMove).toHaveBeenCalledWith({
+      cardId: first?.id,
+      status: 'backlog',
+      afterId: second?.id,
+    });
+    spy.mockRestore();
+  });
+
+  it('cancels a keyboard move with escape', async () => {
+    const spy = layOut();
+    const onMove = vi.fn();
+    render(
+      <BoardScreen
+        projectKey="MOT"
+        board={fixture}
+        loading={false}
+        error={false}
+        onMove={onMove}
+      />,
+    );
+    const handle = screen.getByRole('button', { name: 'Mover MOT-1' });
+    handle.focus();
+    fireEvent.keyDown(handle, { code: 'Space', key: ' ' });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 50)));
+    fireEvent.keyDown(document, { code: 'ArrowDown', key: 'ArrowDown' });
+    await act(async () => {});
+    fireEvent.keyDown(document, { code: 'Escape', key: 'Escape' });
+    await act(async () => {});
+    expect(onMove).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it('shows the move at once and undoes it with a notice when the server refuses', async () => {
+    const spy = layOut();
+    const client = createApiClient({
+      baseUrl: 'http://server',
+      getToken: () => 'token',
+      fetch: async (url, init) => {
+        if (init.method === 'POST') return { ok: false, status: 400, json: async () => ({}) };
+        return { ok: true, status: 200, json: async () => (url.endsWith('/bots') ? [] : fixture) };
+      },
+      logger: vi.fn(),
+    });
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <ProjectBoard client={client} projectId={projectId} projectKey="MOT" />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    await keyboardMove('Mover MOT-1', ['ArrowDown']);
+    expect(await screen.findByText('Não foi possível mover o card.')).toBeTruthy();
+    const backlog = within(column('Backlog')).getAllByRole('article');
+    expect(backlog.map((tile) => tile.getAttribute('aria-label'))).toEqual([
+      'MOT-1 Primeiro',
+      `MOT-2 ${longTitle}`,
+    ]);
+    spy.mockRestore();
   });
 });
