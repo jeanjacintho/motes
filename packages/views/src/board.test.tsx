@@ -8,7 +8,7 @@ import {
   newId,
 } from '@motes/protocol';
 import { QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { BoardScreen, ProjectBoard } from './index';
 
@@ -170,5 +170,27 @@ describe('ProjectBoard', () => {
     expect(screen.getByRole('status').textContent).toBe('Carregando board…');
     const tile = await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
     expect(await within(tile).findByRole('img', { name: 'Responsável: Dev Bot' })).toBeTruthy();
+  });
+
+  it('passes the labels through and still shows the assignee when the bots fail to load', async () => {
+    const client = createApiClient({
+      baseUrl: 'http://server',
+      getToken: () => 'token',
+      fetch: async (url) =>
+        url.endsWith('/bots')
+          ? { ok: false, status: 500, json: async () => ({}) }
+          : { ok: true, status: 200, json: async () => fixture },
+      logger: vi.fn(),
+    });
+    const queryClient = createQueryClient();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <ProjectBoard client={client} projectId={projectId} projectKey="MOT" labels={[bug]} />
+      </QueryClientProvider>,
+    );
+    const tile = await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    expect(within(tile).getByRole('list', { name: 'Etiquetas' }).textContent).toBe('bug');
+    await waitFor(() => expect(queryClient.getQueryState(['bots'])?.status).toBe('error'));
+    expect(within(tile).getByRole('img', { name: 'Responsável: Bot' })).toBeTruthy();
   });
 });

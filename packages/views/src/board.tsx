@@ -65,12 +65,12 @@ function CardTile({
 }: {
   card: Card;
   projectKey: string;
-  labels: Label[];
+  labels: Map<string, Label>;
   bots: BotSummary[];
 }) {
   const ref = cardRef(projectKey, card.number);
-  // Labels deleted or not loaded yet are left out rather than shown as raw ids.
-  const known = card.labels.flatMap((id) => labels.filter((label) => label.id === id));
+  // Labels deleted or not loaded yet are left out rather than shown as raw ids; the card's order stays.
+  const known = card.labels.flatMap((id) => labels.get(id) ?? []);
   return (
     <article aria-label={`${ref} ${card.title}`}>
       <header>
@@ -114,6 +114,7 @@ export function BoardScreen({
   if (loading && !board) return <p role="status">Carregando board…</p>;
   if (error && !board) return <p role="alert">Não foi possível carregar o board.</p>;
   const columns = board?.columns ?? [];
+  const labelsById = new Map(labels.map((label) => [label.id, label]));
   const empty = columns.every((column) => column.cards.length === 0);
   return (
     <section aria-label="Board">
@@ -132,7 +133,12 @@ export function BoardScreen({
                 <ol>
                   {column.cards.map((card) => (
                     <li key={card.id}>
-                      <CardTile card={card} projectKey={projectKey} labels={labels} bots={bots} />
+                      <CardTile
+                        card={card}
+                        projectKey={projectKey}
+                        labels={labelsById}
+                        bots={bots}
+                      />
                     </li>
                   ))}
                 </ol>
