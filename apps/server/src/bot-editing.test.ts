@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { withTestDb } from '@motes/db/testing';
@@ -209,6 +209,32 @@ describe('bot editing routes', () => {
     // The server starts again: it seeds before it serves, and finds the folder already there.
     expect(await seedDefaultBots(createServices(testDb.db, { skillsDir }), skillsDir)).toEqual([]);
     expect((await call('GET', `/bots/${dev?.id}`)).json().skill.body).toContain('Do it my way');
+    await app.close();
+  });
+
+  it('a config patch leaves every field it does not name as the file has it', async () => {
+    const { app, call, skillsDir } = await setup();
+    const name = slug();
+    const bot = (
+      await call('POST', '/bots', { slug: name, displayName: 'Novo', kind: 'dev' })
+    ).json();
+    const file = join(skillsDir, 'bots', name, 'bot.yaml');
+    await writeFile(
+      file,
+      `slug: ${name}\ndisplayName: Novo\navatar: https://x/a.png\nkind: dev\nengines: [claude]\nlimits:\n  maxTurns: 7\n  maxRunMinutes: 9\n  maxParallelRuns: 3\nskills: [release]\nmodels:\n  frontier: opus\n`,
+    );
+    const patched = await call('PATCH', `/bots/${bot.id}/config`, { enabled: false });
+    expect(patched.statusCode).toBe(200);
+    expect(patched.json().config).toMatchObject({
+      avatar: 'https://x/a.png',
+      limits: { maxTurns: 7, maxRunMinutes: 9, maxParallelRuns: 3 },
+      skills: ['release'],
+      models: { frontier: 'opus' },
+      enabled: false,
+    });
+    const text = await readFile(file, 'utf8');
+    expect(text).toContain('maxTurns: 7');
+    expect(text).toContain('release');
     await app.close();
   });
 });
