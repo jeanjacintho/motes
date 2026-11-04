@@ -2,6 +2,7 @@ import {
   type BoardFilters,
   type BotSummary,
   CARD_PRIORITIES,
+  type Card,
   type CardPriority,
   type Label,
 } from '@motes/protocol';
@@ -23,6 +24,19 @@ function withField<Key extends keyof BoardFilters>(
 
 export const hasFilters = (filters: BoardFilters) => Object.keys(filters).length > 0;
 
+/** Whether a card is one the filters let through, as the server decides it for the board. */
+export function matchesFilters(card: Card, filters: BoardFilters): boolean {
+  if (filters.priority && card.priority !== filters.priority) return false;
+  if (
+    filters.assignee &&
+    !(card.assignee?.type === filters.assignee.type && card.assignee.id === filters.assignee.id)
+  )
+    return false;
+  if (filters.labelId && !card.labels.includes(filters.labelId)) return false;
+  if (filters.text && !card.title.toLowerCase().includes(filters.text.toLowerCase())) return false;
+  return true;
+}
+
 /**
  * Assignee, label, priority and a title search. The search waits for a pause in typing so the
  * board is not asked again for every key.
@@ -31,11 +45,14 @@ export function FilterBar({
   filters,
   labels,
   bots,
+  loaded = true,
   onChange,
 }: {
   filters: BoardFilters;
   labels: Label[];
   bots: BotSummary[];
+  /** False while labels or bots are still loading, so a restored filter is not called removed. */
+  loaded?: boolean;
   onChange(filters: BoardFilters): void;
 }) {
   const [text, setText] = useState(filters.text ?? '');
@@ -90,7 +107,8 @@ export function FilterBar({
             {bot.displayName}
           </option>
         ))}
-        {filters.assignee?.type === 'bot' &&
+        {loaded &&
+          filters.assignee?.type === 'bot' &&
           !bots.some((bot) => bot.id === filters.assignee?.id) && (
             <option value={assignee}>Bot removido</option>
           )}
@@ -114,7 +132,7 @@ export function FilterBar({
             {label.name}
           </option>
         ))}
-        {filters.labelId && !labels.some((label) => label.id === filters.labelId) && (
+        {loaded && filters.labelId && !labels.some((label) => label.id === filters.labelId) && (
           <option value={filters.labelId}>Etiqueta removida</option>
         )}
       </select>

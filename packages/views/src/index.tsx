@@ -9,7 +9,7 @@ export {
   type CardDetailScreenProps,
   type CardDetailViewClient,
 } from './card-detail';
-export { FilterBar, hasFilters } from './filter-bar';
+export { FilterBar, hasFilters, matchesFilters } from './filter-bar';
 export {
   AppLink,
   type NavigationAdapter,

@@ -491,6 +491,29 @@ describe('ProjectBoard filters and new card', () => {
     expect(screen.getAllByRole('dialog')).toHaveLength(1);
   });
 
+  it('tells the owner when a new card is hidden by the filters, and not when it shows', async () => {
+    setup({ filters: { priority: 'low' } });
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.click(screen.getByRole('button', { name: 'Novo card' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo card' });
+    fireEvent.change(within(dialog).getByLabelText('Título'), { target: { value: 'Escondido' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    // The answer is the fixture's first card, which is high priority and so fails priority "low".
+    expect(await screen.findByText('Card criado.')).toBeTruthy();
+    expect(screen.getByText('Os filtros atuais o escondem. Limpe-os para vê-lo.')).toBeTruthy();
+  });
+
+  it('stays quiet about a new card when no filter is active', async () => {
+    setup();
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.click(screen.getByRole('button', { name: 'Novo card' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo card' });
+    fireEvent.change(within(dialog).getByLabelText('Título'), { target: { value: 'Visível' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByText('Card criado.')).toBeNull();
+  });
+
   it('says when the filters hide every card', () => {
     render(
       <BoardScreen projectKey="MOT" board={boardOf([])} loading={false} error={false} filtered />,

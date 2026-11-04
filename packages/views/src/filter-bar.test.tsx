@@ -1,7 +1,7 @@
 import { type BoardFilters, type BotSummary, type Label, newId } from '@motes/protocol';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { FilterBar } from './index';
+import { FilterBar, matchesFilters } from './index';
 
 const projectId = newId('project');
 const dev: BotSummary = {
@@ -114,5 +114,61 @@ describe('FilterBar', () => {
     renderBar({ labelId: newId('label'), assignee: { type: 'bot', id: newId('bot') } });
     expect(screen.getByRole('option', { name: 'Etiqueta removida' })).toBeTruthy();
     expect(screen.getByRole('option', { name: 'Bot removido' })).toBeTruthy();
+  });
+});
+
+describe('FilterBar while labels and bots load', () => {
+  it('does not call a restored filter removed until they have loaded', () => {
+    const filters = {
+      labelId: newId('label'),
+      assignee: { type: 'bot' as const, id: newId('bot') },
+    };
+    const view = render(
+      <FilterBar filters={filters} labels={[]} bots={[]} loaded={false} onChange={vi.fn()} />,
+    );
+    expect(screen.queryByRole('option', { name: 'Etiqueta removida' })).toBeNull();
+    expect(screen.queryByRole('option', { name: 'Bot removido' })).toBeNull();
+    view.rerender(<FilterBar filters={filters} labels={[]} bots={[]} onChange={vi.fn()} />);
+    expect(screen.getByRole('option', { name: 'Etiqueta removida' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'Bot removido' })).toBeTruthy();
+  });
+});
+
+describe('matchesFilters', () => {
+  const card = {
+    title: 'Corrigir Login',
+    priority: 'high',
+    labels: [bug.id],
+    assignee: { type: 'bot', id: dev.id },
+  } as unknown as Parameters<typeof matchesFilters>[0];
+
+  it('lets a card through when it meets every filter, and with none', () => {
+    expect(matchesFilters(card, {})).toBe(true);
+    expect(
+      matchesFilters(card, {
+        priority: 'high',
+        labelId: bug.id,
+        assignee: { type: 'bot', id: dev.id },
+        text: 'login',
+      }),
+    ).toBe(true);
+  });
+
+  it.each([
+    ['priority', { priority: 'low' as const }],
+    ['label', { labelId: newId('label') }],
+    ['assignee', { assignee: { type: 'owner' as const, id: 'owner' } }],
+    ['text', { text: 'logout' }],
+  ])('hides a card that fails the %s filter', (_name, filters) => {
+    expect(matchesFilters(card, filters)).toBe(false);
+  });
+
+  it('hides an unassigned card from an assignee filter', () => {
+    expect(
+      matchesFilters(
+        { ...card, assignee: undefined },
+        { assignee: { type: 'owner', id: 'owner' } },
+      ),
+    ).toBe(false);
   });
 });

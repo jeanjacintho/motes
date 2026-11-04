@@ -37,7 +37,7 @@ import {
 import { Badge, Toast } from '@motes/ui';
 import { type JSX as ReactJSX, type ReactNode, useEffect, useState } from 'react';
 import { type DropTarget, type PlannedMove, planMove } from './board-move';
-import { FilterBar, hasFilters } from './filter-bar';
+import { FilterBar, hasFilters, matchesFilters } from './filter-bar';
 import { priorityNames, statusNames } from './names';
 import { NewCardDialog } from './new-card-dialog';
 
@@ -348,7 +348,7 @@ export function ProjectBoard({
   const labels = useLabels(client, projectId);
   const move = useMoveCard(client);
   const create = useCreateCard(client, projectId);
-  const [failed, setFailed] = useState(false);
+  const [notice, setNotice] = useState<{ title: string; description: string } | null>(null);
   const [creating, setCreating] = useState(false);
   const filtering = hasFilters(filters);
   useEffect(() => {
@@ -368,13 +368,22 @@ export function ProjectBoard({
         bots={bots.data ?? []}
         open={creating}
         onOpenChange={setCreating}
-        onCreate={(input) => create.mutateAsync(input).then(() => undefined)}
+        onCreate={async (input) => {
+          const created = await create.mutateAsync(input);
+          // Without this the card seems not to have been created at all.
+          if (created && filtering && !matchesFilters(created, filters))
+            setNotice({
+              title: 'Card criado.',
+              description: 'Os filtros atuais o escondem. Limpe-os para vê-lo.',
+            });
+        }}
       />
       {onFiltersChange && (
         <FilterBar
           filters={filters}
           labels={labels.data ?? []}
           bots={bots.data ?? []}
+          loaded={!labels.isPending && !bots.isPending}
           onChange={onFiltersChange}
         />
       )}
@@ -393,14 +402,23 @@ export function ProjectBoard({
           ? {}
           : {
               onMove: (planned: PlannedMove) => {
-                setFailed(false);
-                move.mutate({ projectId, ...planned }, { onError: () => setFailed(true) });
+                setNotice(null);
+                move.mutate(
+                  { projectId, ...planned },
+                  {
+                    onError: () =>
+                      setNotice({
+                        title: 'Não foi possível mover o card.',
+                        description: 'Ele voltou para onde estava.',
+                      }),
+                  },
+                );
               },
             })}
       />
-      <Toast.Root open={failed} onOpenChange={setFailed}>
-        <Toast.Title>Não foi possível mover o card.</Toast.Title>
-        <Toast.Description>Ele voltou para onde estava.</Toast.Description>
+      <Toast.Root open={notice !== null} onOpenChange={(open) => !open && setNotice(null)}>
+        <Toast.Title>{notice?.title}</Toast.Title>
+        <Toast.Description>{notice?.description}</Toast.Description>
       </Toast.Root>
       <Toast.Viewport />
     </Toast.Provider>
