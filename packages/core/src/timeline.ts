@@ -3,7 +3,11 @@ import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-q
 import type { createApiClient } from './api-client.js';
 import type { createRealtime } from './realtime.js';
 
-type TimelineClient = Pick<ReturnType<typeof createApiClient>, 'comments'>;
+type Comments = ReturnType<typeof createApiClient>['comments'];
+/** Each hook asks only for the calls it makes, so an app can back them with its own transport. */
+export type CommentsClient<Calls extends keyof Comments = keyof Comments> = {
+  comments: Pick<Comments, Calls>;
+};
 
 const emptyPage: TimelinePage = { items: [], nextCursor: null };
 const COMMENT_EVENTS = ['comment.created', 'comment.updated', 'comment.deleted'] as const;
@@ -35,7 +39,11 @@ export function registerTimelineInvalidations(
   };
 }
 
-export const timelineQueryOptions = (client: TimelineClient, cardId: string, limit?: number) => ({
+export const timelineQueryOptions = (
+  client: CommentsClient<'timeline'>,
+  cardId: string,
+  limit?: number,
+) => ({
   queryKey: timelineKeys.card(cardId),
   queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
     client.comments.timeline(cardId, { cursor: pageParam, limit }, emptyPage),
@@ -47,12 +55,15 @@ export const timelineQueryOptions = (client: TimelineClient, cardId: string, lim
  * Pages of the timeline, oldest first. A realtime event refetches the pages already loaded, so a
  * new comment or activity line shows up at the end without the caller doing anything.
  */
-export function useTimeline(client: TimelineClient, cardId: string, limit?: number) {
+export function useTimeline(client: CommentsClient<'timeline'>, cardId: string, limit?: number) {
   return useInfiniteQuery(timelineQueryOptions(client, cardId, limit));
 }
 
 /** Comment writes refresh the timeline themselves, so they work before the socket is connected. */
-export function useCommentMutations(client: TimelineClient, cardId: string) {
+export function useCommentMutations(
+  client: CommentsClient<'add' | 'edit' | 'remove'>,
+  cardId: string,
+) {
   const queryClient = useQueryClient();
   const refresh = () => queryClient.invalidateQueries({ queryKey: timelineKeys.card(cardId) });
   return {

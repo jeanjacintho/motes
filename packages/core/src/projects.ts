@@ -1,4 +1,6 @@
-import type { ClientEvent } from '@motes/protocol';
+import type { ClientEvent, RepositoryDetail } from '@motes/protocol';
+import { useQuery } from '@tanstack/react-query';
+import type { createApiClient } from './api-client.js';
 import type { createRealtime } from './realtime.js';
 
 export const projectKeys = {
@@ -39,4 +41,18 @@ export function registerProjectInvalidations(
   return () => {
     for (const cleanup of cleanups) cleanup();
   };
+}
+
+type Repositories = ReturnType<typeof createApiClient>['repositories'];
+const noRepositories: RepositoryDetail[] = [];
+
+/** The repositories of a project; the key is shared with the project screens' own query. */
+export function useRepositories(
+  client: { repositories: Pick<Repositories, 'list'> },
+  projectId: string,
+) {
+  return useQuery({
+    queryKey: projectKeys.repositories(projectId),
+    queryFn: () => client.repositories.list(projectId, noRepositories),
+  });
 }
