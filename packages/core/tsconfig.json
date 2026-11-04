@@ -7,7 +7,9 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "emitDeclarationOnly": true,
-    "types": ["node"]
+    "types": ["node"],
+    // zustand's middleware typings (devtools) name DOM types that core deliberately does not load.
+    "skipLibCheck": true
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "references": [

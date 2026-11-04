@@ -11,6 +11,13 @@ export {
 } from './adapters.js';
 export { ApiError, createApiClient } from './api-client.js';
 export {
+  BOARD_FILTERS_KEY,
+  type BoardFiltersState,
+  type BoardFiltersStore,
+  createBoardFiltersStore,
+  useBoardFilters,
+} from './board-filters.js';
+export {
   type BotsClient,
   botKeys,
   botQueryOptions,
@@ -38,6 +45,7 @@ export {
   registerCardInvalidations,
   useBoard,
   useCard,
+  useCreateCard,
   useMoveCard,
 } from './cards.js';
 export {
