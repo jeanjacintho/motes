@@ -66,8 +66,8 @@ Tags:
 | P1 · Pipeline | P1-01 Projects | **Done**: P1-01-01 to P1-01-04 |
 | P1 · Pipeline | P1-02 Cards | **Done**: P1-02-01 to P1-02-06 |
 | P1 · Pipeline | P1-03 Timeline | **Done**: P1-03-01 to P1-03-04 |
-| P1 · Pipeline | P1-04 Board UI | P1-04-01 to P1-04-03 done; P1-04-04 Create card and filters in review; **next: P1-05-03** |
-| P1 · Pipeline | P1-05 Bots | P1-05-01 and P1-05-02 done; P1-05-03 onward not started |
+| P1 · Pipeline | P1-04 Board UI | **Done**: P1-04-01 to P1-04-04 |
+| P1 · Pipeline | P1-05 Bots | P1-05-01 and P1-05-02 done; P1-05-03 Editing bots through their files in review; **next: P1-05-04** |
 | P1 · Pipeline | P1-06 to P1-10 | Not started |
 | P2 to P7 | all | Not started |
 
