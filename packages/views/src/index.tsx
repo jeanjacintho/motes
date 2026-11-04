@@ -9,12 +9,14 @@ export {
   type CardDetailScreenProps,
   type CardDetailViewClient,
 } from './card-detail';
+export { FilterBar, hasFilters } from './filter-bar';
 export {
   AppLink,
   type NavigationAdapter,
   NavigationProvider,
   useNavigation,
 } from './navigation';
+export { NewCardDialog } from './new-card-dialog';
 export { ProjectSettings } from './project-settings';
 export { ProjectsSidebar } from './projects';
 
