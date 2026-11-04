@@ -11,7 +11,6 @@ export {
   createBot,
   removeBot,
   revertBot,
-  seedBot,
   updateBotConfig,
   updateBotSkill,
 } from './bot-editing.js';
