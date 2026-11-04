@@ -348,7 +348,13 @@ export function ProjectBoard({
   const labels = useLabels(client, projectId);
   const move = useMoveCard(client);
   const create = useCreateCard(client, projectId);
+  // The last notice stays while the toast closes, so its text does not vanish mid-animation.
   const [notice, setNotice] = useState<{ title: string; description: string } | null>(null);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const announce = (next: { title: string; description: string }) => {
+    setNotice(next);
+    setNoticeOpen(true);
+  };
   const [creating, setCreating] = useState(false);
   const filtering = hasFilters(filters);
   useEffect(() => {
@@ -372,7 +378,7 @@ export function ProjectBoard({
           const created = await create.mutateAsync(input);
           // Without this the card seems not to have been created at all.
           if (created && filtering && !matchesFilters(created, filters))
-            setNotice({
+            announce({
               title: 'Card criado.',
               description: 'Os filtros atuais o escondem. Limpe-os para vê-lo.',
             });
@@ -402,12 +408,12 @@ export function ProjectBoard({
           ? {}
           : {
               onMove: (planned: PlannedMove) => {
-                setNotice(null);
+                setNoticeOpen(false);
                 move.mutate(
                   { projectId, ...planned },
                   {
                     onError: () =>
-                      setNotice({
+                      announce({
                         title: 'Não foi possível mover o card.',
                         description: 'Ele voltou para onde estava.',
                       }),
@@ -416,7 +422,7 @@ export function ProjectBoard({
               },
             })}
       />
-      <Toast.Root open={notice !== null} onOpenChange={(open) => !open && setNotice(null)}>
+      <Toast.Root open={noticeOpen} onOpenChange={setNoticeOpen}>
         <Toast.Title>{notice?.title}</Toast.Title>
         <Toast.Description>{notice?.description}</Toast.Description>
       </Toast.Root>
