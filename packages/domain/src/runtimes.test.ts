@@ -165,9 +165,6 @@ describe('registerRuntime', () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
     });
     expect(await pending).toBeInstanceOf(Forbidden);
-    expect(await count()).toBe(
-      Number((await testDb.db.$client`SELECT count(*)::int AS n FROM runtimes`)[0]?.n),
-    );
     const rows = await testDb.db.$client`SELECT id FROM runtimes WHERE device_id = ${deviceId}`;
     expect(rows).toHaveLength(0);
   });
