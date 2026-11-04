@@ -49,6 +49,29 @@ export const deviceTokens = pgTable(
   ],
 );
 
+// A machine that runs dev bots. One per daemon token, so registering again updates the same row.
+export const runtimes = pgTable(
+  'runtimes',
+  {
+    id: text().primaryKey(),
+    deviceId: text('device_id')
+      .notNull()
+      .unique()
+      .references(() => deviceTokens.id),
+    machineName: text('machine_name').notNull(),
+    os: text().notNull(),
+    engines: jsonb().$type<{ name: string; version: string; path: string }[]>().notNull(),
+    capacity: integer().notNull(),
+    lastHeartbeatAt: timestamp('last_heartbeat_at', { withTimezone: true, precision: 3 }),
+    createdAt: timestamp('created_at', { withTimezone: true, precision: 3 }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true, precision: 3 }).notNull(),
+  },
+  (table) => [
+    check('runtimes_capacity_check', sql`${table.capacity} BETWEEN 1 AND 64`),
+    check('runtimes_machine_name_check', sql`length(trim(${table.machineName})) > 0`),
+  ],
+);
+
 export const pairingState = pgTable(
   'pairing_state',
   {

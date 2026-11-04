@@ -44,4 +44,5 @@ export {
   projects,
   repositories,
   repositoryPaths,
+  runtimes,
 } from './schema.js';
