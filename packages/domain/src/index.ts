@@ -58,6 +58,7 @@ export {
   setRepositoryPath,
   updateRepository,
 } from './repositories.js';
+export { listRuntimes, registerRuntime } from './runtimes.js';
 export {
   ensureSkillsDirectory,
   getBot,
