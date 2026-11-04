@@ -67,8 +67,9 @@ Tags:
 | P1 · Pipeline | P1-02 Cards | **Done**: P1-02-01 to P1-02-06 |
 | P1 · Pipeline | P1-03 Timeline | **Done**: P1-03-01 to P1-03-04 |
 | P1 · Pipeline | P1-04 Board UI | **Done**: P1-04-01 to P1-04-04 |
-| P1 · Pipeline | P1-05 Bots | P1-05-01 to P1-05-04 done; P1-05-05 Bot list and skill editor in review; **next: P1-06-01** |
-| P1 · Pipeline | P1-06 to P1-10 | Not started |
+| P1 · Pipeline | P1-05 Bots | **Done**: P1-05-01 to P1-05-05 |
+| P1 · Pipeline | P1-06 Runtimes | P1-06-01 Daemon tokens in review; **next: P1-06-02** |
+| P1 · Pipeline | P1-07 to P1-10 | Not started |
 | P2 to P7 | all | Not started |
 
 ```mermaid

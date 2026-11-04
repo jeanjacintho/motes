@@ -24,6 +24,7 @@ import { createServices, type Services } from './composition.js';
 import { registerLabelRoutes } from './labels.js';
 import { registerProjectRoutes } from './projects.js';
 import { installErrorHandler, route } from './route.js';
+import { registerRuntimeRoutes } from './runtimes.js';
 import { registerWebsocket } from './websocket.js';
 
 const packageInfo = JSON.parse(
@@ -55,6 +56,17 @@ export function createServer(
       return reply
         .code(401)
         .send({ code: 'unauthorized', message: 'Authentication required', requestId: request.id });
+    // Daemons reach only /daemon/*, and nothing else reaches it: a daemon token that leaks cannot
+    // read the board, and the owner's app cannot speak as a daemon. The route is the one the
+    // router matched, so this guard and the router can never disagree about a path (an encoded
+    // `/%64aemon/...` is the same route to both). An unmatched URL belongs to no daemon route.
+    const daemonRoute = request.routeOptions.url?.startsWith('/daemon/') ?? false;
+    if ((principal.kind === 'daemon') !== daemonRoute)
+      return reply.code(403).send({
+        code: 'unauthorized',
+        message: 'This token cannot use this route',
+        requestId: request.id,
+      });
     request.principal = principal;
   });
   const connections = registerWebsocket(server, services, options.replayLimit);
@@ -68,6 +80,7 @@ export function createServer(
   registerCardRoutes(server, services);
   registerLabelRoutes(server, services);
   registerBotRoutes(server, services);
+  registerRuntimeRoutes(server, services);
   server.get('/devices', async () => deviceListResponseSchema.parse(await listDevices(services)));
   server.delete('/devices/:id', async (request) => {
     const { id } = z.object({ id: z.string().min(1) }).parse(request.params);
