@@ -63,7 +63,7 @@ export function registerBotRoutes(server: FastifyInstance, services: Services) {
     method: 'PATCH',
     url: '/bots/:id/config',
     params: idParams,
-    body: botConfigPatchSchema.strict(),
+    body: botConfigPatchSchema,
     response: botDetailSchema,
     handler: ({ params, body }) => updateBotConfig(services, services.skillsDir, params.id, body),
   });

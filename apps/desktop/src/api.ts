@@ -63,7 +63,7 @@ const requestSchema = z.discriminatedUnion('action', [
   z.strictObject({
     action: z.literal('bots.updateConfig'),
     id,
-    patch: botConfigPatchSchema.strict(),
+    patch: botConfigPatchSchema,
   }),
   z.strictObject({ action: z.literal('bots.remove'), id }),
   z.strictObject({ action: z.literal('bots.history'), id }),

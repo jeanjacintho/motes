@@ -247,17 +247,27 @@ function ConfigForm({
   );
   const [enabled, setEnabled] = useState(config?.enabled ?? bot.enabled);
   const { message, issues, run } = useWrite('Essa mudança não é permitida agora.');
-  // A change made elsewhere replaces the form, unless the form is being edited.
+  // A change made elsewhere replaces the form, unless the form is being edited: then it warns.
   const [dirty, setDirty] = useState(false);
+  const fileKey = JSON.stringify(bot.config);
+  const [seen, setSeen] = useState(fileKey);
+  const [stale, setStale] = useState(false);
+  const reset = (from: NonNullable<BotDetail['config']>) => {
+    setDisplayName(from.displayName);
+    setKind(from.kind);
+    setEngines(from.engines);
+    setEffort(from.effort ?? '');
+    setLimits(from.limits);
+    setEnabled(from.enabled);
+  };
   useEffect(() => {
-    if (dirty || !bot.config) return;
-    setDisplayName(bot.config.displayName);
-    setKind(bot.config.kind);
-    setEngines(bot.config.engines);
-    setEffort(bot.config.effort ?? '');
-    setLimits(bot.config.limits);
-    setEnabled(bot.config.enabled);
-  }, [bot.config, dirty]);
+    if (!bot.config) return;
+    if (!dirty) {
+      reset(bot.config);
+      setStale(false);
+      setSeen(fileKey);
+    } else if (fileKey !== seen) setStale(true);
+  }, [bot.config, dirty, fileKey, seen]);
   if (!config)
     return <p role="note">A configuração não pode ser lida enquanto a pasta tem erros.</p>;
   const edit =
@@ -415,6 +425,22 @@ function ConfigForm({
         />{' '}
         Ativado
       </label>
+      {stale && (
+        <p role="note">
+          O arquivo mudou fora desta tela.{' '}
+          <Button
+            onClick={() => {
+              if (!config) return;
+              reset(config);
+              setDirty(false);
+              setStale(false);
+              setSeen(fileKey);
+            }}
+          >
+            Descartar minhas mudanças
+          </Button>
+        </p>
+      )}
       <Problems message={message} issues={issues} />
       <Button type="submit" disabled={unchanged}>
         Salvar configuração

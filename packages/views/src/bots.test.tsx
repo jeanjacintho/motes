@@ -1,3 +1,4 @@
+import { createApiClient, createQueryClient } from '@motes/core';
 import {
   type BotConfigPatch,
   type BotDetail,
@@ -5,9 +6,10 @@ import {
   type BotSummary,
   newId,
 } from '@motes/protocol';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { BotScreen, type BotScreenProps, BotsScreen } from './index';
+import { BotPage, BotScreen, type BotScreenProps, BotsPage, BotsScreen } from './index';
 
 const summary = (slug: string, extra: Partial<BotSummary> = {}): BotSummary => ({
   id: newId('bot'),
@@ -313,6 +315,25 @@ describe('BotScreen', () => {
     expect((screen.getByLabelText('Nome') as HTMLInputElement).value).toBe('Outro nome');
   });
 
+  it('follows a config change from outside when idle, and warns instead of overwriting edits', () => {
+    const { rerender } = renderBot();
+    const config = detail().config as NonNullable<BotDetail['config']>;
+    rerender({ bot: detail({ config: { ...config, displayName: 'Mudou fora' } }) });
+    expect((screen.getByLabelText('Nome') as HTMLInputElement).value).toBe('Mudou fora');
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Meu rascunho' } });
+    rerender({ bot: detail({ config: { ...config, displayName: 'Mudou de novo' } }) });
+    expect((screen.getByLabelText('Nome') as HTMLInputElement).value).toBe('Meu rascunho');
+    const note = screen
+      .getAllByRole('note')
+      .find((item) => item.textContent?.includes('mudou fora desta tela'));
+    expect(note).toBeTruthy();
+    fireEvent.click(
+      within(note as HTMLElement).getByRole('button', { name: 'Descartar minhas mudanças' }),
+    );
+    expect((screen.getByLabelText('Nome') as HTMLInputElement).value).toBe('Mudou de novo');
+    expect(screen.queryByText(/mudou fora desta tela/)).toBeNull();
+  });
+
   it('lists the history and reverts a commit, but not the creation', async () => {
     const { props } = renderBot();
     const history = within(screen.getByRole('region', { name: 'Histórico' }));
@@ -349,5 +370,189 @@ describe('BotScreen', () => {
     fireEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(onRemove).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('BotsPage and BotPage through the client', () => {
+  const dev = detail();
+  type Request = { method: string; url: string; body?: unknown };
+
+  function setup(options: { removeFails?: boolean } = {}) {
+    const requests: Request[] = [];
+    let current = dev;
+    let deleted = false;
+    let history = [entry('bot(dev): update behavior', 2), entry('bot(dev): create default bot', 1)];
+    const client = createApiClient({
+      baseUrl: 'http://server',
+      getToken: () => 'token',
+      fetch: async (url, init) => {
+        const path = url.replace('http://server', '');
+        const body = init.body ? JSON.parse(init.body) : undefined;
+        requests.push({ method: init.method, url: path, body });
+        const ok = (value: unknown) => ({ ok: true, status: 200, json: async () => value });
+        if (init.method === 'PUT' && path.endsWith('/skill')) {
+          current = { ...current, skillSource: body.skill };
+          history = [entry('bot(dev): update behavior', 3), ...history];
+          return ok(current);
+        }
+        if (init.method === 'PATCH' && path.endsWith('/config')) {
+          current = { ...current, enabled: body.enabled ?? current.enabled } as BotDetail;
+          return ok(current);
+        }
+        if (init.method === 'POST' && path.includes('/revert/')) return ok(current);
+        if (init.method === 'DELETE') {
+          if (options.removeFails)
+            return {
+              ok: false,
+              status: 409,
+              json: async () => ({ code: 'conflict', message: 'busy', requestId: 'r' }),
+            };
+          deleted = true;
+          return ok({ removed: true });
+        }
+        // A bot that was deleted is gone for every later read, as on the server.
+        if (deleted && path.startsWith('/bots/'))
+          return {
+            ok: false,
+            status: 404,
+            json: async () => ({ code: 'not_found', message: 'gone', requestId: 'r' }),
+          };
+        if (path.endsWith('/history')) return ok(history);
+        if (path.startsWith('/bots/')) return ok(current);
+        return ok([current]);
+      },
+      logger: vi.fn(),
+    });
+    const queryClient = createQueryClient();
+    return { client, requests, queryClient };
+  }
+
+  it('saves the skill through the client and the screen then shows the new file and history', async () => {
+    const { client, requests, queryClient } = setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BotPage client={client} id={dev.id} />
+      </QueryClientProvider>,
+    );
+    const editor = (await screen.findByLabelText('SKILL.md')) as HTMLTextAreaElement;
+    fireEvent.change(editor, { target: { value: skillText('Do it my way') } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar comportamento' }));
+    await waitFor(() =>
+      expect(requests).toContainEqual({
+        method: 'PUT',
+        url: `/bots/${dev.id}/skill`,
+        body: { skill: skillText('Do it my way') },
+      }),
+    );
+    // The write refreshed the bot and its history, which only a right query key would do.
+    await waitFor(() => {
+      expect(
+        requests.filter((r) => r.method === 'GET' && r.url === `/bots/${dev.id}`).length,
+      ).toBeGreaterThan(1);
+      expect(requests.filter((r) => r.url.endsWith('/history')).length).toBeGreaterThan(1);
+    });
+    await waitFor(() =>
+      expect(
+        within(screen.getByRole('region', { name: 'Histórico' })).getAllByRole('listitem'),
+      ).toHaveLength(3),
+    );
+  });
+
+  it('reverts a commit from the history through the client', async () => {
+    const { client, requests, queryClient } = setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BotPage client={client} id={dev.id} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByRole('button', { name: `Reverter ${'2'.repeat(7)}` }));
+    await waitFor(() =>
+      expect(requests).toContainEqual({
+        method: 'POST',
+        url: `/bots/${dev.id}/revert/${'2'.repeat(40)}`,
+        body: undefined,
+      }),
+    );
+  });
+
+  it('goes back after a delete without ever showing the bot as not found', async () => {
+    const { client, requests, queryClient } = setup();
+    // What the screen showed at the moment the page was told to go back.
+    let shownWhenLeaving: string | null = null;
+    const onBack = vi.fn(() => {
+      shownWhenLeaving = screen.queryByText('Bot não encontrado.')?.textContent ?? null;
+    });
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BotPage client={client} id={dev.id} onBack={onBack} />
+      </QueryClientProvider>,
+    );
+    await screen.findByLabelText('SKILL.md');
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir bot' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+    await waitFor(() => expect(onBack).toHaveBeenCalledTimes(1));
+    expect(requests).toContainEqual({ method: 'DELETE', url: `/bots/${dev.id}`, body: undefined });
+    expect(shownWhenLeaving).toBeNull();
+  });
+
+  it('keeps the page and says why when the delete is refused', async () => {
+    const { client, queryClient } = setup({ removeFails: true });
+    const onBack = vi.fn();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BotPage client={client} id={dev.id} onBack={onBack} />
+      </QueryClientProvider>,
+    );
+    await screen.findByLabelText('SKILL.md');
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir bot' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Excluir' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toContain(
+      'execuções em andamento',
+    );
+    expect(onBack).not.toHaveBeenCalled();
+  });
+
+  it('toggles a bot from the list through the client', async () => {
+    const { client, requests, queryClient } = setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BotsPage client={client} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    fireEvent.click(await screen.findByLabelText('Ativar Dev'));
+    await waitFor(() =>
+      expect(requests).toContainEqual({
+        method: 'PATCH',
+        url: `/bots/${dev.id}/config`,
+        body: { enabled: false },
+      }),
+    );
+    await waitFor(() =>
+      expect((screen.getByLabelText('Ativar Dev') as HTMLInputElement).checked).toBe(false),
+    );
+  });
+
+  it('creates a bot through the client', async () => {
+    const { client, requests, queryClient } = setup();
+    render(
+      <QueryClientProvider client={queryClient}>
+        <BotsPage client={client} onOpen={vi.fn()} />
+      </QueryClientProvider>,
+    );
+    await screen.findByLabelText('Ativar Dev');
+    fireEvent.click(screen.getByRole('button', { name: 'Novo bot' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo bot' });
+    fireEvent.change(within(dialog).getByLabelText('Nome da pasta'), { target: { value: 'qa' } });
+    fireEvent.change(within(dialog).getByLabelText('Nome'), { target: { value: 'QA' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    await waitFor(() =>
+      expect(requests).toContainEqual({
+        method: 'POST',
+        url: '/bots',
+        body: { slug: 'qa', displayName: 'QA', kind: 'dev' },
+      }),
+    );
   });
 });
