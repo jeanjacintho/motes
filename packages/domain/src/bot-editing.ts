@@ -1,7 +1,7 @@
 import { execFile } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { cp, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
 import { bots, sql } from '@motes/db';
 import {
@@ -352,6 +352,13 @@ export function revertBot(
         `bots/${slug}`,
       ]);
       await runGit(dir, ['clean', '-fdq', '--', `bots/${slug}`]);
+      // A conflicted `revert --no-commit` leaves REVERT_HEAD behind, and while it exists git refuses
+      // the partial commits every later write makes. `revert --abort` would reset more than this
+      // bot's folder, so the marker is removed on its own.
+      for (const state of ['REVERT_HEAD', 'sequencer']) {
+        const { stdout } = await runGit(dir, ['rev-parse', '--git-path', state]);
+        await rm(resolve(dir, stdout.trim()), { recursive: true, force: true });
+      }
     };
     try {
       await runGit(dir, [...IDENTITY, 'revert', '--no-commit', resolved]);

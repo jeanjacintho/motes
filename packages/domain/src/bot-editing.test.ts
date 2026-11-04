@@ -278,6 +278,7 @@ describe('history and revert', () => {
     expect(reverted.skill?.body).not.toContain('ruim');
     expect(messages(dir)[0]).toBe(`bot(${name}): revert ${edit?.commit.slice(0, 7)}`);
     expect(git(dir, 'status', '--porcelain')).toBe('');
+    expect(existsSync(join(dir, '.git', 'REVERT_HEAD'))).toBe(false);
   });
 
   it('accepts a short hash', async () => {
@@ -317,6 +318,18 @@ describe('history and revert', () => {
     );
     expect(await readFile(join(dir, 'bots', name, 'SKILL.md'), 'utf8')).toBe(before);
     expect(git(dir, 'status', '--porcelain')).toBe('');
+    // No half-done revert is left in git's own state, which `status --porcelain` does not show.
+    for (const state of ['REVERT_HEAD', 'MERGE_HEAD', 'sequencer'])
+      expect(existsSync(join(dir, '.git', state)), state).toBe(false);
+    // And the next write still goes through, which a leftover revert would refuse.
+    const next = await updateBotSkill(
+      services(),
+      dir,
+      bot.id,
+      skillText(name, 'depois do conflito'),
+    );
+    expect(next.skill?.body).toContain('depois do conflito');
+    expect(messages(dir)[0]).toBe(`bot(${name}): update behavior`);
   });
 });
 
@@ -393,6 +406,10 @@ describe('hand edits are never lost or swept up', () => {
       skillText(a.name, 'conserto'),
     );
     expect(await readFile(join(dir, 'bots', b.name, 'SKILL.md'), 'utf8')).toBe(bText);
+    for (const state of ['REVERT_HEAD', 'MERGE_HEAD', 'sequencer'])
+      expect(existsSync(join(dir, '.git', state)), state).toBe(false);
+    const next = await updateBotSkill(services(), dir, a.bot.id, skillText(a.name, 'depois'));
+    expect(next.skill?.body).toContain('depois');
   });
 
   it("reverts a commit older than the newest two hundred of the bot's history", async () => {
