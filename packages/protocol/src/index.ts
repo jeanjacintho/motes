@@ -166,7 +166,13 @@ export {
 export {
   type CreateRuntimeTokenBody,
   createRuntimeTokenBodySchema,
+  type RegisterRuntimeBody,
+  type Runtime,
+  type RuntimeEngine,
   type RuntimeTokenResponse,
+  registerRuntimeBodySchema,
+  runtimeEngineSchema,
+  runtimeSchema,
   runtimeTokenResponseSchema,
 } from './runtimes.js';
 export {

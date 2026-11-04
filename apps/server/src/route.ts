@@ -1,6 +1,6 @@
 import { Conflict, Forbidden, NotFound, ValidationFailed } from '@motes/domain';
 import { apiErrorSchema } from '@motes/protocol';
-import type { FastifyInstance, HTTPMethods } from 'fastify';
+import type { FastifyInstance, FastifyRequest, HTTPMethods } from 'fastify';
 import { z } from 'zod';
 
 class InvalidOutput extends Error {}
@@ -79,6 +79,8 @@ export function route<
       params: z.output<Params>;
       body: z.output<Body>;
       query: z.output<Query>;
+      /** Who is calling, set by the auth hook on every authenticated request. */
+      principal: FastifyRequest['principal'];
     }) => unknown | Promise<unknown>;
   },
 ) {
@@ -89,7 +91,7 @@ export function route<
       const params = options.params?.parse(request.params) as z.output<Params>;
       const body = options.body?.parse(request.body) as z.output<Body>;
       const query = options.query?.parse(request.query) as z.output<Query>;
-      const result = await options.handler({ params, body, query });
+      const result = await options.handler({ params, body, query, principal: request.principal });
       const parsed = options.response.safeParse(result);
       if (!parsed.success) throw new InvalidOutput('Invalid response');
       if (options.status) reply.code(options.status);
