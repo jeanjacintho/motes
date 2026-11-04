@@ -32,6 +32,7 @@ function setup() {
     cards: {
       board: record('cards.board', { columns: [] }),
       move: record('cards.move'),
+      create: record('cards.create'),
       get: record('cards.get'),
       update: record('cards.update'),
       assign: record('cards.assign'),
@@ -79,6 +80,7 @@ describe('desktop API bridge', () => {
       { action: 'cards.board', projectId },
       { action: 'cards.move', id: cardId, body: { status: 'todo', afterId: otherCardId } },
       { action: 'bots.list' },
+      { action: 'cards.create', projectId, input: { title: 'Novo card', priority: 'high' } },
       { action: 'cards.get', id: cardId },
       { action: 'cards.update', id: cardId, patch: { title: 'Novo' } },
       { action: 'cards.assign', id: cardId, body: { assignee: null } },
@@ -101,18 +103,23 @@ describe('desktop API bridge', () => {
     expect(calls[10]?.[1]).toEqual([projectId, {}]);
     expect(calls[11]?.[1]).toEqual([cardId, { status: 'todo', afterId: otherCardId }]);
     expect(calls[12]?.[1]).toEqual([]);
-    expect(calls[13]?.[1]).toEqual([cardId]);
-    expect(calls[14]?.[1]).toEqual([cardId, { title: 'Novo' }]);
-    expect(calls[15]?.[1]).toEqual([cardId, { assignee: null }]);
-    expect(calls[16]?.[1]).toEqual([cardId, labelId]);
+    // The schema fills in the defaults the server would apply anyway.
+    expect(calls[13]?.[1]).toEqual([
+      projectId,
+      { title: 'Novo card', description: '', priority: 'high' },
+    ]);
+    expect(calls[14]?.[1]).toEqual([cardId]);
+    expect(calls[15]?.[1]).toEqual([cardId, { title: 'Novo' }]);
+    expect(calls[16]?.[1]).toEqual([cardId, { assignee: null }]);
     expect(calls[17]?.[1]).toEqual([cardId, labelId]);
-    expect(calls[18]?.[1]).toEqual([projectId]);
-    expect(calls[19]?.[1]).toEqual([projectId, { name: 'bug', color: '#d73a4a' }]);
-    expect(calls[20]?.[1]).toEqual([cardId, { cursor: 'abc', limit: 20 }]);
-    expect(calls[21]?.[1]).toEqual([cardId, { cursor: undefined, limit: undefined }]);
-    expect(calls[22]?.[1]).toEqual([cardId, { body: 'oi' }]);
-    expect(calls[23]?.[1]).toEqual([commentId, { body: 'tchau' }]);
-    expect(calls[24]?.[1]).toEqual([commentId]);
+    expect(calls[18]?.[1]).toEqual([cardId, labelId]);
+    expect(calls[19]?.[1]).toEqual([projectId]);
+    expect(calls[20]?.[1]).toEqual([projectId, { name: 'bug', color: '#d73a4a' }]);
+    expect(calls[21]?.[1]).toEqual([cardId, { cursor: 'abc', limit: 20 }]);
+    expect(calls[22]?.[1]).toEqual([cardId, { cursor: undefined, limit: undefined }]);
+    expect(calls[23]?.[1]).toEqual([cardId, { body: 'oi' }]);
+    expect(calls[24]?.[1]).toEqual([commentId, { body: 'tchau' }]);
+    expect(calls[25]?.[1]).toEqual([commentId]);
   });
 
   it('rejects an untrusted sender, extra arguments and malformed requests', async () => {

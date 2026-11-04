@@ -29,6 +29,7 @@ describe('desktop client', () => {
     });
     const client = createDesktopClient(call);
     await client.cards.board(projectId, { priority: 'high' }, { columns: [] });
+    await client.cards.create(projectId, { title: 'Novo' }, null);
     await client.cards.get(cardId, null);
     await client.cards.update(cardId, { title: 'x' }, null);
     await client.cards.assign(cardId, { assignee: null }, null);
@@ -50,6 +51,7 @@ describe('desktop client', () => {
     await client.comments.remove(commentId, { deleted: true });
     expect(call.mock.calls.map(([request]) => request)).toEqual([
       { action: 'cards.board', projectId, filters: { priority: 'high' } },
+      { action: 'cards.create', projectId, input: { title: 'Novo' } },
       { action: 'cards.get', id: cardId },
       { action: 'cards.update', id: cardId, patch: { title: 'x' } },
       { action: 'cards.assign', id: cardId, body: { assignee: null } },

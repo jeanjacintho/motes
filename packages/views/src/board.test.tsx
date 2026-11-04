@@ -1,6 +1,7 @@
 import { createApiClient, createQueryClient } from '@motes/core';
 import {
   type Board,
+  type BoardFilters,
   type BotSummary,
   CARD_STATUSES,
   type Card,
@@ -362,5 +363,161 @@ describe('moving cards', () => {
       `MOT-2 ${longTitle}`,
     ]);
     spy.mockRestore();
+  });
+});
+
+describe('ProjectBoard filters and new card', () => {
+  function setup(options: { filters?: BoardFilters; failCreate?: boolean } = {}) {
+    const requests: { method: string; url: string; body?: unknown }[] = [];
+    const onFiltersChange = vi.fn();
+    const client = createApiClient({
+      baseUrl: 'http://server',
+      getToken: () => 'token',
+      fetch: async (url, init) => {
+        const path = url.replace('http://server', '');
+        requests.push({
+          method: init.method,
+          url: path,
+          body: init.body ? JSON.parse(init.body) : undefined,
+        });
+        if (init.method === 'POST')
+          return options.failCreate
+            ? { ok: false, status: 500, json: async () => ({}) }
+            : { ok: true, status: 200, json: async () => fixture.columns[0]?.cards[0] };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => (path === '/bots' ? [dev] : path.endsWith('/labels') ? [bug] : fixture),
+        };
+      },
+      logger: vi.fn(),
+    });
+    render(
+      <QueryClientProvider client={createQueryClient()}>
+        <ProjectBoard
+          client={client}
+          projectId={projectId}
+          projectKey="MOT"
+          {...(options.filters ? { filters: options.filters } : {})}
+          onFiltersChange={onFiltersChange}
+        />
+      </QueryClientProvider>,
+    );
+    return { requests, onFiltersChange };
+  }
+
+  it('asks for the board with the filters, and says moving is off while they apply', async () => {
+    const { requests } = setup({ filters: { priority: 'high', text: 'login' } });
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    expect(
+      requests.some((r) => r.url === `/projects/${projectId}/board?priority=high&text=login`),
+    ).toBe(true);
+    expect(screen.getByRole('note').textContent).toBe('Limpe os filtros para reordenar os cards.');
+    expect(screen.queryByRole('button', { name: 'Mover MOT-1' })).toBeNull();
+  });
+
+  it('keeps moving available when nothing is filtered, and reports filter changes', async () => {
+    const { onFiltersChange } = setup();
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    expect(screen.getByRole('button', { name: 'Mover MOT-1' })).toBeTruthy();
+    expect(screen.queryByRole('note')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Filtrar por prioridade'), { target: { value: 'low' } });
+    expect(onFiltersChange).toHaveBeenCalledWith({ priority: 'low' });
+  });
+
+  it('creates a card with only a title, and posts the optional fields when given', async () => {
+    const { requests } = setup();
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.click(screen.getByRole('button', { name: 'Novo card' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo card' });
+    const create = within(dialog).getByRole('button', { name: 'Criar' }) as HTMLButtonElement;
+    expect(create.disabled).toBe(true);
+    fireEvent.change(within(dialog).getByLabelText('Título'), { target: { value: '  Novo  ' } });
+    fireEvent.click(create);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(requests.find((r) => r.method === 'POST')).toEqual({
+      method: 'POST',
+      url: `/projects/${projectId}/cards`,
+      body: { title: 'Novo' },
+    });
+  });
+
+  it('sends description, priority and assignee when filled in', async () => {
+    const { requests } = setup();
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.click(screen.getByRole('button', { name: 'Novo card' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo card' });
+    fireEvent.change(within(dialog).getByLabelText('Título'), { target: { value: 'Completo' } });
+    fireEvent.change(within(dialog).getByLabelText('Descrição'), { target: { value: 'Detalhes' } });
+    fireEvent.change(within(dialog).getByLabelText('Prioridade'), { target: { value: 'urgent' } });
+    await within(dialog).findByRole('option', { name: 'Dev Bot' });
+    fireEvent.change(within(dialog).getByLabelText('Responsável'), {
+      target: { value: `bot:${dev.id}` },
+    });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    await waitFor(() => expect(requests.some((r) => r.method === 'POST')).toBe(true));
+    expect(requests.find((r) => r.method === 'POST')?.body).toEqual({
+      title: 'Completo',
+      description: 'Detalhes',
+      priority: 'urgent',
+      assignee: { type: 'bot', id: dev.id },
+    });
+  });
+
+  it('keeps the dialog and what was typed when the server refuses', async () => {
+    setup({ failCreate: true });
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.click(screen.getByRole('button', { name: 'Novo card' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo card' });
+    fireEvent.change(within(dialog).getByLabelText('Título'), { target: { value: 'Falha' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toBe(
+      'Não foi possível criar o card. Tente novamente.',
+    );
+    expect((within(dialog).getByLabelText('Título') as HTMLInputElement).value).toBe('Falha');
+  });
+
+  it('opens the dialog with "c" unless a field has the keys, or a modifier is held', async () => {
+    setup();
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.keyDown(document.body, { key: 'c', metaKey: true });
+    fireEvent.keyDown(document.body, { key: 'C', shiftKey: true });
+    fireEvent.keyDown(screen.getByLabelText('Buscar por título'), { key: 'c' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.keyDown(document.body, { key: 'c' });
+    expect(await screen.findByRole('dialog', { name: 'Novo card' })).toBeTruthy();
+    // Typing a "c" in the dialog's title must not open another one or be swallowed.
+    fireEvent.keyDown(screen.getByLabelText('Título'), { key: 'c' });
+    expect(screen.getAllByRole('dialog')).toHaveLength(1);
+  });
+
+  it('tells the owner when a new card is hidden by the filters, and not when it shows', async () => {
+    setup({ filters: { priority: 'low' } });
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.click(screen.getByRole('button', { name: 'Novo card' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo card' });
+    fireEvent.change(within(dialog).getByLabelText('Título'), { target: { value: 'Escondido' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    // The answer is the fixture's first card, which is high priority and so fails priority "low".
+    expect(await screen.findByText('Card criado.')).toBeTruthy();
+    expect(screen.getByText('Os filtros atuais o escondem. Limpe-os para vê-lo.')).toBeTruthy();
+  });
+
+  it('stays quiet about a new card when no filter is active', async () => {
+    setup();
+    await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
+    fireEvent.click(screen.getByRole('button', { name: 'Novo card' }));
+    const dialog = await screen.findByRole('dialog', { name: 'Novo card' });
+    fireEvent.change(within(dialog).getByLabelText('Título'), { target: { value: 'Visível' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Criar' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    expect(screen.queryByText('Card criado.')).toBeNull();
+  });
+
+  it('says when the filters hide every card', () => {
+    render(
+      <BoardScreen projectKey="MOT" board={boardOf([])} loading={false} error={false} filtered />,
+    );
+    expect(screen.getByText('Nenhum card com esses filtros.')).toBeTruthy();
   });
 });

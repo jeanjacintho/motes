@@ -4,6 +4,7 @@ import {
   assignCardBodySchema,
   boardFiltersSchema,
   commentInputSchema,
+  createCardInputSchema,
   createLabelInputSchema,
   createProjectInputSchema,
   moveCardBodySchema,
@@ -53,6 +54,11 @@ const requestSchema = z.discriminatedUnion('action', [
   }),
   z.strictObject({ action: z.literal('cards.move'), id, body: moveCardBodySchema }),
   z.strictObject({ action: z.literal('bots.list') }),
+  z.strictObject({
+    action: z.literal('cards.create'),
+    projectId: id,
+    input: createCardInputSchema,
+  }),
   z.strictObject({ action: z.literal('cards.get'), id }),
   z.strictObject({ action: z.literal('cards.update'), id, patch: updateCardInputSchema }),
   z.strictObject({ action: z.literal('cards.assign'), id, body: assignCardBodySchema }),
@@ -129,6 +135,8 @@ function dispatch(request: z.output<typeof requestSchema>, client: Client): Prom
       return client.cards.move(request.id, request.body, null);
     case 'bots.list':
       return client.bots.list([]);
+    case 'cards.create':
+      return client.cards.create(request.projectId, request.input, null);
     case 'cards.get':
       return client.cards.get(request.id, null);
     case 'cards.update':

@@ -21,11 +21,13 @@ import {
   type LabelsClient,
   useBoard,
   useBots,
+  useCreateCard,
   useLabels,
   useMoveCard,
 } from '@motes/core';
 import {
   type Board,
+  type BoardFilters,
   type BotSummary,
   type Card,
   type CardStatus,
@@ -33,9 +35,11 @@ import {
   type Label,
 } from '@motes/protocol';
 import { Badge, Toast } from '@motes/ui';
-import { type JSX as ReactJSX, type ReactNode, useState } from 'react';
+import { type JSX as ReactJSX, type ReactNode, useEffect, useState } from 'react';
 import { type DropTarget, type PlannedMove, planMove } from './board-move';
+import { FilterBar, hasFilters, matchesFilters } from './filter-bar';
 import { priorityNames, statusNames } from './names';
+import { NewCardDialog } from './new-card-dialog';
 
 // dnd-kit's declarations still name the global JSX namespace, which React 19's types dropped.
 declare global {
@@ -209,6 +213,7 @@ export function BoardScreen({
   bots = [],
   onMove,
   onOpen,
+  filtered = false,
 }: {
   projectKey: string;
   board: Board | undefined;
@@ -218,6 +223,8 @@ export function BoardScreen({
   bots?: BotSummary[];
   onMove?: (move: PlannedMove) => void;
   onOpen?: (card: Card) => void;
+  /** Whether the board is narrowed by filters, which changes what an empty board means. */
+  filtered?: boolean;
 }) {
   const sensors = useSensors(
     // A small distance keeps a click on the handle from starting a drag.
@@ -274,7 +281,7 @@ export function BoardScreen({
   );
   return (
     <section aria-label="Board">
-      {empty && <p>Nenhum card ainda.</p>}
+      {empty && <p>{filtered ? 'Nenhum card com esses filtros.' : 'Nenhum card ainda.'}</p>}
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
@@ -300,32 +307,94 @@ export function BoardScreen({
 }
 
 /** The calls ProjectBoard makes; an app can serve them over its own transport. */
-export type ProjectBoardClient = CardsClient<'board' | 'move'> &
+export type ProjectBoardClient = CardsClient<'board' | 'move' | 'create'> &
   BotsClient<'list'> &
   LabelsClient<'list'>;
 
+const noFilters: BoardFilters = {};
+
+/** True while a key press is going to a field, a menu or a dialog rather than to the page. */
+function typingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) ||
+    target.closest('[role="dialog"], [role="menu"]') !== null
+  );
+}
+
 /**
  * BoardScreen fed by the board and bot queries; realtime invalidations keep both current. A move
- * shows at once and is undone, with a notice, when the server refuses it.
+ * shows at once and is undone, with a notice, when the server refuses it. With `onFiltersChange`
+ * it shows the filter bar, and "c" opens the new card dialog.
  */
 export function ProjectBoard({
   client,
   projectId,
   projectKey,
   onOpenCard,
+  filters = noFilters,
+  onFiltersChange,
 }: {
   client: ProjectBoardClient;
   projectId: string;
   projectKey: string;
   onOpenCard?: (card: Card) => void;
+  filters?: BoardFilters;
+  onFiltersChange?: (filters: BoardFilters) => void;
 }) {
-  const board = useBoard(client, projectId);
+  const board = useBoard(client, projectId, filters);
   const bots = useBots(client);
   const labels = useLabels(client, projectId);
   const move = useMoveCard(client);
-  const [failed, setFailed] = useState(false);
+  const create = useCreateCard(client, projectId);
+  // The last notice stays while the toast closes, so its text does not vanish mid-animation.
+  const [notice, setNotice] = useState<{ title: string; description: string } | null>(null);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const announce = (next: { title: string; description: string }) => {
+    setNotice(next);
+    setNoticeOpen(true);
+  };
+  const [creating, setCreating] = useState(false);
+  const filtering = hasFilters(filters);
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== 'c' || event.metaKey || event.ctrlKey || event.altKey || event.shiftKey)
+        return;
+      if (event.defaultPrevented || typingTarget(event.target)) return;
+      event.preventDefault();
+      setCreating(true);
+    }
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, []);
   return (
     <Toast.Provider>
+      <NewCardDialog
+        bots={bots.data ?? []}
+        open={creating}
+        onOpenChange={setCreating}
+        onCreate={async (input) => {
+          const created = await create.mutateAsync(input);
+          // Without this the card seems not to have been created at all.
+          if (created && filtering && !matchesFilters(created, filters))
+            announce({
+              title: 'Card criado.',
+              description: 'Os filtros atuais o escondem. Limpe-os para vê-lo.',
+            });
+        }}
+      />
+      {onFiltersChange && (
+        <FilterBar
+          filters={filters}
+          labels={labels.data ?? []}
+          bots={bots.data ?? []}
+          loaded={!labels.isPending && !bots.isPending}
+          onChange={onFiltersChange}
+        />
+      )}
+      {/* With cards hidden, their neighbours on screen are not their neighbours in the column. */}
+      {filtering && <p role="note">Limpe os filtros para reordenar os cards.</p>}
       <BoardScreen
         projectKey={projectKey}
         board={board.data}
@@ -333,15 +402,29 @@ export function ProjectBoard({
         error={board.isError}
         bots={bots.data ?? []}
         labels={labels.data ?? []}
+        filtered={filtering}
         {...(onOpenCard ? { onOpen: onOpenCard } : {})}
-        onMove={(planned) => {
-          setFailed(false);
-          move.mutate({ projectId, ...planned }, { onError: () => setFailed(true) });
-        }}
+        {...(filtering
+          ? {}
+          : {
+              onMove: (planned: PlannedMove) => {
+                setNoticeOpen(false);
+                move.mutate(
+                  { projectId, ...planned },
+                  {
+                    onError: () =>
+                      announce({
+                        title: 'Não foi possível mover o card.',
+                        description: 'Ele voltou para onde estava.',
+                      }),
+                  },
+                );
+              },
+            })}
       />
-      <Toast.Root open={failed} onOpenChange={setFailed}>
-        <Toast.Title>Não foi possível mover o card.</Toast.Title>
-        <Toast.Description>Ele voltou para onde estava.</Toast.Description>
+      <Toast.Root open={noticeOpen} onOpenChange={setNoticeOpen}>
+        <Toast.Title>{notice?.title}</Toast.Title>
+        <Toast.Description>{notice?.description}</Toast.Description>
       </Toast.Root>
       <Toast.Viewport />
     </Toast.Provider>

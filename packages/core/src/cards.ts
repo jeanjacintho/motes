@@ -1,4 +1,4 @@
-import type { Board, BoardFilters, MoveCardBody } from '@motes/protocol';
+import type { Board, BoardFilters, CreateCardInput, MoveCardBody } from '@motes/protocol';
 import {
   type QueryClient,
   type QueryKey,
@@ -154,4 +154,13 @@ export function moveCardMutationOptions(client: CardsClient<'move'>, queryClient
 export function useMoveCard(client: CardsClient<'move'>) {
   const queryClient = useQueryClient();
   return useMutation(moveCardMutationOptions(client, queryClient));
+}
+
+/** Creates a card in the project; the boards refresh when it settles. */
+export function useCreateCard(client: CardsClient<'create'>, projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateCardInput) => client.cards.create(projectId, input, null),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: cardKeys.boards(projectId) }),
+  });
 }
