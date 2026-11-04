@@ -91,3 +91,46 @@ export const botDetailSchema = botSummarySchema.extend({
   references: z.array(z.string()),
 });
 export type BotDetail = z.infer<typeof botDetailSchema>;
+
+/** Fields of bot.yaml a client may change; the slug is the folder name and never changes. */
+export const botConfigPatchSchema = botConfigSchema.omit({ slug: true }).partial();
+export type BotConfigPatch = z.infer<typeof botConfigPatchSchema>;
+
+/** A new SKILL.md, whole. It is validated like a file read from disk. */
+export const putBotSkillBodySchema = z.object({
+  skill: z
+    .string()
+    .min(1)
+    .max(256 * 1024),
+});
+export type PutBotSkillBody = z.infer<typeof putBotSkillBodySchema>;
+
+/** A new bot starts from a template with these values; the rest of bot.yaml takes its defaults. */
+export const createBotInputSchema = z.object({
+  slug: slugSchema,
+  displayName: botConfigSchema.shape.displayName,
+  kind: botConfigSchema.shape.kind,
+  engines: botConfigSchema.shape.engines.default(['claude']),
+  description: skillFrontMatterSchema.shape.description.optional(),
+});
+export type CreateBotInput = z.input<typeof createBotInputSchema>;
+
+export const removeBotResponseSchema = z.object({ removed: z.boolean() });
+
+/** One commit of a bot's folder in the skills repository, newest first. */
+export const botHistoryEntrySchema = z.object({
+  commit: z.string().regex(/^[0-9a-f]{40}$/),
+  message: z.string(),
+  author: z.string(),
+  committedAt: z.string(),
+});
+export type BotHistoryEntry = z.infer<typeof botHistoryEntrySchema>;
+
+export const botHistoryQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export const revertBotParamsSchema = z.object({
+  id: z.string().min(1),
+  commit: z.string().regex(/^[0-9a-f]{7,40}$/, 'Expected a commit hash'),
+});

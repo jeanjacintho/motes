@@ -44,6 +44,12 @@ validation_failed`, `404 not_found`, `409 conflict`.
 | `POST /cards/:id/assign` `{ assignee }` | the owner, a bot, or `null` to clear |
 | `GET /bots` | the bot index: slug, name, kind, engines, `enabled`, `skillDigest` and `loadError` while the folder is broken |
 | `GET /bots/:id` | the index row plus the config and `SKILL.md` read from disk (both `null` while the folder is broken) |
+| `POST /bots` | `{ slug, displayName, kind, engines?, description? }`: a new folder from a template, committed to the skills repository; 409 if the name is taken |
+| `PUT /bots/:id/skill` | `{ skill }`: the whole new `SKILL.md`, validated with the rest of the folder, written atomically and committed (`bot(<slug>): update behavior`) |
+| `PATCH /bots/:id/config` | fields of `bot.yaml` (never the slug); comments and key order in the file are kept; committed (`update config`) |
+| `DELETE /bots/:id` | removes the folder and commits it; 409 while the bot has running runs |
+| `GET /bots/:id/history?limit=` | the commits that touched the bot's folder, newest first |
+| `POST /bots/:id/revert/:commit` | undoes one commit of that bot's history with a new one; refused for the creation commit, for commits that touched other files, and when it no longer applies cleanly |
 | `GET /projects/:id/board?assignee=&labelId=&priority=&text=` | every status as a column; `assignee` reads `bot:<id>` or `owner:owner` |
 | `GET /cards/:id/timeline?cursor=&limit=` | comments and activity merged, oldest first; `limit` 1 to 100 (default 50), `nextCursor` is `null` on the last page; a deleted card keeps its history |
 | `POST /cards/:id/comments` | `{ body }` markdown; 201 with the comment; `@slug` of a live bot is announced (`comment.mentioned`) |
