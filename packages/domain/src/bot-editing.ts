@@ -97,13 +97,28 @@ async function replaceFile(path: string, text: string): Promise<void> {
   }
 }
 
-/** Commits what changed under the bot's folder; a write that changed nothing makes no commit. */
-async function commitFolder(dir: string, slug: string, message: string): Promise<boolean> {
-  await runGit(dir, ['add', '-A', '--', `bots/${slug}`]);
-  const { stdout } = await runGit(dir, ['status', '--porcelain', '--', `bots/${slug}`]);
+/**
+ * Commits only the given paths (the whole bot folder by default). Hand edits to other files in the
+ * folder stay uncommitted, so they are neither swept into this commit nor lost with its revert.
+ * A write that changed nothing makes no commit.
+ */
+async function commitFolder(
+  dir: string,
+  slug: string,
+  message: string,
+  paths: string[] = [`bots/${slug}`],
+): Promise<boolean> {
+  await runGit(dir, ['add', '-A', '--', ...paths]);
+  const { stdout } = await runGit(dir, ['status', '--porcelain', '--', ...paths]);
   if (stdout.trim() === '') return false;
-  await runGit(dir, [...IDENTITY, 'commit', '-q', '-m', message, '--', `bots/${slug}`]);
+  await runGit(dir, [...IDENTITY, 'commit', '-q', '-m', message, '--', ...paths]);
   return true;
+}
+
+/** Whether anything under the bot's folder differs from the last commit, untracked files included. */
+async function folderIsDirty(dir: string, slug: string): Promise<boolean> {
+  const { stdout } = await runGit(dir, ['status', '--porcelain', '--', `bots/${slug}`]);
+  return stdout.trim() !== '';
 }
 
 async function detail(services: Services, dir: string, id: string): Promise<BotDetail> {
@@ -133,7 +148,7 @@ export function updateBotSkill(
         await replaceFile(join(folder, 'SKILL.md'), text);
       },
     );
-    await commitFolder(dir, slug, `bot(${slug}): update behavior`);
+    await commitFolder(dir, slug, `bot(${slug}): update behavior`, [`bots/${slug}/SKILL.md`]);
     return detail(services, dir, id);
   });
 }
@@ -175,7 +190,7 @@ export function updateBotConfig(
         await replaceFile(join(folder, 'bot.yaml'), text);
       },
     );
-    await commitFolder(dir, slug, `bot(${slug}): update config`);
+    await commitFolder(dir, slug, `bot(${slug}): update config`, [`bots/${slug}/bot.yaml`]);
     return detail(services, dir, id);
   });
 }
@@ -242,8 +257,19 @@ export function removeBot(services: BotEditingServices, dir: string, id: string)
     const { slug } = await liveBot(services, id);
     if (await services.botHasRunningRuns?.(id))
       throw new Conflict('The bot has running runs; wait for them or cancel them first');
-    await rm(join(dir, 'bots', slug), { recursive: true, force: true });
-    await commitFolder(dir, slug, `bot(${slug}): remove`);
+    // The folder moves aside first, so a commit that fails puts everything back, hand edits too.
+    const folder = join(dir, 'bots', slug);
+    const aside = join(dir, '.staging', `removed-${randomBytes(6).toString('hex')}`);
+    await mkdir(join(dir, '.staging'), { recursive: true });
+    await rename(folder, aside);
+    try {
+      await commitFolder(dir, slug, `bot(${slug}): remove`);
+    } catch (error) {
+      await rename(aside, folder);
+      await runGit(dir, ['reset', '-q', '--', `bots/${slug}`]).catch(() => {});
+      throw error;
+    }
+    await rm(aside, { recursive: true, force: true });
     await syncBots(services, dir);
   });
 }
@@ -290,9 +316,20 @@ export function revertBot(
       () => undefined,
     );
     if (!resolved) throw new NotFound('Commit not found');
-    const history = await botHistory(services, dir, id, 200);
-    if (!history.some((entry) => entry.commit === resolved))
+    // Part of this bot's history, however old: the newest commit up to it that touched the folder
+    // must be the commit itself, and it must be reachable from where the repository is now.
+    const touched = await runGit(dir, ['rev-list', '--max-count=1', resolved, '--', `bots/${slug}`])
+      .then((result) => result.stdout.trim())
+      .catch(() => '');
+    const reachable = await runGit(dir, ['merge-base', '--is-ancestor', resolved, 'HEAD']).then(
+      () => true,
+      () => false,
+    );
+    if (touched !== resolved || !reachable)
       throw new ValidationFailed("That commit is not part of this bot's history");
+    // Rolling back below can only restore what was committed, so refuse while there is more.
+    if (await folderIsDirty(dir, slug))
+      throw new Conflict('The bot folder has uncommitted changes; commit or discard them first');
     const { stdout } = await runGit(dir, ['show', '--name-status', '--format=', resolved]);
     const changes = stdout
       .split('\n')
@@ -304,18 +341,29 @@ export function revertBot(
       );
     if (changes.some(([status, path]) => status === 'A' && path === `bots/${slug}/bot.yaml`))
       throw new ValidationFailed('Creating a bot cannot be reverted; delete the bot instead');
+    // Undoes a half-done revert in this bot's folder only; other bots' files are never touched.
+    const rollback = async () => {
+      await runGit(dir, [
+        'restore',
+        '--source=HEAD',
+        '--staged',
+        '--worktree',
+        '--',
+        `bots/${slug}`,
+      ]);
+      await runGit(dir, ['clean', '-fdq', '--', `bots/${slug}`]);
+    };
     try {
       await runGit(dir, [...IDENTITY, 'revert', '--no-commit', resolved]);
     } catch {
-      await runGit(dir, ['revert', '--abort']).catch(() => {});
-      await runGit(dir, ['reset', '-q', '--hard', 'HEAD']).catch(() => {});
+      await rollback();
       throw new Conflict('That change no longer applies cleanly to the current files');
     }
     // A revert that leaves an invalid folder would break the bot; keep the old files instead.
     try {
       await loadBotFolder(join(dir, 'bots', slug));
     } catch (error) {
-      await runGit(dir, ['reset', '-q', '--hard', 'HEAD']);
+      await rollback();
       if (error instanceof BotFolderInvalid)
         throw new ValidationFailed('Invalid bot', error.issues);
       throw error;

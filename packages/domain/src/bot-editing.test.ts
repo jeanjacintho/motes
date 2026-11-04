@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readdirSync } from 'node:fs';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { appendEvent } from '@motes/db';
@@ -331,5 +331,111 @@ describe('concurrent writes', () => {
     ]);
     expect(messages(dir)).toHaveLength(4);
     expect(git(dir, 'status', '--porcelain')).toBe('');
+  });
+});
+
+describe('hand edits are never lost or swept up', () => {
+  const commit = (dir: string, message: string) => {
+    git(dir, 'add', '-A');
+    git(dir, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', message);
+  };
+
+  it("a failed revert leaves other bots' uncommitted edits alone", async () => {
+    const dir = await freshDir();
+    const a = await newBot(dir);
+    const b = await newBot(dir);
+    await updateBotSkill(services(), dir, a.bot.id, skillText(a.name, 'primeira'));
+    const [first] = await botHistory(services(), dir, a.bot.id);
+    await updateBotSkill(services(), dir, a.bot.id, skillText(a.name, 'segunda'));
+    const mine = await readFile(join(dir, 'bots', b.name, 'SKILL.md'), 'utf8');
+    const edited = `${mine}\nmudança à mão\n`;
+    await writeFile(join(dir, 'bots', b.name, 'SKILL.md'), edited);
+    await expect(revertBot(services(), dir, a.bot.id, first?.commit ?? '')).rejects.toBeInstanceOf(
+      Conflict,
+    );
+    expect(await readFile(join(dir, 'bots', b.name, 'SKILL.md'), 'utf8')).toBe(edited);
+    expect(git(dir, 'status', '--porcelain')).toContain(`bots/${b.name}/SKILL.md`);
+  });
+
+  it("refuses a revert while the bot's own folder has uncommitted changes, touching nothing", async () => {
+    const dir = await freshDir();
+    const { bot, name } = await newBot(dir);
+    await updateBotSkill(services(), dir, bot.id, skillText(name, 'ruim'));
+    const [edit] = await botHistory(services(), dir, bot.id);
+    await mkdir(join(dir, 'bots', name, 'references'), { recursive: true });
+    await writeFile(join(dir, 'bots', name, 'references', 'notas.md'), 'rascunho');
+    await expect(revertBot(services(), dir, bot.id, edit?.commit ?? '')).rejects.toBeInstanceOf(
+      Conflict,
+    );
+    expect(await readFile(join(dir, 'bots', name, 'references', 'notas.md'), 'utf8')).toBe(
+      'rascunho',
+    );
+    expect(messages(dir)[0]).toBe(`bot(${name}): update behavior`);
+  });
+
+  it("rolls back only the bot's folder when the reverted result is invalid", async () => {
+    const dir = await freshDir();
+    const a = await newBot(dir);
+    const b = await newBot(dir);
+    // Reverting this edit would leave a skill whose name does not match the folder.
+    await writeFile(join(dir, 'bots', a.name, 'SKILL.md'), skillText('outro-nome', 'x'));
+    commit(dir, 'quebra à mão');
+    await writeFile(join(dir, 'bots', a.name, 'SKILL.md'), skillText(a.name, 'conserto'));
+    commit(dir, 'conserto à mão');
+    await syncBots(services(), dir);
+    const fixing = git(dir, 'rev-parse', 'HEAD');
+    const bText = `${await readFile(join(dir, 'bots', b.name, 'SKILL.md'), 'utf8')}\nà mão\n`;
+    await writeFile(join(dir, 'bots', b.name, 'SKILL.md'), bText);
+    await expect(revertBot(services(), dir, a.bot.id, fixing)).rejects.toBeInstanceOf(
+      ValidationFailed,
+    );
+    expect(await readFile(join(dir, 'bots', a.name, 'SKILL.md'), 'utf8')).toBe(
+      skillText(a.name, 'conserto'),
+    );
+    expect(await readFile(join(dir, 'bots', b.name, 'SKILL.md'), 'utf8')).toBe(bText);
+  });
+
+  it("reverts a commit older than the newest two hundred of the bot's history", async () => {
+    const dir = await freshDir();
+    const { bot, name } = await newBot(dir);
+    await updateBotSkill(services(), dir, bot.id, skillText(name, 'antiga'));
+    const [old] = await botHistory(services(), dir, bot.id);
+    await mkdir(join(dir, 'bots', name, 'references'), { recursive: true });
+    for (let i = 0; i < 205; i++) {
+      await writeFile(join(dir, 'bots', name, 'references', 'n.txt'), String(i));
+      commit(dir, `ruído ${i}`);
+    }
+    expect(await botHistory(services(), dir, bot.id, 200)).not.toContainEqual(old);
+    const reverted = await revertBot(services(), dir, bot.id, old?.commit ?? '');
+    expect(reverted.skill?.body).not.toContain('antiga');
+  }, 60_000);
+
+  it('commits only the file it wrote and leaves other hand edits uncommitted', async () => {
+    const dir = await freshDir();
+    const { bot, name } = await newBot(dir);
+    await mkdir(join(dir, 'bots', name, 'references'), { recursive: true });
+    await writeFile(join(dir, 'bots', name, 'references', 'rascunho.md'), 'ainda não');
+    await updateBotSkill(services(), dir, bot.id, skillText(name, 'nova'));
+    const files = git(dir, 'show', '--name-only', '--format=', 'HEAD').split('\n');
+    expect(files).toEqual([`bots/${name}/SKILL.md`]);
+    expect(git(dir, 'status', '--porcelain')).toContain('references/');
+    await updateBotConfig(services(), dir, bot.id, { displayName: 'Outro' });
+    expect(git(dir, 'show', '--name-only', '--format=', 'HEAD').split('\n')).toEqual([
+      `bots/${name}/bot.yaml`,
+    ]);
+  });
+
+  it('puts the folder back, hand edits included, when the removal cannot be committed', async () => {
+    const dir = await freshDir();
+    const { bot, name } = await newBot(dir);
+    await writeFile(join(dir, 'bots', name, 'extra.md'), 'à mão');
+    const hook = join(dir, '.git', 'hooks', 'pre-commit');
+    await writeFile(hook, '#!/bin/sh\nexit 1\n');
+    await chmod(hook, 0o755);
+    await expect(removeBot(services(), dir, bot.id)).rejects.toThrow();
+    expect(await readFile(join(dir, 'bots', name, 'extra.md'), 'utf8')).toBe('à mão');
+    expect(existsSync(join(dir, 'bots', name, 'SKILL.md'))).toBe(true);
+    expect((await listBots(services())).some((item) => item.slug === name)).toBe(true);
+    expect(messages(dir)).toEqual([`bot(${name}): create`]);
   });
 });
