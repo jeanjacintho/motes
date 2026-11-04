@@ -50,8 +50,13 @@ validation_failed`, `404 not_found`, `409 conflict`.
 | `DELETE /bots/:id` | removes the folder and commits it; 409 while the bot has running runs |
 | `GET /bots/:id/history?limit=` | the commits that touched the bot's folder, newest first |
 | `POST /bots/:id/revert/:commit` | undoes one commit of that bot's history with a new one; refused for the creation commit, for commits that touched other files, and when it no longer applies cleanly |
+| `POST /runtimes/tokens` | `{ name }`: a daemon token, shown once (only its hash is stored); 201 with `{ id, name, token }`. Owner's app only |
 | `GET /projects/:id/board?assignee=&labelId=&priority=&text=` | every status as a column; `assignee` reads `bot:<id>` or `owner:owner` |
 | `GET /cards/:id/timeline?cursor=&limit=` | comments and activity merged, oldest first; `limit` 1 to 100 (default 50), `nextCursor` is `null` on the last page; a deleted card keeps its history |
 | `POST /cards/:id/comments` | `{ body }` markdown; 201 with the comment; `@slug` of a live bot is announced (`comment.mentioned`) |
 | `PATCH /comments/:id` | `{ body }`; only the author edits |
 | `DELETE /comments/:id` | soft delete by the author or the owner; answers `{ deleted: true }`, also when repeated |
+
+## Token kinds
+
+A paired app has a `client` token and a daemon has a `daemon` token (`POST /runtimes/tokens`). A daemon token reaches only `/daemon/*`, a client token reaches everything except `/daemon/*`, and the other side gets a 403. A daemon token gets no WebSocket events. Both kinds appear in `GET /devices` and are revoked with `DELETE /devices/:id`.

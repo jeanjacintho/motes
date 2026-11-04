@@ -114,7 +114,12 @@ export function registerWebsocket(server: FastifyInstance, services: Services, r
         try {
           const parsed = authMessage.safeParse(isBinary ? null : JSON.parse(data.toString()));
           const principal = parsed.success ? await authenticate(services, parsed.data.token) : null;
-          if (!principal || !parsed.success || socket.readyState !== socket.OPEN) {
+          // The event stream is the owner's: a daemon token gets none of it.
+          if (
+            principal?.kind !== 'client' ||
+            !parsed.success ||
+            socket.readyState !== socket.OPEN
+          ) {
             socket.close(1008, 'Authentication required');
             return;
           }
