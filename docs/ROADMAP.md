@@ -58,7 +58,7 @@ Tags:
 
 ## Progress
 
-> Last updated 2026-11-03. A card is done when its PR is merged into `main`; the card files keep their checkboxes unticked on purpose, so this section is the only place that tracks where we stopped.
+> Last updated 2026-11-04. A card is done when its PR is merged into `main`; the card files keep their checkboxes unticked on purpose, so this section is the only place that tracks where we stopped.
 
 | Phase | Epic | State |
 |---|---|---|
@@ -66,7 +66,7 @@ Tags:
 | P1 · Pipeline | P1-01 Projects | **Done**: P1-01-01 to P1-01-04 |
 | P1 · Pipeline | P1-02 Cards | **Done**: P1-02-01 to P1-02-06 |
 | P1 · Pipeline | P1-03 Timeline | **Done**: P1-03-01 to P1-03-04 |
-| P1 · Pipeline | P1-04 Board UI | P1-04-01 and P1-04-02 done; P1-04-03 Card detail in review; **next: P1-04-04 Create card and filters** |
+| P1 · Pipeline | P1-04 Board UI | P1-04-01 to P1-04-03 done; P1-04-04 Create card and filters in review; **next: P1-05-03** |
 | P1 · Pipeline | P1-05 Bots | P1-05-01 and P1-05-02 done; P1-05-03 onward not started |
 | P1 · Pipeline | P1-06 to P1-10 | Not started |
 | P2 to P7 | all | Not started |
