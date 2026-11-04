@@ -39,7 +39,7 @@ describe('bot API client', () => {
   });
 
   it('gets one bot by encoded id, with null for an unreadable answer', async () => {
-    const detail = { ...summary, config: null, skill: null, references: [] };
+    const detail = { ...summary, config: null, skill: null, skillSource: null, references: [] };
     const { client, calls } = recordingClient(detail);
     expect(await client.bots.get('bot/1', null)).toEqual(detail);
     expect(calls).toEqual(['http://server/bots/bot%2F1']);
@@ -100,5 +100,67 @@ describe('bot invalidations', () => {
     await deliver('bot.removed');
     expect(stale(botKeys.all)).toBe(false);
     realtime.stop();
+  });
+});
+
+describe('bot write calls', () => {
+  function recording(respond: (url: string) => unknown) {
+    const calls: { url: string; method: string; body?: string }[] = [];
+    const client = createApiClient({
+      baseUrl: 'http://server/',
+      getToken: () => 'token',
+      fetch: async (url, init) => {
+        calls.push({ url, ...init });
+        return { ok: true, status: 200, json: async () => respond(url) };
+      },
+      logger: vi.fn(),
+    });
+    return { client, calls };
+  }
+  const detail = { ...summary, config: null, skill: null, skillSource: null, references: [] };
+  const commit = 'a'.repeat(40);
+
+  it('sends each write to its route with encoded ids and JSON bodies', async () => {
+    const { client, calls } = recording(() => detail);
+    await client.bots.create({ slug: 'qa', displayName: 'QA', kind: 'dev' }, null);
+    await client.bots.updateSkill('bot/1', '---\nname: x\n---\n', null);
+    await client.bots.updateConfig('bot/1', { enabled: false }, null);
+    await client.bots.revert('bot/1', commit, null);
+    expect(calls.map((call) => [call.method, call.url, call.body])).toEqual([
+      [
+        'POST',
+        'http://server/bots',
+        JSON.stringify({ slug: 'qa', displayName: 'QA', kind: 'dev' }),
+      ],
+      ['PUT', 'http://server/bots/bot%2F1/skill', JSON.stringify({ skill: '---\nname: x\n---\n' })],
+      ['PATCH', 'http://server/bots/bot%2F1/config', JSON.stringify({ enabled: false })],
+      ['POST', `http://server/bots/bot%2F1/revert/${commit}`, undefined],
+    ]);
+  });
+
+  it('reads history and removes a bot, with fallbacks for unreadable answers', async () => {
+    const entry = {
+      commit,
+      message: 'bot(dev): create',
+      author: 'Motes',
+      committedAt: '2026-10-31T10:00:00Z',
+    };
+    const { client, calls } = recording((url) =>
+      url.endsWith('/history') ? [entry] : { removed: true },
+    );
+    expect(await client.bots.history('bot/1', [])).toEqual([entry]);
+    expect(await client.bots.remove('bot/1', { removed: false })).toEqual({ removed: true });
+    expect(calls.map((call) => [call.method, call.url])).toEqual([
+      ['GET', 'http://server/bots/bot%2F1/history'],
+      ['DELETE', 'http://server/bots/bot%2F1'],
+    ]);
+    const broken = recording(() => ({ nope: 1 })).client;
+    expect(await broken.bots.history('bot_1', [])).toEqual([]);
+    expect(await broken.bots.remove('bot_1', { removed: false })).toEqual({ removed: false });
+    expect(await broken.bots.create({ slug: 'x', displayName: 'X', kind: 'dev' }, null)).toBeNull();
+  });
+
+  it('keys a bot history under the bot, so any bot event refreshes it', () => {
+    expect(botKeys.history('bot_1')).toEqual(['bots', 'bot_1', 'history']);
   });
 });

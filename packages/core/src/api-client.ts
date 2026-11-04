@@ -5,12 +5,16 @@ import {
   apiErrorSchema,
   type Board,
   type BoardFilters,
+  type BotConfigPatch,
   type BotDetail,
+  type BotHistoryEntry,
   boardFiltersToQuery,
   boardSchema,
   botDetailSchema,
+  botHistoryEntrySchema,
   botSummarySchema,
   type CommentInput,
+  type CreateBotInput,
   type CreateCardInput,
   type CreateLabelInput,
   type CreateProjectInput,
@@ -27,6 +31,7 @@ import {
   pairResponseSchema,
   parseWithFallback,
   projectSchema,
+  removeBotResponseSchema,
   removeRepositoryResponseSchema,
   repositoryDetailSchema,
   repositoryPathSchema,
@@ -57,6 +62,7 @@ const clientTimelinePageSchema = z.object({
   nextCursor: z.string().min(1).nullable(),
 });
 const botsSchema = z.array(botSummarySchema);
+const botHistorySchema = z.array(botHistoryEntrySchema);
 const maybeBotSchema = botDetailSchema.nullable();
 const repositoryDetailsSchema = z.array(repositoryDetailSchema);
 type Output<S extends z.ZodType> = z.output<S>;
@@ -302,6 +308,25 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
       list: (fallback: Output<typeof botsSchema>) => request('/bots', 'GET', botsSchema, fallback),
       get: (id: string, fallback: BotDetail | null) =>
         request(`/bots/${encodeURIComponent(id)}`, 'GET', maybeBotSchema, fallback),
+      create: (input: CreateBotInput, fallback: null) =>
+        request('/bots', 'POST', maybeBotSchema, fallback, input),
+      updateSkill: (id: string, skill: string, fallback: null) =>
+        request(`/bots/${encodeURIComponent(id)}/skill`, 'PUT', maybeBotSchema, fallback, {
+          skill,
+        }),
+      updateConfig: (id: string, patch: BotConfigPatch, fallback: null) =>
+        request(`/bots/${encodeURIComponent(id)}/config`, 'PATCH', maybeBotSchema, fallback, patch),
+      remove: (id: string, fallback: Output<typeof removeBotResponseSchema>) =>
+        request(`/bots/${encodeURIComponent(id)}`, 'DELETE', removeBotResponseSchema, fallback),
+      history: (id: string, fallback: BotHistoryEntry[]) =>
+        request(`/bots/${encodeURIComponent(id)}/history`, 'GET', botHistorySchema, fallback),
+      revert: (id: string, commit: string, fallback: null) =>
+        request(
+          `/bots/${encodeURIComponent(id)}/revert/${encodeURIComponent(commit)}`,
+          'POST',
+          maybeBotSchema,
+          fallback,
+        ),
     },
     devices: {
       list: (fallback: z.output<typeof devicesSchema>) =>

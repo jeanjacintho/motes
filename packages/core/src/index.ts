@@ -18,12 +18,16 @@ export {
   useBoardFilters,
 } from './board-filters.js';
 export {
+  type BotActionsClient,
   type BotsClient,
+  botHistoryQueryOptions,
   botKeys,
   botQueryOptions,
   botsQueryOptions,
   registerBotInvalidations,
   useBot,
+  useBotActions,
+  useBotHistory,
   useBots,
 } from './bots.js';
 export {
