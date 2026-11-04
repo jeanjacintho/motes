@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { type FSWatcher, watch } from 'node:fs';
-import { mkdir, readdir } from 'node:fs/promises';
+import { mkdir, readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { bots, eq, sql } from '@motes/db';
@@ -215,16 +215,20 @@ export async function getBot(services: Services, dir: string, id: string): Promi
     .from(bots)
     .where(sql`${bots.id} = ${id} AND ${bots.removedAt} IS NULL`);
   if (!row) throw new NotFound('Bot not found');
+  const path = join(dir, 'bots', row.slug);
+  // The text is read on its own so a broken folder can still be opened and fixed in an editor.
+  const skillSource = await readFile(join(path, 'SKILL.md'), 'utf8').catch(() => null);
   try {
-    const folder = await loadBotFolder(join(dir, 'bots', row.slug));
+    const folder = await loadBotFolder(path);
     return {
       ...toSummary(row),
       config: folder.config,
       skill: folder.skill,
+      skillSource,
       references: folder.references,
     };
   } catch (error) {
     if (!(error instanceof BotFolderInvalid)) throw error;
-    return { ...toSummary(row), config: null, skill: null, references: [] };
+    return { ...toSummary(row), config: null, skill: null, skillSource, references: [] };
   }
 }

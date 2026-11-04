@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
 import {
+  botConfigPatchSchema,
   botConfigSchema,
   botDetailSchema,
   botSummarySchema,
@@ -121,8 +122,17 @@ describe('bot index', () => {
   });
 
   test('a detail carries config and skill, or nulls while the folder is broken', () => {
-    const broken = { ...summary, config: null, skill: null, references: [] };
+    const broken = {
+      ...summary,
+      config: null,
+      skill: null,
+      skillSource: 'quebrado',
+      references: [],
+    };
     expect(botDetailSchema.parse(broken)).toEqual(broken);
+    // A server that does not send the raw text yet reads as no text.
+    const { skillSource: _omitted, ...older } = broken;
+    expect(botDetailSchema.parse(older).skillSource).toBeNull();
     const whole = {
       ...summary,
       config: botConfigSchema.parse({
@@ -132,6 +142,7 @@ describe('bot index', () => {
         engines: ['claude'],
       }),
       skill: { frontMatter: { name: 'support', description: 'Helps.' }, body: '# Support\n' },
+      skillSource: '---\nname: support\ndescription: Helps.\n---\n# Support\n',
       references: ['references/faq.md'],
     };
     expect(botDetailSchema.parse(whole)).toEqual(whole);
@@ -149,5 +160,26 @@ describe('bot index', () => {
     expect(parseEvent(raw)).toEqual(raw);
     expect(parseClientEvent(raw, vi.fn())?.type).toBe(type);
     expect(() => parseEvent({ ...raw, payload: { slug: 'x', extra: 1 } })).toThrow();
+  });
+});
+
+describe('botConfigPatchSchema', () => {
+  test('keeps only the fields the patch names, never filling in defaults', () => {
+    expect(botConfigPatchSchema.parse({})).toEqual({});
+    expect(botConfigPatchSchema.parse({ enabled: false })).toEqual({ enabled: false });
+    expect(botConfigPatchSchema.parse({ displayName: 'Novo' })).toEqual({ displayName: 'Novo' });
+  });
+
+  test('still checks what it is given, and refuses the slug and unknown keys', () => {
+    expect(botConfigPatchSchema.safeParse({ engines: [] }).success).toBe(false);
+    expect(botConfigPatchSchema.safeParse({ kind: 'nope' }).success).toBe(false);
+    expect(botConfigPatchSchema.safeParse({ slug: 'outro' }).success).toBe(false);
+    expect(botConfigPatchSchema.safeParse({ surprise: 1 }).success).toBe(false);
+  });
+
+  test('completes a nested value it is given with its own defaults', () => {
+    expect(botConfigPatchSchema.parse({ limits: { maxTurns: 5 } })).toEqual({
+      limits: { maxTurns: 5, maxRunMinutes: 30, maxParallelRuns: 1 },
+    });
   });
 });

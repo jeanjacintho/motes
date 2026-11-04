@@ -105,6 +105,7 @@ describe('updateBotSkill', () => {
       skillText(name, '# Novo comportamento'),
     );
     expect(updated.skill?.body).toContain('Novo comportamento');
+    expect(updated.skillSource).toBe(skillText(name, '# Novo comportamento'));
     expect(updated.skillDigest).not.toBe(bot.skillDigest);
     expect(await readFile(join(dir, 'bots', name, 'SKILL.md'), 'utf8')).toContain(
       'Novo comportamento',
@@ -161,7 +162,11 @@ describe('updateBotSkill', () => {
     const { bot, name } = await newBot(dir);
     await writeFile(join(dir, 'bots', name, 'SKILL.md'), 'quebrado');
     await syncBots(services(), dir);
-    expect((await getBot(services(), dir, bot.id)).loadError).toBeDefined();
+    const broken = await getBot(services(), dir, bot.id);
+    expect(broken.loadError).toBeDefined();
+    // The editor can still open the file to fix it.
+    expect(broken.skill).toBeNull();
+    expect(broken.skillSource).toBe('quebrado');
     const fixed = await updateBotSkill(services(), dir, bot.id, skillText(name, 'consertado'));
     expect(fixed.loadError).toBeUndefined();
     expect(fixed.skill?.body).toContain('consertado');
