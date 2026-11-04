@@ -3,7 +3,7 @@ import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { withTestDb } from '@motes/db/testing';
-import { createPairingCode, ensureSkillsDirectory } from '@motes/domain';
+import { createPairingCode, ensureSkillsDirectory, seedDefaultBots } from '@motes/domain';
 import { apiErrorSchema, botDetailSchema, botHistoryEntrySchema, newId } from '@motes/protocol';
 import { afterAll, describe, expect, it } from 'vitest';
 import { createServices } from './composition.js';
@@ -191,6 +191,24 @@ describe('bot editing routes', () => {
       ['POST', `/bots/${id}/revert/abcdef1`, undefined],
     ] as const)
       expect((await call(method, url, payload)).statusCode, `${method} ${url}`).toBe(404);
+    await app.close();
+  });
+
+  it('has the Dev bot on a fresh install, and an edit to its skill survives a restart', async () => {
+    const { app, call, skillsDir } = await setup();
+    const services = createServices(testDb.db, { skillsDir });
+    expect(await seedDefaultBots(services, skillsDir)).toEqual(['dev']);
+    const listed = (await call('GET', '/bots')).json() as {
+      id: string;
+      slug: string;
+      kind: string;
+    }[];
+    const dev = listed.find((bot) => bot.slug === 'dev');
+    expect(dev).toMatchObject({ kind: 'dev', engines: ['claude', 'codex'] });
+    await call('PUT', `/bots/${dev?.id}/skill`, { skill: skillText('dev', 'Do it my way') });
+    // The server starts again: it seeds before it serves, and finds the folder already there.
+    expect(await seedDefaultBots(createServices(testDb.db, { skillsDir }), skillsDir)).toEqual([]);
+    expect((await call('GET', `/bots/${dev?.id}`)).json().skill.body).toContain('Do it my way');
     await app.close();
   });
 });

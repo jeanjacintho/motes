@@ -1,6 +1,11 @@
 #!/usr/bin/env node
 import { createDb, migrate } from '@motes/db';
-import { createPairingCode, ensureSkillsDirectory, watchSkills } from '@motes/domain';
+import {
+  createPairingCode,
+  ensureSkillsDirectory,
+  seedDefaultBots,
+  watchSkills,
+} from '@motes/domain';
 import { createServices } from './composition.js';
 import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
@@ -34,6 +39,10 @@ async function main() {
   const startup = (async () => {
     if (config.migrateOnStart) await migrate(db);
     await ensureSkillsDirectory(config.skillsDir);
+    // A failed seed must not keep the server from starting; the bot can be created by hand.
+    await seedDefaultBots(services, config.skillsDir).catch((error: unknown) =>
+      logger.error({ err: error }, 'Seeding the default bots failed'),
+    );
     if (!stopping)
       skills = watchSkills(services, config.skillsDir, {
         onError: (error) => logger.error({ err: error }, 'Skills sync failed'),
