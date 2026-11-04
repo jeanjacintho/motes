@@ -4,6 +4,12 @@ import { type ReactNode, useState } from 'react';
 
 export { BoardScreen, ProjectBoard, type ProjectBoardClient } from './board';
 export {
+  CardDetail,
+  CardDetailScreen,
+  type CardDetailScreenProps,
+  type CardDetailViewClient,
+} from './card-detail';
+export {
   AppLink,
   type NavigationAdapter,
   NavigationProvider,

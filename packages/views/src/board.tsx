@@ -15,12 +15,19 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { type BotsClient, type CardsClient, useBoard, useBots, useMoveCard } from '@motes/core';
+import {
+  type BotsClient,
+  type CardsClient,
+  type LabelsClient,
+  useBoard,
+  useBots,
+  useLabels,
+  useMoveCard,
+} from '@motes/core';
 import {
   type Board,
   type BotSummary,
   type Card,
-  type CardPriority,
   type CardStatus,
   cardRef,
   type Label,
@@ -28,6 +35,7 @@ import {
 import { Badge, Toast } from '@motes/ui';
 import { type JSX as ReactJSX, type ReactNode, useState } from 'react';
 import { type DropTarget, type PlannedMove, planMove } from './board-move';
+import { priorityNames, statusNames } from './names';
 
 // dnd-kit's declarations still name the global JSX namespace, which React 19's types dropped.
 declare global {
@@ -37,23 +45,8 @@ declare global {
   }
 }
 
-const statusLabels: Record<CardStatus, string> = {
-  backlog: 'Backlog',
-  todo: 'A fazer',
-  in_progress: 'Em andamento',
-  in_review: 'Em revisão',
-  done: 'Concluído',
-  blocked: 'Bloqueado',
-  cancelled: 'Cancelado',
-};
-
-const priorityLabels: Record<CardPriority, string> = {
-  none: 'Sem prioridade',
-  low: 'Baixa',
-  medium: 'Média',
-  high: 'Alta',
-  urgent: 'Urgente',
-};
+const statusLabels = statusNames;
+const priorityLabels = priorityNames;
 
 // Long titles stay on one line; the full text is in the title attribute.
 const truncate = {
@@ -90,12 +83,14 @@ function CardTile({
   labels,
   bots,
   handle,
+  onOpen,
 }: {
   card: Card;
   projectKey: string;
   labels: Map<string, Label>;
   bots: BotSummary[];
   handle?: ReactNode;
+  onOpen?: (() => void) | undefined;
 }) {
   const ref = cardRef(projectKey, card.number);
   // Labels deleted or not loaded yet are left out rather than shown as raw ids; the card's order stays.
@@ -106,7 +101,13 @@ function CardTile({
         {handle} <span>{ref}</span> <Assignee assignee={card.assignee} bots={bots} />
       </header>
       <p style={truncate} title={card.title}>
-        {card.title}
+        {onOpen ? (
+          <button type="button" onClick={onOpen} style={{ ...truncate, maxWidth: '100%' }}>
+            {card.title}
+          </button>
+        ) : (
+          card.title
+        )}
       </p>
       <footer>
         {card.priority !== 'none' && <Badge>{priorityLabels[card.priority]}</Badge>}
@@ -137,11 +138,13 @@ function SortableTile({
   projectKey,
   labels,
   bots,
+  onOpen,
 }: {
   card: Card;
   projectKey: string;
   labels: Map<string, Label>;
   bots: BotSummary[];
+  onOpen?: (() => void) | undefined;
 }) {
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition } =
     useSortable({ id: card.id });
@@ -152,6 +155,7 @@ function SortableTile({
         projectKey={projectKey}
         labels={labels}
         bots={bots}
+        onOpen={onOpen}
         handle={
           <button
             type="button"
@@ -207,6 +211,7 @@ export function BoardScreen({
   labels = [],
   bots = [],
   onMove,
+  onOpen,
 }: {
   projectKey: string;
   board: Board | undefined;
@@ -215,6 +220,7 @@ export function BoardScreen({
   labels?: Label[];
   bots?: BotSummary[];
   onMove?: (move: PlannedMove) => void;
+  onOpen?: (card: Card) => void;
 }) {
   const sensors = useSensors(
     // A small distance keeps a click on the handle from starting a drag.
@@ -251,10 +257,17 @@ export function BoardScreen({
                 projectKey={projectKey}
                 labels={labelsById}
                 bots={bots}
+                onOpen={onOpen ? () => onOpen(card) : undefined}
               />
             ) : (
               <li key={card.id}>
-                <CardTile card={card} projectKey={projectKey} labels={labelsById} bots={bots} />
+                <CardTile
+                  card={card}
+                  projectKey={projectKey}
+                  labels={labelsById}
+                  bots={bots}
+                  onOpen={onOpen ? () => onOpen(card) : undefined}
+                />
               </li>
             ),
           )}
@@ -290,7 +303,9 @@ export function BoardScreen({
 }
 
 /** The calls ProjectBoard makes; an app can serve them over its own transport. */
-export type ProjectBoardClient = CardsClient<'board' | 'move'> & BotsClient<'list'>;
+export type ProjectBoardClient = CardsClient<'board' | 'move'> &
+  BotsClient<'list'> &
+  LabelsClient<'list'>;
 
 /**
  * BoardScreen fed by the board and bot queries; realtime invalidations keep both current. A move
@@ -300,15 +315,16 @@ export function ProjectBoard({
   client,
   projectId,
   projectKey,
-  labels,
+  onOpenCard,
 }: {
   client: ProjectBoardClient;
   projectId: string;
   projectKey: string;
-  labels?: Label[];
+  onOpenCard?: (card: Card) => void;
 }) {
   const board = useBoard(client, projectId);
   const bots = useBots(client);
+  const labels = useLabels(client, projectId);
   const move = useMoveCard(client);
   const [failed, setFailed] = useState(false);
   return (
@@ -319,7 +335,8 @@ export function ProjectBoard({
         loading={board.isLoading}
         error={board.isError}
         bots={bots.data ?? []}
-        {...(labels ? { labels } : {})}
+        labels={labels.data ?? []}
+        {...(onOpenCard ? { onOpen: onOpenCard } : {})}
         onMove={(planned) => {
           setFailed(false);
           move.mutate({ projectId, ...planned }, { onError: () => setFailed(true) });

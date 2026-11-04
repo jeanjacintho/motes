@@ -133,6 +133,25 @@ describe('BoardScreen', () => {
     expect(title.style.overflow).toBe('hidden');
   });
 
+  it('opens a card from its title, only when asked to', () => {
+    const onOpen = vi.fn();
+    const { rerender } = render(
+      <BoardScreen projectKey="MOT" board={fixture} loading={false} error={false} />,
+    );
+    expect(screen.queryByRole('button', { name: 'Primeiro' })).toBeNull();
+    rerender(
+      <BoardScreen
+        projectKey="MOT"
+        board={fixture}
+        loading={false}
+        error={false}
+        onOpen={onOpen}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Primeiro' }));
+    expect(onOpen).toHaveBeenCalledWith(fixture.columns[0]?.cards[0]);
+  });
+
   it('has loading, error and empty states', () => {
     const { rerender } = render(
       <BoardScreen projectKey="MOT" board={undefined} loading error={false} />,
@@ -158,7 +177,7 @@ describe('ProjectBoard', () => {
       fetch: async (url) => ({
         ok: true,
         status: 200,
-        json: async () => (url.endsWith('/bots') ? [dev] : fixture),
+        json: async () => (url.endsWith('/bots') ? [dev] : url.endsWith('/labels') ? [] : fixture),
       }),
       logger: vi.fn(),
     });
@@ -172,20 +191,24 @@ describe('ProjectBoard', () => {
     expect(await within(tile).findByRole('img', { name: 'Responsável: Dev Bot' })).toBeTruthy();
   });
 
-  it('passes the labels through and still shows the assignee when the bots fail to load', async () => {
+  it('loads the project labels and still shows the assignee when the bots fail to load', async () => {
     const client = createApiClient({
       baseUrl: 'http://server',
       getToken: () => 'token',
       fetch: async (url) =>
         url.endsWith('/bots')
           ? { ok: false, status: 500, json: async () => ({}) }
-          : { ok: true, status: 200, json: async () => fixture },
+          : {
+              ok: true,
+              status: 200,
+              json: async () => (url.endsWith('/labels') ? [bug] : fixture),
+            },
       logger: vi.fn(),
     });
     const queryClient = createQueryClient();
     render(
       <QueryClientProvider client={queryClient}>
-        <ProjectBoard client={client} projectId={projectId} projectKey="MOT" labels={[bug]} />
+        <ProjectBoard client={client} projectId={projectId} projectKey="MOT" />
       </QueryClientProvider>,
     );
     const tile = await screen.findByRole('article', { name: 'MOT-1 Primeiro' });
@@ -317,7 +340,11 @@ describe('moving cards', () => {
       getToken: () => 'token',
       fetch: async (url, init) => {
         if (init.method === 'POST') return { ok: false, status: 400, json: async () => ({}) };
-        return { ok: true, status: 200, json: async () => (url.endsWith('/bots') ? [] : fixture) };
+        return {
+          ok: true,
+          status: 200,
+          json: async () => (url.endsWith('/bots') || url.endsWith('/labels') ? [] : fixture),
+        };
       },
       logger: vi.fn(),
     });
