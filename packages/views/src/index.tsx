@@ -4,6 +4,14 @@ import { type ReactNode, useState } from 'react';
 
 export { BoardScreen, ProjectBoard, type ProjectBoardClient } from './board';
 export {
+  BotPage,
+  BotScreen,
+  type BotScreenProps,
+  BotsPage,
+  type BotsPageClient,
+  BotsScreen,
+} from './bots';
+export {
   CardDetail,
   CardDetailScreen,
   type CardDetailScreenProps,

@@ -39,7 +39,16 @@ function setup() {
       attachLabel: record('cards.attachLabel'),
       detachLabel: record('cards.detachLabel'),
     },
-    bots: { list: record('bots.list', []) },
+    bots: {
+      list: record('bots.list', []),
+      get: record('bots.get'),
+      create: record('bots.create'),
+      updateSkill: record('bots.updateSkill'),
+      updateConfig: record('bots.updateConfig'),
+      remove: record('bots.remove', { removed: true }),
+      history: record('bots.history', []),
+      revert: record('bots.revert'),
+    },
     labels: { list: record('labels.list', []), create: record('labels.create') },
     comments: {
       timeline: record('comments.timeline', { items: [], nextCursor: null }),
@@ -62,6 +71,7 @@ describe('desktop API bridge', () => {
     const otherCardId = newId('card');
     const labelId = newId('label');
     const commentId = newId('comment');
+    const botId = newId('bot');
     const requests = [
       { action: 'projects.list', includeArchived: true },
       { action: 'projects.create', input: { key: 'MOT', name: 'Motes' } },
@@ -80,6 +90,13 @@ describe('desktop API bridge', () => {
       { action: 'cards.board', projectId },
       { action: 'cards.move', id: cardId, body: { status: 'todo', afterId: otherCardId } },
       { action: 'bots.list' },
+      { action: 'bots.get', id: botId },
+      { action: 'bots.create', input: { slug: 'qa', displayName: 'QA', kind: 'dev' } },
+      { action: 'bots.updateSkill', id: botId, body: { skill: '---\nname: dev\n---\n' } },
+      { action: 'bots.updateConfig', id: botId, patch: { enabled: false } },
+      { action: 'bots.remove', id: botId },
+      { action: 'bots.history', id: botId },
+      { action: 'bots.revert', id: botId, commit: 'abcdef1' },
       { action: 'cards.create', projectId, input: { title: 'Novo card', priority: 'high' } },
       { action: 'cards.get', id: cardId },
       { action: 'cards.update', id: cardId, patch: { title: 'Novo' } },
@@ -104,22 +121,31 @@ describe('desktop API bridge', () => {
     expect(calls[11]?.[1]).toEqual([cardId, { status: 'todo', afterId: otherCardId }]);
     expect(calls[12]?.[1]).toEqual([]);
     // The schema fills in the defaults the server would apply anyway.
-    expect(calls[13]?.[1]).toEqual([
+    expect(calls[13]?.[1]).toEqual([botId]);
+    expect(calls[14]?.[1]).toEqual([
+      { slug: 'qa', displayName: 'QA', kind: 'dev', engines: ['claude'] },
+    ]);
+    expect(calls[15]?.[1]).toEqual([botId, '---\nname: dev\n---\n']);
+    expect(calls[16]?.[1]).toEqual([botId, { enabled: false }]);
+    expect(calls[17]?.[1]).toEqual([botId]);
+    expect(calls[18]?.[1]).toEqual([botId]);
+    expect(calls[19]?.[1]).toEqual([botId, 'abcdef1']);
+    expect(calls[20]?.[1]).toEqual([
       projectId,
       { title: 'Novo card', description: '', priority: 'high' },
     ]);
-    expect(calls[14]?.[1]).toEqual([cardId]);
-    expect(calls[15]?.[1]).toEqual([cardId, { title: 'Novo' }]);
-    expect(calls[16]?.[1]).toEqual([cardId, { assignee: null }]);
-    expect(calls[17]?.[1]).toEqual([cardId, labelId]);
-    expect(calls[18]?.[1]).toEqual([cardId, labelId]);
-    expect(calls[19]?.[1]).toEqual([projectId]);
-    expect(calls[20]?.[1]).toEqual([projectId, { name: 'bug', color: '#d73a4a' }]);
-    expect(calls[21]?.[1]).toEqual([cardId, { cursor: 'abc', limit: 20 }]);
-    expect(calls[22]?.[1]).toEqual([cardId, { cursor: undefined, limit: undefined }]);
-    expect(calls[23]?.[1]).toEqual([cardId, { body: 'oi' }]);
-    expect(calls[24]?.[1]).toEqual([commentId, { body: 'tchau' }]);
-    expect(calls[25]?.[1]).toEqual([commentId]);
+    expect(calls[21]?.[1]).toEqual([cardId]);
+    expect(calls[22]?.[1]).toEqual([cardId, { title: 'Novo' }]);
+    expect(calls[23]?.[1]).toEqual([cardId, { assignee: null }]);
+    expect(calls[24]?.[1]).toEqual([cardId, labelId]);
+    expect(calls[25]?.[1]).toEqual([cardId, labelId]);
+    expect(calls[26]?.[1]).toEqual([projectId]);
+    expect(calls[27]?.[1]).toEqual([projectId, { name: 'bug', color: '#d73a4a' }]);
+    expect(calls[28]?.[1]).toEqual([cardId, { cursor: 'abc', limit: 20 }]);
+    expect(calls[29]?.[1]).toEqual([cardId, { cursor: undefined, limit: undefined }]);
+    expect(calls[30]?.[1]).toEqual([cardId, { body: 'oi' }]);
+    expect(calls[31]?.[1]).toEqual([commentId, { body: 'tchau' }]);
+    expect(calls[32]?.[1]).toEqual([commentId]);
   });
 
   it('rejects an untrusted sender, extra arguments and malformed requests', async () => {
@@ -165,6 +191,41 @@ describe('desktop API bridge', () => {
     expect(await broken(event, { action: 'projects.list' })).toEqual({
       ok: false,
       unauthorized: false,
+    });
+    // A refused bot write carries the file, field and message of each problem, and nothing else.
+    const details = [
+      { file: 'SKILL.md', path: 'description', message: 'Required', secret: 'x' },
+      { file: 'bot.yaml', message: 'Invalid YAML' },
+      { nonsense: true },
+      ...Array.from({ length: 30 }, (_, n) => ({
+        file: 'f',
+        path: String(n),
+        message: 'm'.repeat(500),
+      })),
+    ];
+    const refused = createApiHandler(sender, mainFrame.url, {
+      api: () =>
+        Promise.reject(new ApiError({ ...envelope, code: 'validation_failed', details }, 400)),
+    });
+    const result = (await refused(event, { action: 'bots.remove', id: newId('bot') })) as {
+      issues: { file: string; path: string; message: string }[];
+    };
+    expect(result.issues).toHaveLength(20);
+    expect(result.issues[0]).toEqual({
+      file: 'SKILL.md',
+      path: 'description',
+      message: 'Required',
+    });
+    expect(result.issues[1]).toEqual({ file: 'bot.yaml', path: '', message: 'Invalid YAML' });
+    expect(result.issues[2]?.message).toHaveLength(300);
+    // Other errors never pass details along, whatever they hold.
+    const refusedOther = createApiHandler(sender, mainFrame.url, {
+      api: () => Promise.reject(new ApiError({ ...envelope, details }, 409)),
+    });
+    expect(await refusedOther(event, { action: 'bots.list' })).toEqual({
+      ok: false,
+      unauthorized: false,
+      code: 'conflict',
     });
     expect(service).toBeDefined();
   });

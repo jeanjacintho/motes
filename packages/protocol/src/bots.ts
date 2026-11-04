@@ -88,12 +88,30 @@ export type BotSummary = z.infer<typeof botSummarySchema>;
 export const botDetailSchema = botSummarySchema.extend({
   config: botConfigSchema.nullable(),
   skill: z.object({ frontMatter: skillFrontMatterSchema, body: z.string() }).nullable(),
+  /** SKILL.md exactly as on disk, which the editor needs; also set while the folder is broken. */
+  skillSource: z.string().nullable().default(null),
   references: z.array(z.string()),
 });
 export type BotDetail = z.infer<typeof botDetailSchema>;
 
-/** Fields of bot.yaml a client may change; the slug is the folder name and never changes. */
-export const botConfigPatchSchema = botConfigSchema.omit({ slug: true }).partial();
+/**
+ * Fields of bot.yaml a client may change; the slug is the folder name and never changes. Built
+ * without the file schema's defaults: a field the patch does not name must stay absent, not be
+ * filled in and written over what the file says. A nested value (`limits`, `models`) replaces the
+ * whole value and is completed with its own defaults.
+ */
+const configShape = botConfigSchema.shape;
+export const botConfigPatchSchema = z.strictObject({
+  displayName: configShape.displayName.optional(),
+  avatar: configShape.avatar.removeDefault().optional(),
+  kind: configShape.kind.optional(),
+  engines: configShape.engines.optional(),
+  models: configShape.models.removeDefault().optional(),
+  effort: configShape.effort,
+  limits: configShape.limits.removeDefault().optional(),
+  skills: configShape.skills.removeDefault().optional(),
+  enabled: configShape.enabled.removeDefault().optional(),
+});
 export type BotConfigPatch = z.infer<typeof botConfigPatchSchema>;
 
 /** A new SKILL.md, whole. It is validated like a file read from disk. */

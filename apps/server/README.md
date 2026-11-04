@@ -43,7 +43,7 @@ validation_failed`, `404 not_found`, `409 conflict`.
 | `POST /cards/:id/move` `{ status, beforeId?, afterId?, reason? }` | status change and/or reorder; `afterId` is the card directly above, `beforeId` directly below and they must be adjacent |
 | `POST /cards/:id/assign` `{ assignee }` | the owner, a bot, or `null` to clear |
 | `GET /bots` | the bot index: slug, name, kind, engines, `enabled`, `skillDigest` and `loadError` while the folder is broken |
-| `GET /bots/:id` | the index row plus the config and `SKILL.md` read from disk (both `null` while the folder is broken) |
+| `GET /bots/:id` | the index row plus the config and `SKILL.md` read from disk (both `null` while the folder is broken), and `skillSource`, the exact `SKILL.md` text, which stays readable while the folder is broken |
 | `POST /bots` | `{ slug, displayName, kind, engines?, description? }`: a new folder from a template, committed to the skills repository; 409 if the name is taken |
 | `PUT /bots/:id/skill` | `{ skill }`: the whole new `SKILL.md`, validated with the rest of the folder, written atomically and committed (`bot(<slug>): update behavior`) |
 | `PATCH /bots/:id/config` | fields of `bot.yaml` (never the slug); comments and key order in the file are kept; committed (`update config`) |

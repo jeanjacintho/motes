@@ -13,6 +13,8 @@ import {
 import {
   AppLink,
   AppShell,
+  BotPage,
+  BotsPage,
   CardDetail,
   DevicesScreen,
   HomeScreen,
@@ -35,6 +37,7 @@ import { createLocalStorageAdapter } from './storage';
 
 type Bridge = (request: PairingRequest) => Promise<PairingResult>;
 type Api = (request: ApiRequest) => Promise<ApiResult>;
+const BOTS_PATH = '/bots';
 const deviceList = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVICE_KINDS) }));
 
 function FilteredBoard({
@@ -90,6 +93,7 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
       }
       throw Object.assign(new Error('Request failed'), {
         code: 'code' in result ? result.code : undefined,
+        issues: 'issues' in result ? result.issues : undefined,
       });
     }
     return result.value;
@@ -149,7 +153,8 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
       <AppShell
         sidebar={
           <>
-            <AppLink to="/">Início</AppLink> <AppLink to="/devices">Dispositivos</AppLink>
+            <AppLink to="/">Início</AppLink> <AppLink to="/bots">Bots</AppLink>{' '}
+            <AppLink to="/devices">Dispositivos</AppLink>
             <ProjectsSidebar
               projects={projectData.projects.data ?? []}
               loading={projectData.projects.isLoading}
@@ -161,7 +166,21 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
         connectionStatus={connectionStatus}
         eventCount={eventCount}
       >
-        {path === '/devices' ? (
+        {path === BOTS_PATH || path.startsWith(`${BOTS_PATH}/`) ? (
+          path === BOTS_PATH ? (
+            <BotsPage
+              client={client}
+              onOpen={(bot) => adapter.navigate(`${BOTS_PATH}/${bot.id}`)}
+            />
+          ) : (
+            <BotPage
+              key={path}
+              client={client}
+              id={path.slice(BOTS_PATH.length + 1)}
+              onBack={() => adapter.navigate(BOTS_PATH)}
+            />
+          )
+        ) : path === '/devices' ? (
           <DevicesScreen
             devices={devices.data ?? []}
             loading={devices.isLoading}

@@ -11,10 +11,12 @@ describe('desktop client', () => {
     const cardId = newId('card');
     const labelId = newId('label');
     const commentId = newId('comment');
+    const botId = newId('bot');
     const call = vi.fn(async (request: ApiRequest) => {
       switch (request.action) {
         case 'cards.board':
           return { columns: [] };
+        case 'bots.history':
         case 'bots.list':
         case 'labels.list':
         case 'repositories.list':
@@ -23,6 +25,8 @@ describe('desktop client', () => {
           return { items: [], nextCursor: null };
         case 'comments.remove':
           return { deleted: true };
+        case 'bots.remove':
+          return { removed: false };
         default:
           return null;
       }
@@ -37,6 +41,13 @@ describe('desktop client', () => {
     await client.cards.attachLabel(cardId, labelId, null);
     await client.cards.detachLabel(cardId, labelId, null);
     await client.bots.list([]);
+    await client.bots.get(botId, null);
+    await client.bots.create({ slug: 'qa', displayName: 'QA', kind: 'dev' }, null);
+    await client.bots.updateSkill(botId, 'texto', null);
+    await client.bots.updateConfig(botId, { enabled: false }, null);
+    await client.bots.remove(botId, { removed: false });
+    await client.bots.history(botId, []);
+    await client.bots.revert(botId, 'abcdef1', null);
     await client.labels.list(projectId, []);
     await client.labels.create(projectId, { name: 'bug', color: '#d73a4a' }, null);
     await client.repositories.list(projectId, []);
@@ -59,6 +70,13 @@ describe('desktop client', () => {
       { action: 'cards.attachLabel', id: cardId, labelId },
       { action: 'cards.detachLabel', id: cardId, labelId },
       { action: 'bots.list' },
+      { action: 'bots.get', id: botId },
+      { action: 'bots.create', input: { slug: 'qa', displayName: 'QA', kind: 'dev' } },
+      { action: 'bots.updateSkill', id: botId, body: { skill: 'texto' } },
+      { action: 'bots.updateConfig', id: botId, patch: { enabled: false } },
+      { action: 'bots.remove', id: botId },
+      { action: 'bots.history', id: botId },
+      { action: 'bots.revert', id: botId, commit: 'abcdef1' },
       { action: 'labels.list', projectId },
       { action: 'labels.create', projectId, input: { name: 'bug', color: '#d73a4a' } },
       { action: 'repositories.list', projectId },

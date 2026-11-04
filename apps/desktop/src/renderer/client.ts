@@ -1,15 +1,18 @@
 import {
   boardSchema,
+  botDetailSchema,
+  botHistoryEntrySchema,
   botSummarySchema,
   cardSchema,
   commentSchema,
   deleteCommentResponseSchema,
   labelSchema,
   parseWithFallback,
+  removeBotResponseSchema,
   repositoryDetailSchema,
   timelineItemSchema,
 } from '@motes/protocol';
-import type { CardDetailViewClient, ProjectBoardClient } from '@motes/views';
+import type { BotsPageClient, CardDetailViewClient, ProjectBoardClient } from '@motes/views';
 import { z } from 'zod';
 import type { ApiRequest } from '../api';
 
@@ -19,6 +22,7 @@ const invalid = (what: string) => () => {
 const maybeCard = cardSchema.nullable();
 const maybeComment = commentSchema.nullable();
 const maybeLabel = labelSchema.nullable();
+const maybeBot = botDetailSchema.nullable();
 const timelinePage = z.object({
   // Lines of a kind this client does not know are skipped, like in the HTTP client.
   items: z.array(z.unknown()).transform((items) =>
@@ -33,7 +37,7 @@ const timelinePage = z.object({
 /** The screens' calls, served through the main process like every other request. */
 export function createDesktopClient(
   call: (request: ApiRequest) => Promise<unknown>,
-): ProjectBoardClient & CardDetailViewClient {
+): ProjectBoardClient & CardDetailViewClient & BotsPageClient {
   const parse = async <Schema extends z.ZodType>(
     schema: Schema,
     request: ApiRequest,
@@ -61,6 +65,19 @@ export function createDesktopClient(
     bots: {
       list: (fallback) =>
         parse(z.array(botSummarySchema), { action: 'bots.list' }, fallback, 'bots'),
+      get: (id, fallback) => parse(maybeBot, { action: 'bots.get', id }, fallback, 'bot'),
+      create: (input, fallback) =>
+        parse(maybeBot, { action: 'bots.create', input }, fallback, 'bot'),
+      updateSkill: (id, skill, fallback) =>
+        parse(maybeBot, { action: 'bots.updateSkill', id, body: { skill } }, fallback, 'bot'),
+      updateConfig: (id, patch, fallback) =>
+        parse(maybeBot, { action: 'bots.updateConfig', id, patch }, fallback, 'bot'),
+      remove: (id, fallback) =>
+        parse(removeBotResponseSchema, { action: 'bots.remove', id }, fallback, 'bot'),
+      history: (id, fallback) =>
+        parse(z.array(botHistoryEntrySchema), { action: 'bots.history', id }, fallback, 'history'),
+      revert: (id, commit, fallback) =>
+        parse(maybeBot, { action: 'bots.revert', id, commit }, fallback, 'bot'),
     },
     labels: {
       list: (projectId, fallback) =>

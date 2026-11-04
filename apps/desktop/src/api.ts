@@ -3,7 +3,9 @@ import {
   addRepositoryInputSchema,
   assignCardBodySchema,
   boardFiltersSchema,
+  botConfigPatchSchema,
   commentInputSchema,
+  createBotInputSchema,
   createCardInputSchema,
   createLabelInputSchema,
   createProjectInputSchema,
@@ -11,6 +13,7 @@ import {
   newId,
   patchRepositoryBodySchema,
   projectSchema,
+  putBotSkillBodySchema,
   repositoryPathSchema,
   repositorySchema,
   updateCardInputSchema,
@@ -54,6 +57,21 @@ const requestSchema = z.discriminatedUnion('action', [
   }),
   z.strictObject({ action: z.literal('cards.move'), id, body: moveCardBodySchema }),
   z.strictObject({ action: z.literal('bots.list') }),
+  z.strictObject({ action: z.literal('bots.get'), id }),
+  z.strictObject({ action: z.literal('bots.create'), input: createBotInputSchema }),
+  z.strictObject({ action: z.literal('bots.updateSkill'), id, body: putBotSkillBodySchema }),
+  z.strictObject({
+    action: z.literal('bots.updateConfig'),
+    id,
+    patch: botConfigPatchSchema,
+  }),
+  z.strictObject({ action: z.literal('bots.remove'), id }),
+  z.strictObject({ action: z.literal('bots.history'), id }),
+  z.strictObject({
+    action: z.literal('bots.revert'),
+    id,
+    commit: z.string().regex(/^[0-9a-f]{7,40}$/),
+  }),
   z.strictObject({
     action: z.literal('cards.create'),
     projectId: id,
@@ -83,7 +101,10 @@ const requestSchema = z.discriminatedUnion('action', [
 export type ApiRequest = z.input<typeof requestSchema>;
 export type ApiResult =
   | { ok: true; value: unknown }
-  | { ok: false; unauthorized: boolean; code?: string };
+  | { ok: false; unauthorized: boolean; code?: string; issues?: FolderIssue[] };
+
+/** Where a refused bot write went wrong: the file, the field and what is wrong with it. */
+export type FolderIssue = { file: string; path: string; message: string };
 
 // The client needs a fallback for malformed server responses. The pairing service turns those
 // into errors before returning, so these placeholders never reach the renderer.
@@ -135,6 +156,20 @@ function dispatch(request: z.output<typeof requestSchema>, client: Client): Prom
       return client.cards.move(request.id, request.body, null);
     case 'bots.list':
       return client.bots.list([]);
+    case 'bots.get':
+      return client.bots.get(request.id, null);
+    case 'bots.create':
+      return client.bots.create(request.input, null);
+    case 'bots.updateSkill':
+      return client.bots.updateSkill(request.id, request.body.skill, null);
+    case 'bots.updateConfig':
+      return client.bots.updateConfig(request.id, request.patch, null);
+    case 'bots.remove':
+      return client.bots.remove(request.id, { removed: false });
+    case 'bots.history':
+      return client.bots.history(request.id, []);
+    case 'bots.revert':
+      return client.bots.revert(request.id, request.commit, null);
     case 'cards.create':
       return client.cards.create(request.projectId, request.input, null);
     case 'cards.get':
@@ -166,6 +201,26 @@ function dispatch(request: z.output<typeof requestSchema>, client: Client): Prom
   }
 }
 
+const issueText = (value: unknown) => (typeof value === 'string' ? value.slice(0, 300) : undefined);
+
+/**
+ * The file, field and message of a refused bot write, which the screens show next to the editor.
+ * Only these three strings of a validation error cross the bridge, a few of them, and cut short.
+ */
+function folderIssues(error: ApiError): FolderIssue[] {
+  const { details } = error.envelope as { details?: unknown };
+  if (error.code !== 'validation_failed' || !Array.isArray(details)) return [];
+  return details
+    .flatMap((item): FolderIssue[] => {
+      const issue = item as { file?: unknown; path?: unknown; message?: unknown } | null;
+      const file = issueText(issue?.file);
+      const message = issueText(issue?.message);
+      if (file === undefined || message === undefined) return [];
+      return [{ file, path: issueText(issue?.path) ?? '', message }];
+    })
+    .slice(0, 20);
+}
+
 export function createApiHandler(sender: Sender, appUrl: string, service: ApiService) {
   return async (
     event: { sender: Sender; senderFrame: Frame | null },
@@ -179,8 +234,15 @@ export function createApiHandler(sender: Sender, appUrl: string, service: ApiSer
       return { ok: true, value: await service.api((client) => dispatch(parsed.data, client)) };
     } catch (error) {
       // Only the status class and protocol code cross the bridge, never messages or payloads.
-      if (error instanceof ApiError)
-        return { ok: false, unauthorized: error.status === 401, code: error.code };
+      if (error instanceof ApiError) {
+        const issues = folderIssues(error);
+        return {
+          ok: false,
+          unauthorized: error.status === 401,
+          code: error.code,
+          ...(issues.length > 0 ? { issues } : {}),
+        };
+      }
       return { ok: false, unauthorized: false };
     }
   };
