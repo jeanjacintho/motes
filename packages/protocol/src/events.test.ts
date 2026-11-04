@@ -165,8 +165,6 @@ describe('event contracts', () => {
         | 'device.revoked'
         | 'runtime.registered'
         | 'runtime.updated'
-        | 'runtime.registered'
-        | 'runtime.updated'
         | 'project.created'
         | 'project.renamed'
         | 'project.archived'

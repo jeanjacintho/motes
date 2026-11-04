@@ -51,7 +51,9 @@ export async function registerRuntime(
     const [device] = await tx
       .select({ kind: deviceTokens.kind, revokedAt: deviceTokens.revokedAt })
       .from(deviceTokens)
-      .where(eq(deviceTokens.id, deviceId));
+      .where(eq(deviceTokens.id, deviceId))
+      // Shared lock: a token revoked meanwhile makes this wait, then be refused, not slip through.
+      .for('share');
     // The server's route guard already keeps others out; a runtime still belongs to a daemon.
     if (device?.kind !== 'daemon' || device.revokedAt)
       throw new Forbidden('Only a daemon token can register a runtime');
@@ -63,8 +65,10 @@ export async function registerRuntime(
       capacity: input.capacity,
     };
     let current = await byDevice(tx, deviceId);
+    let row: Row | undefined;
+    let type: 'runtime.registered' | 'runtime.updated' | undefined;
     if (!current) {
-      const [created] = await tx
+      [row] = await tx
         .insert(runtimes)
         .values({
           id: services.newId('runtime'),
@@ -76,43 +80,37 @@ export async function registerRuntime(
         })
         .onConflictDoNothing({ target: runtimes.deviceId })
         .returning();
-      if (created) {
-        await emit(
-          services,
-          tx,
-          'runtime.registered',
-          { kind: 'runtime', id: created.id },
-          {},
-          { kind: 'runtime', id: created.id },
-        );
-        return toRuntime(created);
-      }
+      if (row) type = 'runtime.registered';
       // Two registrations of one token raced; the other one made the row.
-      current = await byDevice(tx, deviceId);
+      else current = await byDevice(tx, deviceId);
     }
-    if (!current) throw new Error('Runtime row missing after registering');
-    const changed =
-      current.machineName !== values.machineName ||
-      current.os !== values.os ||
-      current.capacity !== values.capacity ||
-      // jsonb does not keep key order, so engines are compared by value rather than as text.
-      canonicalJson(current.engines) !== canonicalJson(values.engines);
-    const [updated] = await tx
-      .update(runtimes)
-      .set({ ...values, lastHeartbeatAt: now, ...(changed ? { updatedAt: now } : {}) })
-      .where(eq(runtimes.id, current.id))
-      .returning();
-    if (!updated) throw new Error('Runtime update returned no row');
-    if (changed)
+    if (!row) {
+      if (!current) throw new Error('Runtime row missing after registering');
+      const changed =
+        current.machineName !== values.machineName ||
+        current.os !== values.os ||
+        current.capacity !== values.capacity ||
+        // jsonb does not keep key order, so engines are compared by value rather than as text.
+        canonicalJson(current.engines) !== canonicalJson(values.engines);
+      [row] = await tx
+        .update(runtimes)
+        .set({ ...values, lastHeartbeatAt: now, ...(changed ? { updatedAt: now } : {}) })
+        .where(eq(runtimes.id, current.id))
+        .returning();
+      if (changed) type = 'runtime.updated';
+    }
+    if (!row) throw new Error('Runtime write returned no row');
+    // The runtime speaks for itself, so it is the actor and the subject alike.
+    if (type)
       await emit(
         services,
         tx,
-        'runtime.updated',
-        { kind: 'runtime', id: updated.id },
+        type,
+        { kind: 'runtime', id: row.id },
         {},
-        { kind: 'runtime', id: updated.id },
+        { kind: 'runtime', id: row.id },
       );
-    return toRuntime(updated);
+    return toRuntime(row);
   });
 }
 

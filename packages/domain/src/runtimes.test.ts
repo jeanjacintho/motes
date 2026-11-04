@@ -152,6 +152,26 @@ describe('registerRuntime', () => {
     );
   });
 
+  it('refuses a token that is being revoked at that very moment, instead of letting it through', async () => {
+    const { id: deviceId } = await daemon();
+    let pending: Promise<unknown> = Promise.resolve();
+    await testDb.db.$client.begin(async (tx) => {
+      await tx`UPDATE device_tokens SET revoked_at = now() WHERE id = ${deviceId}`;
+      // Registers while the revocation is not yet committed: it must wait for it, not read around it.
+      pending = registerRuntime(services(), deviceId, machine()).then(
+        () => 'registered',
+        (error: unknown) => error,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    });
+    expect(await pending).toBeInstanceOf(Forbidden);
+    expect(await count()).toBe(
+      Number((await testDb.db.$client`SELECT count(*)::int AS n FROM runtimes`)[0]?.n),
+    );
+    const rows = await testDb.db.$client`SELECT id FROM runtimes WHERE device_id = ${deviceId}`;
+    expect(rows).toHaveLength(0);
+  });
+
   it.each([
     ['an empty machine name', { machineName: '  ' }],
     ['an empty os', { os: '' }],
