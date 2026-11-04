@@ -4,6 +4,7 @@ import { createPairingCode, ensureSkillsDirectory, watchSkills } from '@motes/do
 import { createServices } from './composition.js';
 import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
+import { seedBotsOnStart } from './seed.js';
 import { createServer } from './server.js';
 
 async function main() {
@@ -34,6 +35,9 @@ async function main() {
   const startup = (async () => {
     if (config.migrateOnStart) await migrate(db);
     await ensureSkillsDirectory(config.skillsDir);
+    await seedBotsOnStart(services, config.skillsDir, (error) =>
+      logger.error({ err: error }, 'Seeding the default bots failed'),
+    );
     if (!stopping)
       skills = watchSkills(services, config.skillsDir, {
         onError: (error) => logger.error({ err: error }, 'Skills sync failed'),
