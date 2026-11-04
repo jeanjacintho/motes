@@ -21,6 +21,7 @@ declare module 'fastify' {
 import { registerBotRoutes } from './bots.js';
 import { registerCardRoutes } from './cards.js';
 import { createServices, type Services } from './composition.js';
+import { registerLabelRoutes } from './labels.js';
 import { registerProjectRoutes } from './projects.js';
 import { installErrorHandler, route } from './route.js';
 import { registerWebsocket } from './websocket.js';
@@ -65,6 +66,7 @@ export function createServer(
     });
   registerProjectRoutes(server, services);
   registerCardRoutes(server, services);
+  registerLabelRoutes(server, services);
   registerBotRoutes(server, services);
   server.get('/devices', async () => deviceListResponseSchema.parse(await listDevices(services)));
   server.delete('/devices/:id', async (request) => {

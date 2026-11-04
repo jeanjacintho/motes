@@ -20,11 +20,19 @@ export {
   useBots,
 } from './bots.js';
 export {
+  type CardDetailClient,
+  type LabelsClient,
+  labelsQueryOptions,
+  useCardActions,
+  useLabels,
+} from './card-detail.js';
+export {
   applyMove,
   boardQueryOptions,
   type CardsClient,
   cardKeys,
   cardQueryOptions,
+  labelKeys,
   type MoveVariables,
   moveCardMutationOptions,
   registerCardInvalidations,
@@ -32,11 +40,17 @@ export {
   useCard,
   useMoveCard,
 } from './cards.js';
-export { projectKeys, registerProjectInvalidations } from './projects.js';
+export {
+  projectKeys,
+  type RepositoriesClient,
+  registerProjectInvalidations,
+  useRepositories,
+} from './projects.js';
 export { createQueryClient, NetworkError } from './query-client.js';
 export type { RealtimeSocket } from './realtime.js';
 export { createRealtime } from './realtime.js';
 export {
+  type CommentsClient,
   registerTimelineInvalidations,
   timelineKeys,
   timelineQueryOptions,

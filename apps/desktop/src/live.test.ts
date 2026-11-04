@@ -224,8 +224,24 @@ describe('desktop live connection', () => {
         },
       }),
     });
-    await vi.waitFor(() => expect(invalidations).toHaveLength(3));
-    expect(invalidations).toEqual([['projects', projectId, 'board'], ['cards'], ['bots']]);
+    socket.onmessage?.({
+      data: JSON.stringify({
+        seq: '3',
+        event: {
+          ...ping,
+          type: 'comment.created',
+          subject: { kind: 'comment', id: 'cmt_01ARZ3NDEKTSV4RRFFQ69G5FAV' },
+          payload: { projectId, cardId: 'card_01ARZ3NDEKTSV4RRFFQ69G5FAV' },
+        },
+      }),
+    });
+    await vi.waitFor(() => expect(invalidations).toHaveLength(4));
+    expect(invalidations).toEqual([
+      ['projects', projectId, 'board'],
+      ['cards'],
+      ['bots'],
+      ['timeline', 'card_01ARZ3NDEKTSV4RRFFQ69G5FAV'],
+    ]);
   });
 
   it('asks the renderer to refresh everything once a fresh connection is ready', async () => {

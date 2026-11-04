@@ -8,6 +8,7 @@ import {
 import {
   AppLink,
   AppShell,
+  CardDetail,
   DevicesScreen,
   HomeScreen,
   type NavigationAdapter,
@@ -22,9 +23,9 @@ import { useRef, useState } from 'react';
 import { z } from 'zod';
 import type { ApiRequest, ApiResult } from '../api';
 import type { PairingRequest, PairingResult } from '../security';
-import { createBoardClient } from './board';
+import { createDesktopClient } from './client';
 import { type LiveBridge, useLive, useLiveInvalidations } from './live';
-import { useProjects } from './projects';
+import { PROJECT_PATH, useProjects } from './projects';
 
 type Bridge = (request: PairingRequest) => Promise<PairingResult>;
 type Api = (request: ApiRequest) => Promise<ApiResult>;
@@ -60,7 +61,7 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
     return result.value;
   }
   const request = (input: PairingRequest) => unwrap(() => bridge(input));
-  const boardClient = createBoardClient((input) => unwrap(() => api(input)));
+  const client = createDesktopClient((input) => unwrap(() => api(input)));
   const projectData = useProjects({
     call: (input) => unwrap(() => api(input)),
     enabled: paired === true,
@@ -137,27 +138,41 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
           />
         ) : projectData.projectId !== undefined ? (
           projectData.project ? (
-            <>
-              <ProjectBoard
-                key={`board-${projectData.project.id}`}
-                client={boardClient}
+            projectData.cardId ? (
+              <CardDetail
+                key={projectData.cardId}
+                client={client}
                 projectId={projectData.project.id}
                 projectKey={projectData.project.key}
+                cardId={projectData.cardId}
+                onBack={() => adapter.navigate(`${PROJECT_PATH}${projectData.project?.id}`)}
               />
-              <ProjectSettings
-                key={projectData.project.id}
-                project={projectData.project}
-                repositories={projectData.repositories.data ?? []}
-                loading={projectData.repositories.isLoading}
-                error={projectData.repositories.isError}
-                onRename={projectData.rename}
-                onArchive={projectData.archive}
-                onAddRepository={projectData.addRepository}
-                onUpdateRepository={projectData.updateRepository}
-                onRemoveRepository={projectData.removeRepository}
-                onSetPath={projectData.setPath}
-              />
-            </>
+            ) : (
+              <>
+                <ProjectBoard
+                  key={`board-${projectData.project.id}`}
+                  client={client}
+                  projectId={projectData.project.id}
+                  projectKey={projectData.project.key}
+                  onOpenCard={(card) =>
+                    adapter.navigate(`${PROJECT_PATH}${projectData.project?.id}/cards/${card.id}`)
+                  }
+                />
+                <ProjectSettings
+                  key={projectData.project.id}
+                  project={projectData.project}
+                  repositories={projectData.repositories.data ?? []}
+                  loading={projectData.repositories.isLoading}
+                  error={projectData.repositories.isError}
+                  onRename={projectData.rename}
+                  onArchive={projectData.archive}
+                  onAddRepository={projectData.addRepository}
+                  onUpdateRepository={projectData.updateRepository}
+                  onRemoveRepository={projectData.removeRepository}
+                  onSetPath={projectData.setPath}
+                />
+              </>
+            )
           ) : projectData.projects.isLoading ? (
             <p role="status">Carregando…</p>
           ) : (

@@ -66,7 +66,7 @@ Tags:
 | P1 · Pipeline | P1-01 Projects | **Done**: P1-01-01 to P1-01-04 |
 | P1 · Pipeline | P1-02 Cards | **Done**: P1-02-01 to P1-02-06 |
 | P1 · Pipeline | P1-03 Timeline | **Done**: P1-03-01 to P1-03-04 |
-| P1 · Pipeline | P1-04 Board UI | P1-04-01 done; P1-04-02 Drag and drop in review; **next: P1-04-03 Card detail** |
+| P1 · Pipeline | P1-04 Board UI | P1-04-01 and P1-04-02 done; P1-04-03 Card detail in review; **next: P1-04-04 Create card and filters** |
 | P1 · Pipeline | P1-05 Bots | P1-05-01 and P1-05-02 done; P1-05-03 onward not started |
 | P1 · Pipeline | P1-06 to P1-10 | Not started |
 | P2 to P7 | all | Not started |

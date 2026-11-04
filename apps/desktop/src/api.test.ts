@@ -32,8 +32,20 @@ function setup() {
     cards: {
       board: record('cards.board', { columns: [] }),
       move: record('cards.move'),
+      get: record('cards.get'),
+      update: record('cards.update'),
+      assign: record('cards.assign'),
+      attachLabel: record('cards.attachLabel'),
+      detachLabel: record('cards.detachLabel'),
     },
     bots: { list: record('bots.list', []) },
+    labels: { list: record('labels.list', []), create: record('labels.create') },
+    comments: {
+      timeline: record('comments.timeline', { items: [], nextCursor: null }),
+      add: record('comments.add'),
+      edit: record('comments.edit'),
+      remove: record('comments.remove', { deleted: true }),
+    },
   };
   const service: ApiService = { api: (operation) => operation(client as never) };
   return { calls, handler: createApiHandler(sender, mainFrame.url, service), service };
@@ -47,6 +59,8 @@ describe('desktop API bridge', () => {
     const runtimeId = newId('runtime');
     const cardId = newId('card');
     const otherCardId = newId('card');
+    const labelId = newId('label');
+    const commentId = newId('comment');
     const requests = [
       { action: 'projects.list', includeArchived: true },
       { action: 'projects.create', input: { key: 'MOT', name: 'Motes' } },
@@ -65,6 +79,18 @@ describe('desktop API bridge', () => {
       { action: 'cards.board', projectId },
       { action: 'cards.move', id: cardId, body: { status: 'todo', afterId: otherCardId } },
       { action: 'bots.list' },
+      { action: 'cards.get', id: cardId },
+      { action: 'cards.update', id: cardId, patch: { title: 'Novo' } },
+      { action: 'cards.assign', id: cardId, body: { assignee: null } },
+      { action: 'cards.attachLabel', id: cardId, labelId },
+      { action: 'cards.detachLabel', id: cardId, labelId },
+      { action: 'labels.list', projectId },
+      { action: 'labels.create', projectId, input: { name: 'bug', color: '#d73a4a' } },
+      { action: 'comments.timeline', cardId, cursor: 'abc', limit: 20 },
+      { action: 'comments.timeline', cardId },
+      { action: 'comments.add', cardId, input: { body: 'oi' } },
+      { action: 'comments.edit', id: commentId, input: { body: 'tchau' } },
+      { action: 'comments.remove', id: commentId },
     ];
     for (const request of requests)
       expect(await handler(event, request), request.action).toMatchObject({ ok: true });
@@ -75,6 +101,18 @@ describe('desktop API bridge', () => {
     expect(calls[10]?.[1]).toEqual([projectId, {}]);
     expect(calls[11]?.[1]).toEqual([cardId, { status: 'todo', afterId: otherCardId }]);
     expect(calls[12]?.[1]).toEqual([]);
+    expect(calls[13]?.[1]).toEqual([cardId]);
+    expect(calls[14]?.[1]).toEqual([cardId, { title: 'Novo' }]);
+    expect(calls[15]?.[1]).toEqual([cardId, { assignee: null }]);
+    expect(calls[16]?.[1]).toEqual([cardId, labelId]);
+    expect(calls[17]?.[1]).toEqual([cardId, labelId]);
+    expect(calls[18]?.[1]).toEqual([projectId]);
+    expect(calls[19]?.[1]).toEqual([projectId, { name: 'bug', color: '#d73a4a' }]);
+    expect(calls[20]?.[1]).toEqual([cardId, { cursor: 'abc', limit: 20 }]);
+    expect(calls[21]?.[1]).toEqual([cardId, { cursor: undefined, limit: undefined }]);
+    expect(calls[22]?.[1]).toEqual([cardId, { body: 'oi' }]);
+    expect(calls[23]?.[1]).toEqual([commentId, { body: 'tchau' }]);
+    expect(calls[24]?.[1]).toEqual([commentId]);
   });
 
   it('rejects an untrusted sender, extra arguments and malformed requests', async () => {

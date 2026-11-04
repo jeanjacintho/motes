@@ -12,6 +12,7 @@ import {
   botSummarySchema,
   type CommentInput,
   type CreateCardInput,
+  type CreateLabelInput,
   type CreateProjectInput,
   cardSchema,
   commentSchema,
@@ -19,6 +20,7 @@ import {
   deleteCommentResponseSchema,
   deviceResponseSchema,
   healthResponseSchema,
+  labelSchema,
   type MoveCardBody,
   type ParseLogger,
   type PatchRepositoryBody,
@@ -41,6 +43,8 @@ import { NetworkError } from './query-client.js';
 const projectsSchema = z.array(projectSchema);
 // Card calls fall back to null: a card that cannot be read is better absent than invented.
 const maybeCardSchema = cardSchema.nullable();
+const labelsSchema = z.array(labelSchema);
+const maybeLabelSchema = labelSchema.nullable();
 const maybeCommentSchema = commentSchema.nullable();
 // A timeline line of a kind this client does not know is skipped, not a reason to lose the page.
 const clientTimelinePageSchema = z.object({
@@ -217,6 +221,20 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
         request(`/cards/${encodeURIComponent(id)}/move`, 'POST', maybeCardSchema, fallback, body),
       assign: (id: string, body: AssignCardBody, fallback: null) =>
         request(`/cards/${encodeURIComponent(id)}/assign`, 'POST', maybeCardSchema, fallback, body),
+      attachLabel: (id: string, labelId: string, fallback: null) =>
+        request(
+          `/cards/${encodeURIComponent(id)}/labels/${encodeURIComponent(labelId)}`,
+          'PUT',
+          maybeCardSchema,
+          fallback,
+        ),
+      detachLabel: (id: string, labelId: string, fallback: null) =>
+        request(
+          `/cards/${encodeURIComponent(id)}/labels/${encodeURIComponent(labelId)}`,
+          'DELETE',
+          maybeCardSchema,
+          fallback,
+        ),
       board: (projectId: string, filters: BoardFilters, fallback: Board) => {
         const query = new URLSearchParams(boardFiltersToQuery(filters)).toString();
         return request(
@@ -226,6 +244,18 @@ export function createApiClient({ baseUrl, getToken, fetch, logger }: Options) {
           fallback,
         );
       },
+    },
+    labels: {
+      list: (projectId: string, fallback: Output<typeof labelsSchema>) =>
+        request(`/projects/${encodeURIComponent(projectId)}/labels`, 'GET', labelsSchema, fallback),
+      create: (projectId: string, input: CreateLabelInput, fallback: null) =>
+        request(
+          `/projects/${encodeURIComponent(projectId)}/labels`,
+          'POST',
+          maybeLabelSchema,
+          fallback,
+          input,
+        ),
     },
     comments: {
       timeline: (

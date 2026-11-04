@@ -24,6 +24,10 @@ export const cardKeys = {
   card: (ref: string) => ['cards', ref] as const,
 };
 
+export const labelKeys = {
+  project: (projectId: string) => ['projects', projectId, 'labels'] as const,
+};
+
 const CARD_EVENTS = [
   'card.created',
   'card.updated',
@@ -47,7 +51,12 @@ export function registerCardInvalidations(
       realtime.invalidateOn(type, (event) => boards(event as never)),
       realtime.invalidateOn(type, () => cardKeys.all),
     ]),
-    ...LABEL_EVENTS.map((type) => realtime.invalidateOn(type, (event) => boards(event as never))),
+    ...LABEL_EVENTS.flatMap((type) => [
+      realtime.invalidateOn(type, (event) => boards(event as never)),
+      realtime.invalidateOn(type, (event) =>
+        labelKeys.project((event as { payload: { projectId?: string } }).payload.projectId ?? ''),
+      ),
+    ]),
   ];
   return () => {
     for (const cleanup of cleanups) cleanup();
