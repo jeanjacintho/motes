@@ -51,6 +51,7 @@ validation_failed`, `404 not_found`, `409 conflict`.
 | `GET /bots/:id/history?limit=` | the commits that touched the bot's folder, newest first |
 | `POST /bots/:id/revert/:commit` | undoes one commit of that bot's history with a new one; refused for the creation commit, for commits that touched other files, and when it no longer applies cleanly |
 | `POST /runtimes/tokens` | `{ name }`: a daemon token, shown once (only its hash is stored); 201 with `{ id, name, token }`. Owner's app only |
+| `POST /daemon/register` | daemon token only. `{ machineName, os, engines: [{ name, version, path }], capacity }`: creates the machine's runtime, or updates the same one when the token registers again; also counts as a heartbeat |
 | `GET /projects/:id/board?assignee=&labelId=&priority=&text=` | every status as a column; `assignee` reads `bot:<id>` or `owner:owner` |
 | `GET /cards/:id/timeline?cursor=&limit=` | comments and activity merged, oldest first; `limit` 1 to 100 (default 50), `nextCursor` is `null` on the last page; a deleted card keeps its history |
 | `POST /cards/:id/comments` | `{ body }` markdown; 201 with the comment; `@slug` of a live bot is announced (`comment.mentioned`) |

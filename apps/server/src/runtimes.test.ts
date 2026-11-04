@@ -1,7 +1,7 @@
 import { once } from 'node:events';
 import { withTestDb } from '@motes/db/testing';
 import { createPairingCode } from '@motes/domain';
-import { apiErrorSchema, newId, runtimeTokenResponseSchema } from '@motes/protocol';
+import { apiErrorSchema, newId, runtimeSchema, runtimeTokenResponseSchema } from '@motes/protocol';
 import type { FastifyRequest } from 'fastify';
 import { describe, expect, it } from 'vitest';
 import WebSocket from 'ws';
@@ -40,6 +40,94 @@ async function setup() {
   };
   return { app, owner, mint };
 }
+
+const machine = {
+  machineName: 'MacBook',
+  os: 'darwin 25.0',
+  engines: [{ name: 'claude', version: '2.1.0', path: '/usr/local/bin/claude' }],
+  capacity: 2,
+};
+
+describe('POST /daemon/register', () => {
+  it('registers the runtime of the calling token, and again updates the same one', async () => {
+    const { app, mint } = await setup();
+    const { minted } = await mint();
+    const headers = { authorization: `Bearer ${minted.token}` };
+    const first = await app.inject({
+      method: 'POST',
+      url: '/daemon/register',
+      headers,
+      payload: machine,
+    });
+    expect(first.statusCode).toBe(200);
+    expect(runtimeSchema.parse(first.json())).toMatchObject({
+      deviceId: minted.id,
+      machineName: 'MacBook',
+    });
+    const second = await app.inject({
+      method: 'POST',
+      url: '/daemon/register',
+      headers,
+      payload: {
+        ...machine,
+        engines: [
+          ...machine.engines,
+          { name: 'codex', version: '0.9.0', path: '/usr/local/bin/codex' },
+        ],
+      },
+    });
+    expect(second.json().id).toBe(first.json().id);
+    expect(second.json().engines).toHaveLength(2);
+    const rows = await testDb.db.$client`SELECT id FROM runtimes WHERE device_id = ${minted.id}`;
+    expect(rows).toHaveLength(1);
+    await app.close();
+  });
+
+  it("is refused for the owner's app, without a token, and with a bad body", async () => {
+    const { app, owner, mint } = await setup();
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url: '/daemon/register',
+          headers: owner,
+          payload: machine,
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (await app.inject({ method: 'POST', url: '/daemon/register', payload: machine })).statusCode,
+    ).toBe(401);
+    const { minted } = await mint();
+    const headers = { authorization: `Bearer ${minted.token}` };
+    for (const payload of [
+      {},
+      { ...machine, capacity: 0 },
+      { ...machine, engines: [{ name: 'x' }] },
+    ]) {
+      const response = await app.inject({
+        method: 'POST',
+        url: '/daemon/register',
+        headers,
+        payload,
+      });
+      expect(apiErrorSchema.parse(response.json()).code).toBe('validation_failed');
+    }
+    await app.close();
+  });
+
+  it('stops working once the token is revoked', async () => {
+    const { app, owner, mint } = await setup();
+    const { minted } = await mint();
+    const headers = { authorization: `Bearer ${minted.token}` };
+    await app.inject({ method: 'DELETE', url: `/devices/${minted.id}`, headers: owner });
+    expect(
+      (await app.inject({ method: 'POST', url: '/daemon/register', headers, payload: machine }))
+        .statusCode,
+    ).toBe(401);
+    await app.close();
+  });
+});
 
 describe('daemon tokens', () => {
   it('are minted by the owner and shown once', async () => {
