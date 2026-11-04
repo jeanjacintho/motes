@@ -57,8 +57,10 @@ export function createServer(
         .code(401)
         .send({ code: 'unauthorized', message: 'Authentication required', requestId: request.id });
     // Daemons reach only /daemon/*, and nothing else reaches it: a daemon token that leaks cannot
-    // read the board, and the owner's app cannot speak as a daemon.
-    const daemonRoute = (request.url.split('?')[0] ?? '').startsWith('/daemon/');
+    // read the board, and the owner's app cannot speak as a daemon. The route is the one the
+    // router matched, so this guard and the router can never disagree about a path (an encoded
+    // `/%64aemon/...` is the same route to both). An unmatched URL belongs to no daemon route.
+    const daemonRoute = request.routeOptions.url?.startsWith('/daemon/') ?? false;
     if ((principal.kind === 'daemon') !== daemonRoute)
       return reply.code(403).send({
         code: 'unauthorized',

@@ -98,6 +98,33 @@ describe('daemon tokens', () => {
     await app.close();
   });
 
+  it.each([
+    '/%64aemon/whoami',
+    '/%64%61%65%6dn/whoami',
+    '/daemon%2Fwhoami',
+    '//daemon/whoami',
+    '/./daemon/whoami',
+    '/daemon/./whoami',
+    '/daemon/../daemon/whoami',
+    '/daemon/whoami/',
+    '/daemon/whoami?x=/projects',
+  ])("keep the owner's app out of /daemon/* however the path is written: %s", async (url) => {
+    const { app, owner, mint } = await setup();
+    const { minted } = await mint();
+    const asOwner = await app.inject({ url, headers: owner });
+    // Whatever the router makes of it, a client never reaches a daemon handler.
+    expect(asOwner.statusCode, url).not.toBe(200);
+    expect(asOwner.body).not.toContain('"kind":"client"');
+    // And the daemon's own token still works where the router matches the route.
+    const asDaemon = await app.inject({
+      url,
+      headers: { authorization: `Bearer ${minted.token}` },
+    });
+    if (asDaemon.statusCode === 200)
+      expect(asDaemon.json()).toEqual({ deviceId: minted.id, kind: 'daemon' });
+    await app.close();
+  });
+
   it('reach /daemon/*, as a daemon principal', async () => {
     const { app, mint } = await setup();
     const { minted } = await mint();
