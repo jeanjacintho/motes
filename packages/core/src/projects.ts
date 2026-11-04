@@ -44,15 +44,21 @@ export function registerProjectInvalidations(
 }
 
 type Repositories = ReturnType<typeof createApiClient>['repositories'];
+/** Each hook asks only for the calls it makes, so an app can back them with its own transport. */
+export type RepositoriesClient<Calls extends keyof Repositories = keyof Repositories> = {
+  repositories: Pick<Repositories, Calls>;
+};
 const noRepositories: RepositoryDetail[] = [];
 
-/** The repositories of a project; the key is shared with the project screens' own query. */
+/** The repositories of a project; the key is shared by every screen that lists them. */
 export function useRepositories(
-  client: { repositories: Pick<Repositories, 'list'> },
+  client: RepositoriesClient<'list'>,
   projectId: string,
+  options: { enabled?: boolean } = {},
 ) {
   return useQuery({
     queryKey: projectKeys.repositories(projectId),
     queryFn: () => client.repositories.list(projectId, noRepositories),
+    ...(options.enabled === undefined ? {} : { enabled: options.enabled }),
   });
 }

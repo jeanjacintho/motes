@@ -45,9 +45,6 @@ declare global {
   }
 }
 
-const statusLabels = statusNames;
-const priorityLabels = priorityNames;
-
 // Long titles stay on one line; the full text is in the title attribute.
 const truncate = {
   overflow: 'hidden',
@@ -110,7 +107,7 @@ function CardTile({
         )}
       </p>
       <footer>
-        {card.priority !== 'none' && <Badge>{priorityLabels[card.priority]}</Badge>}
+        {card.priority !== 'none' && <Badge>{priorityNames[card.priority]}</Badge>}
         {known.length > 0 && (
           <ul aria-label="Etiquetas">
             {known.map((label) => (
@@ -182,7 +179,7 @@ function Column({
   children: ReactNode;
 }) {
   const { setNodeRef } = useDroppable({ id: dropColumn(status) });
-  const title = statusLabels[status];
+  const title = statusNames[status];
   return (
     <section ref={setNodeRef} aria-label={title} style={{ minWidth: 0, flex: 1 }}>
       <h2>
@@ -238,7 +235,7 @@ export function BoardScreen({
   };
   const placeOf = (id: string | number) => {
     const target = targetOf(String(id));
-    return target.kind === 'column' ? statusLabels[target.status] : refOf(target.id);
+    return target.kind === 'column' ? statusNames[target.status] : refOf(target.id);
   };
   function drop(event: DragEndEvent) {
     if (!board || !onMove || !event.over) return;

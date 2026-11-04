@@ -3,6 +3,8 @@ import {
   type CardDetailClient,
   type CardsClient,
   type CommentsClient,
+  type LabelsClient,
+  type RepositoriesClient,
   useBots,
   useCard,
   useCardActions,
@@ -560,8 +562,8 @@ export type CardDetailViewClient = CardsClient<'get'> &
   CardDetailClient &
   BotsClient<'list'> &
   CommentsClient<'timeline' | 'add' | 'edit' | 'remove'> &
-  Parameters<typeof useLabels>[0] &
-  Parameters<typeof useRepositories>[0];
+  LabelsClient<'list'> &
+  RepositoriesClient<'list'>;
 
 const done = () => undefined;
 

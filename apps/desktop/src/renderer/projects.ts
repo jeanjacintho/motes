@@ -1,18 +1,17 @@
-import { projectKeys } from '@motes/core';
+import { projectKeys, useRepositories } from '@motes/core';
 import {
   type AddRepositoryInput,
   type CreateProjectInput,
   type PatchRepositoryBody,
   parseWithFallback,
   projectSchema,
-  repositoryDetailSchema,
 } from '@motes/protocol';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import type { ApiRequest } from '../api';
+import { createDesktopClient } from './client';
 
 const projectList = z.array(projectSchema);
-const repositoryList = z.array(repositoryDetailSchema);
 const invalid = (what: string) => () => {
   throw new Error(`Invalid ${what} response`);
 };
@@ -52,17 +51,8 @@ export function useProjects(options: {
         invalid('projects'),
       ),
   });
-  const repositories = useQuery({
-    queryKey: projectKeys.repositories(projectId ?? ''),
+  const repositories = useRepositories(createDesktopClient(call), projectId ?? '', {
     enabled: enabled && projectId !== undefined,
-    retry: false,
-    queryFn: async () =>
-      parseWithFallback(
-        repositoryList,
-        await call({ action: 'repositories.list', projectId: projectId ?? '' }),
-        [],
-        invalid('repositories'),
-      ),
   });
   const refreshProjects = () => queryClient.invalidateQueries({ queryKey: projectKeys.all });
   const refreshRepositories = () =>

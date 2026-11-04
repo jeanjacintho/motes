@@ -40,7 +40,12 @@ export {
   useCard,
   useMoveCard,
 } from './cards.js';
-export { projectKeys, registerProjectInvalidations, useRepositories } from './projects.js';
+export {
+  projectKeys,
+  type RepositoriesClient,
+  registerProjectInvalidations,
+  useRepositories,
+} from './projects.js';
 export { createQueryClient, NetworkError } from './query-client.js';
 export type { RealtimeSocket } from './realtime.js';
 export { createRealtime } from './realtime.js';
