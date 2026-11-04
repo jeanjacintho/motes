@@ -5,6 +5,7 @@ import {
   registerBotInvalidations,
   registerCardInvalidations,
   registerProjectInvalidations,
+  registerTimelineInvalidations,
 } from '@motes/core';
 
 export type LiveSnapshot = {
@@ -88,6 +89,7 @@ export function createLiveConnection(options: {
       registerProjectInvalidations(realtime),
       registerCardInvalidations(realtime),
       registerBotInvalidations(realtime),
+      registerTimelineInvalidations(realtime),
     ];
     const stopInvalidations = () => {
       for (const stop of stops) stop();

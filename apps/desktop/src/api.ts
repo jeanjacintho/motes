@@ -1,7 +1,10 @@
 import { ApiError, type createApiClient } from '@motes/core';
 import {
   addRepositoryInputSchema,
+  assignCardBodySchema,
   boardFiltersSchema,
+  commentInputSchema,
+  createLabelInputSchema,
   createProjectInputSchema,
   moveCardBodySchema,
   newId,
@@ -9,6 +12,7 @@ import {
   projectSchema,
   repositoryPathSchema,
   repositorySchema,
+  updateCardInputSchema,
 } from '@motes/protocol';
 import { z } from 'zod';
 import { assertTrustedSender } from './security';
@@ -49,6 +53,26 @@ const requestSchema = z.discriminatedUnion('action', [
   }),
   z.strictObject({ action: z.literal('cards.move'), id, body: moveCardBodySchema }),
   z.strictObject({ action: z.literal('bots.list') }),
+  z.strictObject({ action: z.literal('cards.get'), id }),
+  z.strictObject({ action: z.literal('cards.update'), id, patch: updateCardInputSchema }),
+  z.strictObject({ action: z.literal('cards.assign'), id, body: assignCardBodySchema }),
+  z.strictObject({ action: z.literal('cards.attachLabel'), id, labelId: id }),
+  z.strictObject({ action: z.literal('cards.detachLabel'), id, labelId: id }),
+  z.strictObject({ action: z.literal('labels.list'), projectId: id }),
+  z.strictObject({
+    action: z.literal('labels.create'),
+    projectId: id,
+    input: createLabelInputSchema,
+  }),
+  z.strictObject({
+    action: z.literal('comments.timeline'),
+    cardId: id,
+    cursor: z.string().min(1).max(500).optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+  }),
+  z.strictObject({ action: z.literal('comments.add'), cardId: id, input: commentInputSchema }),
+  z.strictObject({ action: z.literal('comments.edit'), id, input: commentInputSchema }),
+  z.strictObject({ action: z.literal('comments.remove'), id }),
 ]);
 export type ApiRequest = z.input<typeof requestSchema>;
 export type ApiResult =
@@ -105,6 +129,32 @@ function dispatch(request: z.output<typeof requestSchema>, client: Client): Prom
       return client.cards.move(request.id, request.body, null);
     case 'bots.list':
       return client.bots.list([]);
+    case 'cards.get':
+      return client.cards.get(request.id, null);
+    case 'cards.update':
+      return client.cards.update(request.id, request.patch, null);
+    case 'cards.assign':
+      return client.cards.assign(request.id, request.body, null);
+    case 'cards.attachLabel':
+      return client.cards.attachLabel(request.id, request.labelId, null);
+    case 'cards.detachLabel':
+      return client.cards.detachLabel(request.id, request.labelId, null);
+    case 'labels.list':
+      return client.labels.list(request.projectId, []);
+    case 'labels.create':
+      return client.labels.create(request.projectId, request.input, null);
+    case 'comments.timeline':
+      return client.comments.timeline(
+        request.cardId,
+        { cursor: request.cursor, limit: request.limit },
+        { items: [], nextCursor: null },
+      );
+    case 'comments.add':
+      return client.comments.add(request.cardId, request.input, null);
+    case 'comments.edit':
+      return client.comments.edit(request.id, request.input, null);
+    case 'comments.remove':
+      return client.comments.remove(request.id, { deleted: true });
   }
 }
 

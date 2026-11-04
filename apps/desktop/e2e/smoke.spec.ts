@@ -192,4 +192,41 @@ test('pairs the desktop app and counts a live event', async () => {
     return board.columns.find((column) => column.status === 'backlog')?.cards.map((c) => c.title);
   };
   await expect.poll(backlog, { timeout: 10_000 }).toEqual(['Segundo card', 'Primeiro card']);
+
+  // Open a card: a change made by the other device shows up live, and an edit made here reaches
+  // the server.
+  const cards = (await (
+    await fetch(`${baseUrl}/projects/${project.id}/board`, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+  ).json()) as { columns: { cards: { id: string; title: string }[] }[] };
+  const first = cards.columns
+    .flatMap((column) => column.cards)
+    .find((c) => c.title === 'Primeiro card');
+  if (!first) throw new Error('missing card');
+  await page.getByRole('button', { name: 'Primeiro card' }).click();
+  await expect(page.getByRole('heading', { name: 'EDE-1' })).toBeVisible();
+  await fetch(`${baseUrl}/cards/${first.id}/comments`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ body: 'Comentário do outro dispositivo' }),
+  });
+  await expect(page.getByText('Comentário do outro dispositivo')).toBeVisible({ timeout: 10_000 });
+  const title = page.getByLabel('Título', { exact: true });
+  await title.fill('Primeiro card, editado');
+  await title.press('Enter');
+  await expect
+    .poll(
+      async () =>
+        (
+          (await (
+            await fetch(`${baseUrl}/cards/${first.id}`, {
+              headers: { authorization: `Bearer ${token}` },
+            })
+          ).json()) as { title: string }
+        ).title,
+      { timeout: 10_000 },
+    )
+    .toBe('Primeiro card, editado');
+  await expect(page.getByText('editou o título')).toBeVisible({ timeout: 10_000 });
 });

@@ -18,6 +18,17 @@ const invalid = (what: string) => () => {
 };
 
 export const PROJECT_PATH = '/projects/';
+const CARD_SEGMENT = '/cards/';
+
+/** `/projects/<id>` is the project page and `/projects/<id>/cards/<id>` one of its cards. */
+export function parseProjectPath(path: string): { projectId?: string; cardId?: string } {
+  if (!path.startsWith(PROJECT_PATH)) return {};
+  const rest = path.slice(PROJECT_PATH.length);
+  const at = rest.indexOf(CARD_SEGMENT);
+  if (at < 0) return { projectId: rest };
+  const cardId = rest.slice(at + CARD_SEGMENT.length);
+  return { projectId: rest.slice(0, at), ...(cardId ? { cardId } : {}) };
+}
 
 /** Data and actions for the project screens; every call goes through the main process. */
 export function useProjects(options: {
@@ -28,7 +39,7 @@ export function useProjects(options: {
 }) {
   const { call, enabled, path, navigate } = options;
   const queryClient = useQueryClient();
-  const projectId = path.startsWith(PROJECT_PATH) ? path.slice(PROJECT_PATH.length) : undefined;
+  const { projectId, cardId } = parseProjectPath(path);
   const projects = useQuery({
     queryKey: projectKeys.all,
     enabled,
@@ -60,6 +71,7 @@ export function useProjects(options: {
     projects,
     repositories,
     projectId,
+    cardId,
     project: projects.data?.find((item) => item.id === projectId),
     async create(input: CreateProjectInput) {
       const created = projectSchema.parse(await call({ action: 'projects.create', input }));
