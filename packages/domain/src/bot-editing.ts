@@ -379,3 +379,43 @@ export function revertBot(
     return detail(services, dir, id);
   });
 }
+
+/** A bot that ships with Motes: the whole folder, as text. */
+export type BotSeed = { slug: string; skill: string; config: string };
+
+/**
+ * Installs a shipped bot once. It never overwrites: a folder that exists is left as it is, and so
+ * is a bot the index has seen before, even a removed one, so deleting a seeded bot sticks. The
+ * folder is validated like any other write before it is put in place. Returns whether it seeded.
+ */
+export function seedBot(
+  services: BotEditingServices,
+  dir: string,
+  seed: BotSeed,
+): Promise<boolean> {
+  return exclusive(dir, async () => {
+    await ensureSkillsDirectory(dir);
+    const folder = join(dir, 'bots', seed.slug);
+    if (await exists(folder)) return false;
+    const [known] = await services.db
+      .select({ id: bots.id })
+      .from(bots)
+      .where(sql`${bots.slug} = ${seed.slug}`);
+    if (known) return false;
+    await validated(
+      dir,
+      seed.slug,
+      async (copy) => {
+        await mkdir(copy, { recursive: true });
+        await writeFile(join(copy, 'SKILL.md'), seed.skill);
+        await writeFile(join(copy, 'bot.yaml'), seed.config);
+      },
+      async (copy) => {
+        await rename(copy, folder);
+      },
+    );
+    await commitFolder(dir, seed.slug, `bot(${seed.slug}): create default bot`);
+    await syncBots(services, dir);
+    return true;
+  });
+}

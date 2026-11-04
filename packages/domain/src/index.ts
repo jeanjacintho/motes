@@ -11,6 +11,7 @@ export {
   createBot,
   removeBot,
   revertBot,
+  seedBot,
   updateBotConfig,
   updateBotSkill,
 } from './bot-editing.js';
@@ -33,6 +34,7 @@ export {
   updateCard,
 } from './cards.js';
 export { addComment, deleteComment, editComment, listComments } from './comments.js';
+export { DEFAULT_BOTS, seedDefaultBots } from './default-bots.js';
 export { authenticate, listDevices, revokeDevice } from './devices.js';
 export { Conflict, Forbidden, NotFound, ValidationFailed } from './errors.js';
 export {
