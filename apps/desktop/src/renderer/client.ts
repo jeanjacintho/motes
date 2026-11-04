@@ -44,6 +44,8 @@ export function createDesktopClient(
     cards: {
       board: (projectId, filters, fallback) =>
         parse(boardSchema, { action: 'cards.board', projectId, filters }, fallback, 'board'),
+      create: (projectId, input, fallback) =>
+        parse(maybeCard, { action: 'cards.create', projectId, input }, fallback, 'card'),
       get: (id, fallback) => parse(maybeCard, { action: 'cards.get', id }, fallback, 'card'),
       update: (id, patch, fallback) =>
         parse(maybeCard, { action: 'cards.update', id, patch }, fallback, 'card'),

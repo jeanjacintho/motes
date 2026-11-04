@@ -1,4 +1,9 @@
-import { createQueryClient } from '@motes/core';
+import {
+  type BoardFiltersStore,
+  createBoardFiltersStore,
+  createQueryClient,
+  useBoardFilters,
+} from '@motes/core';
 import {
   DEVICE_KINDS,
   deviceResponseSchema,
@@ -26,10 +31,39 @@ import type { PairingRequest, PairingResult } from '../security';
 import { createDesktopClient } from './client';
 import { type LiveBridge, useLive, useLiveInvalidations } from './live';
 import { PROJECT_PATH, useProjects } from './projects';
+import { createLocalStorageAdapter } from './storage';
 
 type Bridge = (request: PairingRequest) => Promise<PairingResult>;
 type Api = (request: ApiRequest) => Promise<ApiResult>;
 const deviceList = z.array(deviceResponseSchema.extend({ kind: tolerantEnum(DEVICE_KINDS) }));
+
+function FilteredBoard({
+  client,
+  store,
+  projectId,
+  projectKey,
+  onOpenCard,
+}: {
+  client: ReturnType<typeof createDesktopClient>;
+  store: BoardFiltersStore;
+  projectId: string;
+  projectKey: string;
+  onOpenCard(cardId: string): void;
+}) {
+  const { filters, ready, setFilters } = useBoardFilters(store, projectId);
+  // The choices come from storage, so the board waits for them rather than loading unfiltered.
+  if (!ready) return <p role="status">Carregando…</p>;
+  return (
+    <ProjectBoard
+      client={client}
+      projectId={projectId}
+      projectKey={projectKey}
+      filters={filters}
+      onFiltersChange={setFilters}
+      onOpenCard={(card) => onOpenCard(card.id)}
+    />
+  );
+}
 
 function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api: Api }) {
   const { status: connectionStatus, eventCount } = useLive(live);
@@ -61,6 +95,7 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
     return result.value;
   }
   const request = (input: PairingRequest) => unwrap(() => bridge(input));
+  const [filtersStore] = useState(() => createBoardFiltersStore(createLocalStorageAdapter()));
   const client = createDesktopClient((input) => unwrap(() => api(input)));
   const projectData = useProjects({
     call: (input) => unwrap(() => api(input)),
@@ -149,13 +184,14 @@ function Session({ bridge, live, api }: { bridge: Bridge; live: LiveBridge; api:
               />
             ) : (
               <>
-                <ProjectBoard
+                <FilteredBoard
                   key={`board-${projectData.project.id}`}
                   client={client}
+                  store={filtersStore}
                   projectId={projectData.project.id}
                   projectKey={projectData.project.key}
-                  onOpenCard={(card) =>
-                    adapter.navigate(`${PROJECT_PATH}${projectData.project?.id}/cards/${card.id}`)
+                  onOpenCard={(cardId) =>
+                    adapter.navigate(`${PROJECT_PATH}${projectData.project?.id}/cards/${cardId}`)
                   }
                 />
                 <ProjectSettings
